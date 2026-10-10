@@ -401,6 +401,28 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   `root` (`user = "root"` en el ejecutor docker) o si el ejecutor es **shell** (donde `forge` y `jq` ya están,
   precondición de CU-11); si el runner es docker no-root, hay que usar una imagen propia
   `FROM ghcr.io/foundry-rs/foundry:v1.8.3` con `jq` instalado.
+- **D-066 (Fase 4 · invariantes con estado):** se incorporan 4 suites de invariantes con handlers acotados
+  (`sc/test/invariant/`) y la sección `[invariant]` de `sc/foundry.toml` con `runs = 64`, `depth = 64` y
+  `fail_on_revert = false`. Justificación: `64 * 64 = 4096` llamadas al handler por contrato cubren las
+  acciones acotadas en **13,2 s** (16 384 llamadas en total), mientras que `128/128` tarda **313 s** y es
+  inviable para el pipeline; `fail_on_revert = false` se compensa con handlers que **nunca revierten**
+  (encapsulan cada llamada en bajo nivel) y con todos los `assert` fuera de los handlers. Los invariantes
+  se declaran en `RepoTecnico/pruebas/pruebas_invariantes.md` y el detalle de tiempos/cobertura en
+  `RepoTecnico/metricas_ejecucion.md` §21.
+- **D-067 (Fase 4 · conteo de invariantes como artefacto):** el artefacto `sc/ci-artifacts/test-count.txt`
+  (D-064) añade `invariant_functions_listed` (`forge test --list | grep -cE '^    invariant_'`) y mantiene
+  `tests_listed` sobre las funciones `test*`; así el conteo real (357 `test*` + 19 `invariant_*` = 376
+  entradas en `.gas-snapshot`) queda publicado sin cambiar el significado de `tests_listed`.
+- **D-068 (Fase 4 · presupuesto de invariantes en la etapa de cobertura):** el job `coverage` ejecuta los
+  invariantes con `FOUNDRY_INVARIANT_RUNS=1` y `FOUNDRY_INVARIANT_DEPTH=1` (65 s frente a 204 s con 64/64)
+  porque la cobertura de `src/` la fijan las suites unitarias y **no baja** (97,12 % / 91,53 % idénticos en
+  ambos presupuestos). `run_local_ci.sh` aplica el mismo *override* para que el ensayo local refleje el
+  pipeline.
+- **D-069 (Fase 4 · determinismo del fuzzer de invariantes):** Foundry v1.8.3 no expone semilla de
+  invariantes (`forge config` no lista `[invariant] seed`), por lo que las secuencias exploradas varían
+  entre ejecuciones y el tiempo de `forge test` oscila entre 15,5 s y 80,7 s. No afecta al gate de gas
+  (RNF-001/D-039) porque las entradas de invariantes del `.gas-snapshot` registran `(runs, calls, reverts)`,
+  no gas; se acepta como limitación conocida de reproducibilidad del *conjunto de entradas*.
 
 ## 7. Mapa RF → casos de uso (Fase 2)
 

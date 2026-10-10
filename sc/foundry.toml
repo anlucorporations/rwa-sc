@@ -30,4 +30,15 @@ remappings = [
 runs = 256
 seed = "0x525741"
 
+# RF-009 (Fase 4) — invariantes con estado (`test/invariant/`).
+# Presupuesto acotado para que el job `test` del pipeline siga por debajo de ~3-4 min: cada
+# contrato de invariantes ejecuta `runs * depth` llamadas al handler y `runs` evaluaciones de
+# cada invariante. `fail_on_revert = false` es deliberado: los handlers no revierten (encapsulan
+# las llamadas en bajo nivel) y las violaciones se registran en ghosts, de modo que un revert
+# inesperado de una accion acotada no aborta la secuencia entera.
+[invariant]
+runs = 64
+depth = 64
+fail_on_revert = false
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

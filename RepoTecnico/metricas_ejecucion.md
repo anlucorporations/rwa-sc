@@ -1220,3 +1220,53 @@ Evidencia del runner (logs públicos):
 
 Con esto, **RNF-002, RNF-003 y RNF-001 pasan a estar verificados por un pipeline real**, no solo por
 mediciones locales, y los criterios **B-3 y B-5** del informe V1 quedan cubiertos.
+
+## 21. Fase 4 — Pruebas de invariantes con estado (RF-009)
+
+Se añaden 4 suites de invariantes con handlers acotados en `sc/test/invariant/` (19 funciones
+`invariant_*` + 4 `test_handler_operativo`). Detalle completo en
+`RepoTecnico/pruebas/pruebas_invariantes.md`.
+
+### 21.1 Conteo y corrección
+
+| Métrica | Antes | Después |
+|---|---:|---:|
+| Tests (`forge test`, resumen) | 353 | **361** |
+| Suites | 18 | **22** |
+| Funciones `invariant_*` | 0 | **19** |
+| `tests_listed` (`test --list`, `^    test`) | 353 | **357** (`+4` harness) |
+| Cobertura `src/` (líneas) | 97,12 % (674/694) | **97,12 % (674/694)** |
+| Mínimo por contrato | 91,53 % | **91,53 %** |
+
+`forge test` → `Ran 22 test suites ... 361 tests passed, 0 failed, 0 skipped`.
+
+### 21.2 Configuración y tiempos (Forge 1.8.3)
+
+`[invariant] runs = 64, depth = 64, fail_on_revert = false` (4096 llamadas/contrato; 16 384 en total).
+
+| Medición | Tiempo |
+|---|---:|
+| `forge test` completo (típico / mínimo / máximo) | 25,2 s / 15,5 s / **80,7 s** |
+| Suite de invariantes sola | **13,2 s** |
+| `forge coverage` con invariantes 64/64 | 204 s |
+| `forge coverage` con `RUNS=1 DEPTH=1` (etapa CI) | **65 s** |
+| Intento descartado `128/128` | 313 s |
+
+La variación del `test` completo se debe a que el fuzzer de invariantes de Foundry v1.8.3 no admite
+semilla (`forge config` no expone `[invariant] seed`); el gate de gas no se ve afectado porque las
+entradas de invariantes del `.gas-snapshot` registran `(runs, calls, reverts)`, no gas.
+
+### 21.3 Pipeline (7/7 en verde tras el cambio)
+
+`bash sc/script/ci/run_local_ci.sh` → exit 0 en **232 s**; las 7 etapas `validate`, `build`, `fmt`,
+`test`, `coverage`, `gas`, `ci-checks` en `OK`. El artefacto `test-count.txt` añade
+`invariant_functions_listed` (19) manteniendo `tests_listed` (357). La etapa `coverage` fija
+`FOUNDRY_INVARIANT_RUNS=1` / `FOUNDRY_INVARIANT_DEPTH=1` y mantiene
+`agregado src/ : 97.12% (674/694)` y `mínimo por contrato : 91.53%`.
+
+### 21.4 Hallazgos
+
+**Cero violaciones de los invariantes del encargo**: suministro/`maxSupply`, topes y whitelist de
+`burn`/`forcedTransfer`, congelación/pausa, guard `nonReentrant`, `isVerified` ⟺ claim vigente de issuer
+autorizado, sincronía de los tres registries, ciclo de vida del claim (`claimNonce`, revocación, vigencia)
+y fail-closed/aislamiento del `ComplianceAggregator`. **No se modificó `src/`**, ni ABI, ni `SECURITY.md`.

@@ -133,6 +133,7 @@ test:
         echo "commit=${CI_COMMIT_SHA}"
         echo "branch=${CI_COMMIT_REF_NAME}"
         echo "tests_listed=$(forge test --list | grep -cE '^    test')"
+        echo "invariant_functions_listed=$(forge test --list | grep -cE '^    invariant_')"
         grep -E 'tests passed' ci-artifacts/test-run.log | tail -n 1
       } | tee ci-artifacts/test-count.txt
   artifacts:
@@ -143,9 +144,15 @@ test:
     expire_in: 1 week
 
 # --- 5. coverage: gate RNF-002 (D-017) + D-042, publica lcov ----------------
+# La cobertura de `src/` la fijan las suites unitarias (97,12 % estable). Los invariantes solo
+# anaden coste de instrumentacion, asi que se ejecutan con el presupuesto minimo de 1 run x
+# 1 call (FOUNDRY_INVARIANT_RUNS/DEPTH): 204 s -> 65 s medidos en local, mismo 97,12 % de `src/`.
 coverage:
   stage: coverage
   extends: .ci_rules
+  variables:
+    FOUNDRY_INVARIANT_RUNS: "1"
+    FOUNDRY_INVARIANT_DEPTH: "1"
   script:
     - |
       set -eo pipefail
