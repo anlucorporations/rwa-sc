@@ -157,3 +157,33 @@ heredadas): sigue siendo el XOR de `canTransfer`, `transferred`, `created` y `de
 
 > Este archivo se ampliará en el Ciclo 10 / RF-006 (documentación, `SECURITY.md` y
 > `script/ci/abi_diff.sh`) con el resto de cambios de ABI y el procedimiento de verificación del diff.
+
+## Ciclo 5 — RF-004 (whitelist de destinos, límites y tope de suministro)
+
+**Nuevas funciones en `TokenCloneable`** (ABI aditiva; las firmas existentes no cambian):
+
+| Función | Selector | Autorización |
+|---|---|---|
+| `setAuthorizedDestination(address,bool)` | (calcular con `cast sig`) | `DEFAULT_ADMIN_ROLE` o `COMPLIANCE_ROLE` |
+| `setMaxBurnPerTx(uint256)` | — | `DEFAULT_ADMIN_ROLE` o `COMPLIANCE_ROLE` |
+| `setMaxForcedPerTx(uint256)` | — | `DEFAULT_ADMIN_ROLE` o `COMPLIANCE_ROLE` |
+| `setMaxSupply(uint256)` | — | `DEFAULT_ADMIN_ROLE` |
+
+**Nuevas vistas públicas:** `authorizedDestinations(address)`, `maxBurnPerTx()`, `maxForcedPerTx()`, `maxSupply()`.
+
+**Nuevos eventos:** `DestinationAuthorized(address indexed destination, bool authorized)`,
+`LimitsUpdated(uint256 maxBurnPerTx, uint256 maxForcedPerTx)`, `MaxSupplyUpdated(uint256 maxSupply)`.
+
+**Cambios de comportamiento (no de firma):**
+- `burn(from, amount)` **revierte** con `"Exceeds max burn per tx"` si `maxBurnPerTx == 0` o `amount > maxBurnPerTx`.
+- `forcedTransfer(from, to, amount)` **revierte** con `"Destination not authorized"` si `to` no está autorizado y con
+  `"Exceeds max forced transfer per tx"` si `maxForcedPerTx == 0` o `amount > maxForcedPerTx`.
+- `mint(to, amount)` **revierte** con `"Max supply exceeded"` si `maxSupply > 0` y se excedería.
+
+> **Impacto en `rwa-web` (fuera de alcance por D-003):** el flujo de la app debe configurar la whitelist y los topes
+> antes de usar `burn`/`forcedTransfer`; con los valores por defecto (`0`) esas operaciones están desactivadas
+> (fail-closed). No hay cambios de firma, así que las ABIs de las apps siguen siendo válidas, pero el
+> comportamiento operativo cambia (requiere configuración previa).
+
+> **Reproducibilidad (Ciclo 5):** `foundry.toml` fija `[fuzz] seed`, lo que hace determinista el baseline de gas
+> (`.gas-snapshot`) y permite el gate `forge snapshot --check --tolerance 5` (D-039).

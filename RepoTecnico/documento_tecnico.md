@@ -503,11 +503,11 @@ actor↔CU de `diagramas_casos_uso.md:461-497`; cualquier celda dudosa se ha reb
 
 | RF | Componente(s) concreto(s) de este documento | CU | Estado (fuente canónica) |
 |---|---|---|---|
-| RF-001 | `IdentityCloneable.addClaim`, `TrustedIssuersRegistry.hasClaimTopic` | CU-01, CU-02, CU-03, CU-09 | A IMPLEMENTAR |
-| RF-002 | `TokenCloneable` | CU-04, CU-06, CU-10 | A IMPLEMENTAR |
-| RF-003 | `ICompliance` + 4 contratos de compliance + token/aggregator | CU-05, CU-07 | A IMPLEMENTAR |
-| RF-004 | `TokenCloneable` (con D-022) | CU-06 | A IMPLEMENTAR |
-| RF-005 | `foundry.toml`, `.gitmodules`, suites `Token.t.sol` y `ComplianceAggregator.t.sol` | CU-08, CU-11 | A IMPLEMENTAR |
+| RF-001 | `IdentityCloneable.addClaim`, `TrustedIssuersRegistry.hasClaimTopic` | CU-01, CU-02, CU-03, CU-09 | **IMPLEMENTADO** (Ciclo 2) |
+| RF-002 | `TokenCloneable` | CU-04, CU-06, CU-10 | **IMPLEMENTADO** (Ciclo 3) |
+| RF-003 | `ICompliance` + 4 contratos de compliance + token/aggregator | CU-05, CU-07 | **IMPLEMENTADO** (Ciclo 4) |
+| RF-004 | `TokenCloneable` (con D-022) | CU-06 | **IMPLEMENTADO** (Ciclo 5) |
+| RF-005 | `foundry.toml`, `.gitmodules`, suites `Token.t.sol` y `ComplianceAggregator.t.sol` | CU-08, CU-11 | **IMPLEMENTADO** (Ciclos 1 y 1b) |
 | RF-006 | Documentación raíz + `SECURITY.md` + `CHANGELOG_ABIS.md` | CU-12 | A IMPLEMENTAR |
 | RF-007 | *(ninguno — zona web)* | — | PAUSADO (D-003) |
 | RF-008 | *(ninguno — zona web)* | — | PAUSADO (D-003) |
@@ -527,9 +527,9 @@ RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:2
 
 | RNF | Cómo se materializa (resumen) | CU | Estado | Evidencia |
 |---|---|---|---|---|
-| RNF-001 | Gas EIP-1167 medido y comparado de forma equivalente; `.gas-snapshot` versionado | CU-08 | **A IMPLEMENTAR** (criterio a reescribir; hoy underflow) | `metricas_ejecucion.md:50-61`; `casos_uso.md:1079` |
-| RNF-002 | `forge coverage` ≥ 80 % sobre `src/` excluyendo interfaces y `test/` (D-017) | CU-11 | **A IMPLEMENTAR** (hoy 42,86 %) | `requerimientos.md:117-118`; `casos_uso.md:1080` |
-| RNF-003 | 100 % de tests en CI antes de cada merge | CU-11 | **A IMPLEMENTAR** | `casos_uso.md:1081` |
+| RNF-001 | Gas EIP-1167 medido y comparado de forma equivalente; `.gas-snapshot` versionado | CU-08 | **IMPLEMENTADO** (medido; gate de CI en RF-009) | `metricas_ejecucion.md:50-61`; `casos_uso.md:1079` |
+| RNF-002 | `forge coverage` ≥ 80 % sobre `src/` excluyendo interfaces y `test/` (D-017) | CU-11 | **IMPLEMENTADO** (96,43 % en src/; gate de CI en RF-009) | `requerimientos.md:117-118`; `casos_uso.md:1080` |
+| RNF-003 | 100 % de tests en CI antes de cada merge | CU-11 | **PARCIAL** (320/320 en local; CI en RF-009) | `casos_uso.md:1081` |
 | RNF-004 | Ningún secreto en repo/scripts (Secret Manager GCP `DS_`, `.env` ignorado) | CU-13 | **A IMPLEMENTAR** | `casos_uso.md:1082`; `entornos_globales.md:35` |
 | RNF-005 | Reglas de compliance extensibles sin tocar el token (módulos + aggregator) | CU-07, CU-14 | **PARCIALMENTE IMPLEMENTADO** | `ComplianceAggregator.sol:61-135`; `casos_uso.md:1083` |
 | RNF-006 | *(docker compose de las apps web)* | — | **NO APLICA (D-003)** | `requerimientos.md:77`; `casos_uso.md:1084` |

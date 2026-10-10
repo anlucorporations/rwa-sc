@@ -249,12 +249,24 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   actualizar el `ComplianceAggregator` (que es módulo del token y también debe ser ERC-165) y re-registrar
   los módulos por token. Documentado en `CHANGELOG_ABIS.md`.
 
-### DF3 abiertas para la Fase 3 (diseño pendiente, no bloquean el arranque)
-- **DF3-05:** tratamiento de los 53 tests muertos por D-015. · **DF3-06:** umbral de gas operativo de RNF-001
-  (baseline, tolerancia, `.gas-snapshot`). · **DF3-07:** política de vigencia del claim (quién fija `expiresAt`,
-  unidad, valor por defecto, renovación). · **DF3-08:** `chainId` real de Besu CodeCrypto y parametrización del RPC.
-  · **DF3-09:** semántica de `maxBurnPerTx`/`maxForcedPerTx` y rol que administra la whitelist.
-  · **DF3-10:** destino de los datos off-chain (MongoDB local vs GCP) — fuera de alcance por D-003.
+### Decisiones resueltas en la Fase 3 (una a una, 2026-10-03)
+
+> Resuelven las DF3 que quedaban abiertas. Los criterios operativos están en `plan_desarrollo.md`.
+
+- **D-038 (DF3-07 · vigencia del claim):** `expiresAt == 0` significa **sin caducidad** (perpetuo); con un
+  timestamp futuro, el claim vence y `isVerified` lo rechaza (Ciclo 8 / RF-013). La renovación exige nueva firma
+  (D-020). No se prohibe el valor 0, por compatibilidad con los claims ya emitidos.
+- **D-039 (DF3-06 · gas de RNF-001):** la CI ejecuta `forge snapshot --check --tolerance 5` sobre el
+  `.gas-snapshot` versionado; superar el 5 % obliga a actualizar el snapshot en un commit explícito.
+- **D-040 (DF3-08 · redes y despliegue):** el despliegue y la verificación del Ciclo 9 se hacen contra el
+  **Anvil de GCP** (servicio global: `source /home/dsh/workspace/gcp-env.sh` → `RPC_URL`, `CHAIN_ID=31337`),
+  con **Besu CodeCrypto como alternativa** documentada. El script parametriza `RPC_URL`/`CHAIN_ID` y **valida la
+  red antes del broadcast**; la clave se lee de entorno / Secret Manager (`DS_*`), nunca de un archivo en claro.
+- **D-041 (DF3-10 · datos off-chain):** se **confirma diferido al área web** (`base_datos.sql` sigue siendo
+  borrador y MongoDB local la BD actual); el destino (Atlas / Cloud SQL / on-premise) y el tratamiento de
+  PII/GDPR (H-11/R-3) se abordan en el ciclo del área web.
+- **D-042 (Ciclo 11 · gate de cobertura):** la CI exige el **agregado de `src/` ≥ 80 %** (D-017) **y un mínimo
+  por contrato ≥ 80 %**, para que ningún contrato concreto quede sin cubrir tras un promedio alto.
 
 ## 7. Mapa RF → casos de uso (Fase 2)
 

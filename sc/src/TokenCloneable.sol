@@ -59,6 +59,25 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
     // Frozen accounts mapping
     mapping(address => bool) private frozen;
 
+    // ============ RF-004: control de operaciones privilegiadas ============
+
+    /// @dev Destinos autorizados para `forcedTransfer` (RF-004). Fail-closed: si esta vacio, ninguna
+    /// recuperacion es posible hasta que admin/compliance autorice explicitamente un destino.
+    mapping(address => bool) public authorizedDestinations;
+
+    /// @dev Tope por operacion de `burn` (RF-004). `0` desactiva la operacion (CU-06 A6.5).
+    uint256 public maxBurnPerTx;
+
+    /// @dev Tope por operacion de `forcedTransfer` (RF-004). `0` desactiva la operacion (CU-06 A6.5).
+    uint256 public maxForcedPerTx;
+
+    /// @dev Tope de suministro (RF-004 / D-022). `0` = sin tope.
+    uint256 public maxSupply;
+
+    event DestinationAuthorized(address indexed destination, bool authorized);
+    event LimitsUpdated(uint256 maxBurnPerTx, uint256 maxForcedPerTx);
+    event MaxSupplyUpdated(uint256 maxSupply);
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -210,6 +229,39 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
         _unpause();
     }
 
+    // ============ RF-004: administracion de los controles ============
+
+    /// @dev Autoriza o revoca un destino para `forcedTransfer` (RF-004).
+    /// CU-06 A6.3: pueden administrarlo `DEFAULT_ADMIN_ROLE` o `COMPLIANCE_ROLE`.
+    function setAuthorizedDestination(address destination, bool authorized) external {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender) || hasRole(COMPLIANCE_ROLE, msg.sender), "Not authorized");
+        require(destination != address(0), "Invalid destination");
+        authorizedDestinations[destination] = authorized;
+        emit DestinationAuthorized(destination, authorized);
+    }
+
+    /// @dev Fija el tope por operacion de `burn` (RF-004). `0` desactiva la quema (CU-06 A6.5).
+    function setMaxBurnPerTx(uint256 value) external {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender) || hasRole(COMPLIANCE_ROLE, msg.sender), "Not authorized");
+        maxBurnPerTx = value;
+        emit LimitsUpdated(maxBurnPerTx, maxForcedPerTx);
+    }
+
+    /// @dev Fija el tope por operacion de `forcedTransfer` (RF-004). `0` desactiva la operacion (CU-06 A6.5).
+    function setMaxForcedPerTx(uint256 value) external {
+        require(hasRole(DEFAULT_ADMIN_ROLE, msg.sender) || hasRole(COMPLIANCE_ROLE, msg.sender), "Not authorized");
+        maxForcedPerTx = value;
+        emit LimitsUpdated(maxBurnPerTx, maxForcedPerTx);
+    }
+
+    /// @dev Fija el tope de suministro (RF-004 / D-022). `0` = sin tope; no puede quedar por debajo
+    /// de `totalSupply()`.
+    function setMaxSupply(uint256 value) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(value == 0 || value >= totalSupply(), "Max supply below total supply");
+        maxSupply = value;
+        emit MaxSupplyUpdated(value);
+    }
+
     /**
      * @dev Mint new tokens
      * @dev `nonReentrant` covers the whole path: the compliance pre-check (external `canTransfer`),
@@ -217,6 +269,11 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
      */
     function mint(address to, uint256 amount) external nonReentrant onlyRole(AGENT_ROLE) {
         require(isVerified(to), "Recipient not verified");
+
+        // RF-004: tope de suministro (0 = sin tope)
+        if (maxSupply > 0) {
+            require(totalSupply() + amount <= maxSupply, "Max supply exceeded");
+        }
 
         // Check compliance before minting
         for (uint256 i = 0; i < complianceModules.length; i++) {
@@ -234,8 +291,11 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
     /**
      * @dev Burn tokens
      * @dev `nonReentrant` covers `_burn` -> `_update` and the trailing `destroyed` notification loop.
+     * RF-004: la quema esta acotada por `maxBurnPerTx` (0 = operacion desactivada, CU-06 A6.5).
      */
     function burn(address from, uint256 amount) external nonReentrant onlyRole(AGENT_ROLE) {
+        require(maxBurnPerTx > 0 && amount <= maxBurnPerTx, "Exceeds max burn per tx");
+
         _burn(from, amount);
 
         // Notify compliance modules
@@ -254,12 +314,14 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
      * `from == address(0)` is rejected: before RF-002 that input silently minted through the
      * forced (unchecked) path (CU-04 A4.6 / B-05).
      *
-     * NOTE: destination whitelist (`authorizedDestinations`) and per-tx caps (`maxForcedPerTx`)
-     * are deferred to RF-004 (Ciclo 5); this function is currently bounded only by `AGENT_ROLE`
-     * and `isVerified(to)`.
+     * RF-004 (Ciclo 5): la recuperacion esta acotada por la **whitelist de destinos**
+     * (`authorizedDestinations`, fail-closed: vacia = ninguna recuperacion) y por el **tope por
+     * operacion** `maxForcedPerTx` (0 = operacion desactivada, CU-06 A6.5).
      */
     function forcedTransfer(address from, address to, uint256 amount) external nonReentrant onlyRole(AGENT_ROLE) {
         require(from != address(0), "Invalid from address");
+        require(authorizedDestinations[to], "Destination not authorized");
+        require(maxForcedPerTx > 0 && amount <= maxForcedPerTx, "Exceeds max forced transfer per tx");
         require(isVerified(to), "Recipient not verified");
 
         // Perform the balance update through the explicit internal bypass route (no storage flag).

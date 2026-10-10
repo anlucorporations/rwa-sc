@@ -58,6 +58,18 @@
   **96,00 %** de líneas y 81,77 % de ramas; **243/243 tests en verde**; `src/` intacto (solo tests y snapshot).
   El ciclo descubrió **HB-13..HB-16** (registrados en `requerimientos.md` §2 y agrupados por afinidad en los
   Ciclos 4 y 8 salvo HB-16, que va con H-20 al backlog).
+- [x] **Ciclo 4 — RF-003 · Validación ERC-165 de módulos (+ HB-13 y HB-15)** (commit local `49bc7d1`):
+  `ICompliance is IERC165` con `supportsInterface` en los 3 módulos y en el aggregator; validación por
+  `staticcall` al dar de alta (rechaza EOA, contrato sin interfaz y ERC-165 ajeno) y rechazo de duplicados;
+  `IdentityRegistry` exige que la identidad sea contrato (HB-13) y `addClaimTopic` rechaza el topic `0` (HB-15).
+  **303/303 tests** (+22), `src/` 96,44 % líneas / 84,62 % ramas, ABI aditiva.
+- [x] **Ciclo 5 — RF-004 · Whitelist de destinos, límites y tope de suministro** (implementado y verificado):
+  `authorizedDestinations` (fail-closed), `maxBurnPerTx` y `maxForcedPerTx` (**0 = operación desactivada**,
+  CU-06), `maxSupply` (0 = sin tope, D-022) con setters por admin/compliance y eventos; `mint` respeta el tope.
+  Suite nueva `TokenLimits.t.sol` (17 tests) y adaptación de `Token.t.sol`/`TokenReentrancy.t.sol`.
+  **320/320 tests**, `src/` 96,43 % líneas (todos los contratos ≥ 91 %, `TokenCloneable` 97,71 %).
+  Hallazgo del ciclo: el gate de gas fallaba por el fuzz no determinista → se fijó `[fuzz] seed` en
+  `foundry.toml` y `forge snapshot --check --tolerance 5` pasa de forma estable (D-039 viable).
 
 ### Corrección de cifras tras el Ciclo 1
 

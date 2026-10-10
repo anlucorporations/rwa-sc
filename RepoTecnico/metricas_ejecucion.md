@@ -614,3 +614,31 @@ duplicados; las rutas de transferencia no cambian. `.gas-snapshot` regenerado (3
 
 
 
+
+## 12. Ciclo 5 — RF-004: whitelist de destinos, límites y tope de suministro
+
+| Métrica | Antes (Ciclo 4) | Después (Ciclo 5) |
+|---|---|---|
+| Tests | 303 | **320** (+17) |
+| Fallos | 0 | 0 |
+| Cobertura `src/` (líneas) | 96,44 % | **96,43 %** (622/645) |
+| `src/TokenCloneable.sol` | 97,08 % | **97,71 %** (171/175) |
+| Contrato con menos cobertura de `src/` | ~91 % | 91,53 % (`ClaimTopicsRegistryCloneFactory`) |
+
+**Cambios:** `authorizedDestinations` (whitelist fail-closed), `maxBurnPerTx`, `maxForcedPerTx` y `maxSupply`,
+con setters (`setAuthorizedDestination`, `setMaxBurnPerTx`, `setMaxForcedPerTx`, `setMaxSupply`) y eventos
+`DestinationAuthorized`/`LimitsUpdated`/`MaxSupplyUpdated`. `burn` queda acotado por `maxBurnPerTx`
+(**0 = operación desactivada**, CU-06 A6.5), `forcedTransfer` exige destino autorizado y `amount <= maxForcedPerTx`
+(0 = desactivado), y `mint` respeta `maxSupply` (0 = sin tope).
+
+**Suites:** nueva `test/TokenLimits.t.sol` (17 tests, criterios `test_RF004_*` de CU-06); adaptadas `Token.t.sol`
+y `TokenReentrancy.t.sol` para autorizar los destinos usados y levantar los topes, conservando su semántica.
+
+**Hallazgo del ciclo (mejora de reproducibilidad):** `forge snapshot --check` fallaba por el **fuzz no
+determinista** (3 diffs en tests `testFuzz_*`, exit 1). Se fijó `[fuzz] seed = "0x525741"` en `foundry.toml`;
+ahora `forge snapshot --check --tolerance 5` pasa de forma **estable** (dos ejecuciones consecutivas, 0 diffs),
+lo que hace viable el gate de gas de la CI (D-039) sobre **todas** las pruebas y refuerza B-5.
+
+**Decisiones:** D-038 (vigencia `expiresAt == 0` = sin caducidad), D-039 (gate de gas 5 %), D-040 (despliegue
+sobre Anvil de GCP, Besu como alternativa), D-041 (datos off-chain diferidos), D-042 (gate de cobertura
+agregado + por contrato).

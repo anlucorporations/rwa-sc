@@ -16,4 +16,11 @@ remappings = [
     "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/"
 ]
 
+# Reproducibilidad del fuzz: con semilla fija las entradas (y por tanto el gas) son deterministas,
+# lo que permite que el baseline de gas (`forge snapshot --check --tolerance 5`, RNF-001/D-039)
+# cubra tambien los tests fuzz sin diffs espurios. Requisito de B-5 (build reproducible).
+[fuzz]
+runs = 256
+seed = "0x525741"
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

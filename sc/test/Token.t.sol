@@ -86,6 +86,14 @@ contract TokenTest is Test {
         token.addComplianceModule(address(maxHoldersCompliance));
         token.addComplianceModule(address(transferLockCompliance));
 
+        // RF-004: los topes y la whitelist son fail-closed por defecto. Esta suite no prueba los topes
+        // (eso vive en TokenLimits.t.sol), asi que se autorizan los destinos usados y se levantan los
+        // topes para conservar exactamente la semantica previa de las pruebas.
+        token.setAuthorizedDestination(user2, true);
+        token.setAuthorizedDestination(user3, true);
+        token.setMaxBurnPerTx(type(uint256).max);
+        token.setMaxForcedPerTx(type(uint256).max);
+
         // Setup trusted issuer and claim topics
         uint256[] memory topics = new uint256[](2);
         topics[0] = KYC_TOPIC;
@@ -384,6 +392,9 @@ contract TokenTest is Test {
         token.mint(user1, amount);
 
         address unverified = makeAddr("unverified");
+
+        // RF-004: hay que autorizar el destino para poder alcanzar la comprobación de identidad.
+        token.setAuthorizedDestination(unverified, true);
 
         vm.expectRevert("Recipient not verified");
         token.forcedTransfer(user1, unverified, 50 * 10 ** 18);

@@ -150,6 +150,13 @@ contract TokenReentrancyTest is Test {
 
         maliciousModule = new MaliciousComplianceModule();
         token.addComplianceModule(address(maliciousModule));
+
+        // RF-004: los topes y la whitelist son fail-closed por defecto. Esta suite prueba la
+        // reentrancia, no los topes (cubiertos en TokenLimits.t.sol), asi que se autorizan los
+        // destinos usados y se levantan los topes para que el guard de reentrancia sea lo que revierte.
+        token.setAuthorizedDestination(user2, true);
+        token.setMaxBurnPerTx(type(uint256).max);
+        token.setMaxForcedPerTx(type(uint256).max);
     }
 
     function _registerVerified(address wallet) internal {
@@ -335,6 +342,9 @@ contract TokenReentrancyTest is Test {
     function test_RF002_forcedTransfer_destino_no_verificado_revierte() public {
         token.mint(user1, 100 ether);
         address unverified = makeAddr("unverified");
+
+        // RF-004: hay que autorizar el destino para poder alcanzar la comprobacion de identidad.
+        token.setAuthorizedDestination(unverified, true);
 
         vm.expectRevert("Recipient not verified");
         token.forcedTransfer(user1, unverified, 1 ether);
