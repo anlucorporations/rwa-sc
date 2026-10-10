@@ -488,5 +488,129 @@ compilado (`extra_output = ["storageLayout"]` en `foundry.toml`).
 - Fila de `TokenCloneable` en `documento_tecnico.md` §2.1 actualizada: patrón sin `bypassCompliance` y
   con `ReentrancyGuard`.
 
+## 11. Ciclo 4 — RF-003 · Validación de módulos con ERC-165 (+ HB-13 / HB-15)
+
+> Fecha: 2026-10-10 · Rama `rwa-sc-DSH-GCP` (commit local, sin push).
+> Objetivo: que token y `ComplianceAggregator` rechacen módulos que no implementan `ICompliance`
+> (HB-04/H-17), agrupando **HB-13** (la identidad registrada debe ser un contrato) y **HB-15**
+> (rechazar el topic `0`). Alcance: sin whitelist ni topes (RF-004/Ciclo 5).
+
+### 11.1 Tests — antes / después
+
+| Métrica | Antes (Ciclo 3) | Después (Ciclo 4) |
+|---|---|---|
+| Tests ejecutados/pasados | **281 / 281** | **303 / 303** |
+| Fallidos | 0 | **0** |
+| Suites | 13 | **14** (`+ test/RF003_ERC165.t.sol`) |
+| Suites que revierten en `setUp` | 0 | **0** |
+| Tests `test_RF003_*` nuevos | 0 | **16** |
+| Tests HB-13 nuevos | 0 | **4** |
+| Tests HB-15 (2 nuevos + 1 invertido) | 0 | **3** |
+
+Balance neto: **+22** (una función `test_HB15_*` sustituye a `test_AddClaimTopic_AcceptsZeroValue`).
+
+Comando: `forge test` → `Ran 14 test suites ... 303 tests passed, 0 failed, 0 skipped (303 total tests)`.
+No se debilitó ni borró ningún test: los 281 anteriores se conservan íntegros, sin `vm.skip`, sin
+aserciones comentadas y sin casos eliminados. Los tres casos afectados por los nuevos invariantes se
+**adaptan conservando la intención**:
+
+- `test/ClaimTopicsRegistry.t.sol`: `test_AddClaimTopic_AcceptsZeroValue` →
+  `test_HB15_AddClaimTopic_RevertWhen_ZeroValue` (mismo caso, aserción invertida a la nueva regla) y
+  `testFuzz_ClaimTopicExists` se acota a topic `≥ 1`.
+- `test/IdentityRegistry.t.sol`: las direcciones deterministas de identidad reciben código con
+  `vm.etch(addr, hex"00")` (HB-13), incluida la ruta fuzz y el helper de alta masiva.
+- `test/TokenReentrancy.t.sol`: los dobles `MaliciousComplianceModule` y `RejectingComplianceModule`
+  implementan `supportsInterface` (ahora son conformes, como exige el token para darlos de alta).
+
+### 11.2 Cobertura — antes / después (`src/`, D-017)
+
+Comando: `forge coverage --report summary`. Valores medidos sobre las 13 filas de `src/` (las interfaces
+`ICompliance`/`IClaimTopicsRegistry` no tienen código ejecutable y quedan excluidas por D-017):
+
+| Métrica | Antes (Ciclo 3) | Después (Ciclo 4) |
+|---|---|---|
+| Líneas | 96,28 % (595/618) | **96,44 %** (623/646) |
+| Sentencias | 95,99 % (550/573) | **96,27 %** (593/616) |
+| Ramas | 82,90 % (160/193) | **84,62 %** (176/208) |
+| Funciones | 97,08 % (133/137) | **97,22 %** (140/144) |
+
+Contratos modificados:
+
+| Contrato | Líneas antes → después | Ramas antes → después | Funciones |
+|---|---|---|---|
+| `TokenCloneable` | 97,18 % (138/142) → **97,39 %** (149/153) | 67,92 % (36/53) → **72,41 %** (42/58) | 100 % (30/30) |
+| `ComplianceAggregator` | 95,31 % (61/64) → **95,77 %** (68/71) | 100 % (16/16) → **100 %** (18/18) | 100 % (17/17) |
+| `IdentityRegistry` | 100 % → **100 %** (37/37) | 100 % (19/19) → **100 %** (21/21) | 100 % (8/8) |
+| `ClaimTopicsRegistry` | 100 % → **100 %** (23/23) | 100 % → **100 %** (8/8) | 100 % (6/6) |
+| `ClaimTopicsRegistryCloneable` | — | — | **92,31 %** (24/26) líneas / 75,00 % (6/8) ramas |
+
+**Ninguna métrica de `src/` baja.** El total que imprime Forge incluye `script/` y `test/` (fuera del
+alcance de RNF-002, D-017).
+
+### 11.3 Diseño aplicado
+
+- **Interfaz:** `ICompliance is IERC165` (`src/ICompliance.sol`). El `interfaceId` sigue siendo el XOR de
+  los 4 selectores propios (`canTransfer`, `transferred`, `created`, `destroyed`); Solidity excluye
+  `supportsInterface` por ser heredado (FD-03). Verificado por `test_RF003_interfaceId_ICompliance_correcto`.
+- **Módulos:** los 3 módulos y el aggregator heredan `ERC165` e implementan `supportsInterface` con
+  `interfaceId == type(ICompliance).interfaceId || super.supportsInterface(interfaceId)` (que cubre
+  `type(IERC165).interfaceId`).
+- **Validación:** helper privado `_implementsCompliance(address)` en `TokenCloneable` y en
+  `ComplianceAggregator`; hace `staticcall` al selector `supportsInterface` con
+  `type(ICompliance).interfaceId` y devuelve
+  `success && data.length >= 32 && abi.decode(data, (bool))`. Un EOA (retorno vacío), un contrato sin la
+  función (fallo de llamada) y un contrato que devuelve `false` se rechazan con
+  `"Module does not implement ICompliance"`; el alta no escribe estado.
+- **Duplicados:** `addComplianceModule` añade `"Module already added"` (D-034).
+- **HB-13:** `registerIdentity` y `updateIdentity` exigen `_identity.code.length > 0` →
+  `"Identity must be a contract"`.
+- **HB-15:** `addClaimTopic` exige `_claimTopic != 0` → `"Invalid claim topic"` en ambas variantes.
+
+### 11.4 Gas — antes / después
+
+Medición directa de `.gas-snapshot` (los deltas viven solo en el alta de módulos; `transfer`/`mint` no
+consultan ERC-165):
+
+| Operación | Antes (Ciclo 3) | Después (Ciclo 4) | Δ |
+|---|---|---|---|
+| `TokenTest:test_AddComplianceModule` | 433.518 | **437.593** | +4.075 (+0,94 %) |
+| `ComplianceAggregatorTest:test_AddModule` | 217.348 | **221.262** | +3.914 |
+| `ComplianceAggregatorTest:test_AddMultipleModules` | 484.830 | **496.530** | +11.700 (3 altas) |
+| `ComplianceAggregatorTest:test_TokenCanAddModuleThroughAggregator` | 350.665 | **358.677** | +8.012 |
+| `TokenTest:test_Mint` | 280.444 | **280.499** | +55 (+0,02 %) |
+| `TokenTest:test_Transfer_Success` | 550.860 | **550.948** | +88 (+0,02 %) |
+| Constructores de los 3 módulos | — | — | ±70 (ERC-165 añade ~decenas de bytes de runtime) |
+
+El sobrecoste del alta es el `staticcall` ERC-165 (acceso en frío al módulo + retorno) más el barrido de
+duplicados; las rutas de transferencia no cambian. `.gas-snapshot` regenerado (302 entradas, 16 nuevas de
+`RF003_ERC165Test`) y `forge snapshot --check` OK.
+
+### 11.5 Verificaciones del ciclo
+
+| Verificación | Resultado |
+|---|---|
+| `forge build` | 0 errores |
+| `forge test` | **303/303**, 0 fallos, 0 suites revertidas en `setUp` |
+| RF-003 · EOA rechazada | `test_RF003_addComplianceModule_revierte_eoa` y `test_RF003_aggregator_addModule_revierte_eoa` → `"Module does not implement ICompliance"` |
+| RF-003 · contrato sin interfaz rechazado | `test_RF003_addComplianceModule_revierte_contrato_sin_interfaz` y `test_RF003_aggregator_addModule_revierte_contrato_sin_interfaz` |
+| RF-003 · ERC-165 ajeno rechazado | `test_RF003_addComplianceModule_revierte_erc165_ajeno` |
+| HB-13 · EOA rechazada | `test_HB13_RegisterIdentity_RevertWhen_Eoa` y `test_HB13_UpdateIdentity_RevertWhen_Eoa` → `"Identity must be a contract"` |
+| HB-15 · topic 0 rechazado | `test_HB15_AddClaimTopic_RevertWhen_ZeroValue` y `test_HB15_Cloneable_AddClaimTopic_RevertWhen_ZeroValue` → `"Invalid claim topic"` |
+| `addModuleThroughAggregator` | `test_RF003_addModuleThroughAggregator_ok` (alta) y `..._revierte_modulo_no_conforme` |
+| `forge coverage --report summary` | `src/` **96,44 %** líneas / **84,62 %** ramas (sin bajar) |
+| `forge fmt --check` | limpio |
+| `forge snapshot` + `forge snapshot --check` | regenerado y OK |
+| `git status --short` | limpio tras el commit local |
+
+### 11.6 Decisiones y documentación
+
+- Decisiones nuevas: **D-033** (validación ERC-165), **D-034** (duplicados en el token), **D-035**
+  (HB-13), **D-036** (HB-15) y **D-037** (impacto/redeploy limpio por D-019) en `requerimientos.md`
+  (Bloque 6).
+- `documento_tecnico.md`: fila de `ICompliance` en §2.1 y fila de §3.1 (marcada como implementada),
+  además del hallazgo de ausencia de ERC-165.
+- `CHANGELOG_ABIS.md`: nueva entrada del Ciclo 4 (adición de `supportsInterface`; no rompe llamadas pero
+  obliga a que los módulos de terceros lo implementen).
+
 
 

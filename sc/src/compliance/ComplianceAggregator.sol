@@ -3,6 +3,8 @@ pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ICompliance} from "../ICompliance.sol";
 
 /**
@@ -26,8 +28,12 @@ import {ICompliance} from "../ICompliance.sol";
  * is the stateless OpenZeppelin `ReentrancyGuard` (ERC-7201 namespaced storage), independent from the
  * token's own guard, so a malicious module cannot re-enter the aggregator during a notification loop.
  * `canTransfer` is `view` and needs no guard.
+ *
+ * ERC-165 (RF-003 / HB-04): the aggregator is itself a compliance module of the token, so it
+ * implements `supportsInterface` (ICompliance + IERC165) and validates every module registered through
+ * `addModule` against `type(ICompliance).interfaceId`, rejecting EOAs and non-conforming contracts.
  */
-contract ComplianceAggregator is ICompliance, Ownable, ReentrancyGuard {
+contract ComplianceAggregator is ICompliance, ERC165, Ownable, ReentrancyGuard {
     // Mapping: token address => array of compliance modules
     mapping(address => ICompliance[]) private tokenModules;
 
@@ -51,6 +57,28 @@ contract ComplianceAggregator is ICompliance, Ownable, ReentrancyGuard {
     constructor(address initialOwner) Ownable(initialOwner) {}
 
     /**
+     * @dev ERC-165 (RF-003): declara la conformidad con `ICompliance` y `IERC165`.
+     * @param interfaceId Interface identifier to query
+     * @return bool True if the interface is supported
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, ERC165) returns (bool) {
+        return interfaceId == type(ICompliance).interfaceId || super.supportsInterface(interfaceId);
+    }
+
+    /**
+     * @dev Checks, without reverting on a non-contract target, whether `module` declares
+     * `type(ICompliance).interfaceId` through ERC-165. An EOA (empty return data) or a contract
+     * without `supportsInterface` (call failure or empty/short data) yields `false`.
+     * @param module Address to inspect
+     * @return bool True if the address is a contract implementing `ICompliance`
+     */
+    function _implementsCompliance(address module) private view returns (bool) {
+        (bool success, bytes memory data) =
+            module.staticcall(abi.encodeWithSelector(IERC165.supportsInterface.selector, type(ICompliance).interfaceId));
+        return success && data.length >= 32 && abi.decode(data, (bool));
+    }
+
+    /**
      * @dev Modifier to allow only owner or the token itself
      */
     modifier onlyOwnerOrToken(address token) {
@@ -67,6 +95,7 @@ contract ComplianceAggregator is ICompliance, Ownable, ReentrancyGuard {
     function addModule(address token, address module) external nonReentrant onlyOwnerOrToken(token) {
         require(token != address(0), "Invalid token address");
         require(module != address(0), "Invalid module address");
+        require(_implementsCompliance(module), "Module does not implement ICompliance");
         require(!isModuleActive[token][module], "Module already added");
 
         // Register token if not already registered

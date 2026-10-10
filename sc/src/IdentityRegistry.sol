@@ -29,10 +29,15 @@ contract IdentityRegistry is Ownable {
      * @dev Register an identity for a wallet
      * @param _wallet Wallet address
      * @param _identity Identity contract address
+     *
+     * HB-13: `_identity` must be a contract (`code.length > 0`). Registering an EOA leaves the
+     * wallet pointing at an address with no claim logic, so `isVerified` could never be satisfied
+     * meaningfully; it is rejected explicitly.
      */
     function registerIdentity(address _wallet, address _identity) external onlyOwner {
         require(_wallet != address(0), "Invalid wallet address");
         require(_identity != address(0), "Invalid identity address");
+        require(_identity.code.length > 0, "Identity must be a contract");
         require(!registered[_wallet], "Wallet already registered");
 
         identities[_wallet] = IdentityCloneable(_identity);
@@ -46,10 +51,13 @@ contract IdentityRegistry is Ownable {
      * @dev Update an identity for a wallet
      * @param _wallet Wallet address
      * @param _identity New identity contract address
+     *
+     * HB-13: same contract check as `registerIdentity`.
      */
     function updateIdentity(address _wallet, address _identity) external onlyOwner {
         require(_wallet != address(0), "Invalid wallet address");
         require(_identity != address(0), "Invalid identity address");
+        require(_identity.code.length > 0, "Identity must be a contract");
         require(registered[_wallet], "Wallet not registered");
 
         address oldIdentity = address(identities[_wallet]);

@@ -25,8 +25,11 @@ contract ClaimTopicsRegistry is Ownable, IClaimTopicsRegistry {
     /**
      * @dev Add a required claim topic
      * @param _claimTopic Claim topic ID
+     *
+     * HB-15: topic `0` is reserved/never a real requirement and is rejected explicitly.
      */
     function addClaimTopic(uint256 _claimTopic) external onlyOwner {
+        require(_claimTopic != 0, "Invalid claim topic");
         require(!claimTopicExists(_claimTopic), "Claim topic already exists");
 
         claimTopics.push(_claimTopic);

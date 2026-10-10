@@ -2,6 +2,8 @@
 pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ICompliance} from "../ICompliance.sol";
 
 /**
@@ -9,7 +11,7 @@ import {ICompliance} from "../ICompliance.sol";
  * @dev Compliance module that enforces transfer lock period
  * Implements rule #3: Lock-up period for selling tokens
  */
-contract TransferLockCompliance is ICompliance, Ownable {
+contract TransferLockCompliance is ICompliance, ERC165, Ownable {
     // Lock period duration in seconds
     uint256 public lockPeriod;
 
@@ -37,6 +39,15 @@ contract TransferLockCompliance is ICompliance, Ownable {
     constructor(address initialOwner, uint256 _lockPeriod) Ownable(initialOwner) {
         lockPeriod = _lockPeriod;
         emit LockPeriodSet(_lockPeriod);
+    }
+
+    /**
+     * @dev ERC-165 (RF-003): declara la conformidad con `ICompliance` y `IERC165`.
+     * @param interfaceId Interface identifier to query
+     * @return bool True if the interface is supported
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, ERC165) returns (bool) {
+        return interfaceId == type(ICompliance).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /**

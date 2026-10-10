@@ -213,6 +213,42 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   gas (+23.159) y el ahorro relativo mejora (56,75 %). Los umbrales (`>= 45 %` y `> 300.000`) **no se
   tocan** porque se siguen cumpliendo con holgura.
 
+- **D-033 (validación ERC-165 — diseño):** `ICompliance` pasa a `interface ICompliance is IERC165` y los
+  **cuatro** contratos de compliance heredan `ERC165` e implementan
+  `supportsInterface(bytes4)`: `MaxBalanceCompliance`, `MaxHoldersCompliance`, `TransferLockCompliance` y
+  `ComplianceAggregator` (este último también es módulo del token). Devuelven `true` para
+  `type(ICompliance).interfaceId` y `type(IERC165).interfaceId` (`0x01ffc9a7`). El `interfaceId` de
+  `ICompliance` **no cambia** al heredar `IERC165` porque Solidity excluye las funciones heredadas del
+  cálculo (FD-03, verificado por `test_RF003_interfaceId_ICompliance_correcto`). La validación se hace con
+  un `staticcall` a `supportsInterface(type(ICompliance).interfaceId)` que exige
+  `success && data.length >= 32 && decode == true`: así se rechazan EOA (retorno vacío), contratos sin la
+  función (fallo de llamada o retorno corto) y contratos que devuelven `false`, siempre con
+  `"Module does not implement ICompliance"`. Se evita el `try/catch` de alto nivel para no depender del
+  chequeo de `extcodesize` ni de la decodificación implícita. Se aplica en `TokenCloneable.addComplianceModule`
+  y en `ComplianceAggregator.addModule`.
+- **D-034 (rechazo de duplicados en el token):** `TokenCloneable.addComplianceModule` rechaza un módulo ya
+  registrado con `"Module already added"` (criterio EARS de CU-05) mediante un barrido O(n) de
+  `complianceModules`, coherente con el `isModuleActive` del aggregator (que ya impedía duplicados).
+- **D-035 (HB-13 — alcance de la validación de identidad):** se exige `_identity.code.length > 0` en
+  `registerIdentity` **y** en `updateIdentity`, con revert explícito `"Identity must be a contract"`
+  (rechaza EOAs). No se añade comprobación de interfaz en el registry: D-025/D-028 ya descartaron que el
+  registry conozca la interfaz de claim; la identidad es un clon `IdentityCloneable` cuya conformidad se
+  prueba en `addClaim`/`isVerified`. Los tests existentes de `IdentityRegistry.t.sol` (que usaban EOAs
+  deterministas para el *bookkeeping*) se adaptan dotando a esas direcciones de código con
+  `vm.etch(addr, hex"00")`, sin tocar aserciones ni eliminar casos.
+- **D-036 (HB-15 — topic 0):** `addClaimTopic` rechaza el topic `0` con `"Invalid claim topic"` antes de la
+  comprobación de duplicado, tanto en `ClaimTopicsRegistryCloneable` (producción) como en
+  `ClaimTopicsRegistry` (variante de testing). El test que documentaba la aceptación
+  (`test_AddClaimTopic_AcceptsZeroValue`) se **invierte** en `test_HB15_AddClaimTopic_RevertWhen_ZeroValue`
+  (conserva el caso de estudio, cambia la aserción a la nueva regla) y `testFuzz_ClaimTopicExists` se acota
+  a `[1, type(uint256).max]`.
+- **D-037 (impacto en módulos ya registrados — redeploy limpio):** un módulo desplegado antes de RF-003 que
+  no implemente ERC-165 **no puede volver a registrarse** (ni por token ni por aggregator) tras el cambio.
+  Como los módulos ya dados de alta permanecen en el estado y no hay proxy actualizable (D-019/D-023), el
+  ciclo de vida es **redeploy limpio**: volver a desplegar cada módulo con el `supportsInterface` nuevo,
+  actualizar el `ComplianceAggregator` (que es módulo del token y también debe ser ERC-165) y re-registrar
+  los módulos por token. Documentado en `CHANGELOG_ABIS.md`.
+
 ### DF3 abiertas para la Fase 3 (diseño pendiente, no bloquean el arranque)
 - **DF3-05:** tratamiento de los 53 tests muertos por D-015. · **DF3-06:** umbral de gas operativo de RNF-001
   (baseline, tolerancia, `.gas-snapshot`). · **DF3-07:** política de vigencia del claim (quién fija `expiresAt`,

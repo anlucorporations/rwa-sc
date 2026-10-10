@@ -39,6 +39,13 @@ contract IdentityRegistryTest is Test {
         identity2 = makeAddr("identity2");
         identity3 = makeAddr("identity3");
 
+        // HB-13: la identidad registrada debe ser un contrato. Se dota de código mínimo (STOP)
+        // a las direcciones deterministas de esta suite para conservar su intención (bookkeeping
+        // del registry) sin convertir cada caso en un despliegue completo.
+        _asContract(identity1);
+        _asContract(identity2);
+        _asContract(identity3);
+
         registry = new IdentityRegistry(owner);
     }
 
@@ -362,9 +369,13 @@ contract IdentityRegistryTest is Test {
     }
 
     function testFuzz_RegisterIdentity(uint256 walletSeed, uint256 identitySeed) public {
-        // Se reserva la dirección cero (revertida por el contrato).
-        address wallet = address(uint160(bound(walletSeed, 1, type(uint160).max)));
-        address identity = address(uint160(bound(identitySeed, 1, type(uint160).max)));
+        // Se reservan la dirección cero (revertida por el contrato) y los precompiles
+        // (no se puede escribir código con `vm.etch` en 0x01..0x0a).
+        address wallet = address(uint160(bound(walletSeed, 0x100, type(uint160).max)));
+        address identity = address(uint160(bound(identitySeed, 0x100, type(uint160).max)));
+
+        // HB-13: la identidad debe tener código para superar la validación.
+        _asContract(identity);
 
         registry.registerIdentity(wallet, identity);
 
@@ -375,8 +386,60 @@ contract IdentityRegistryTest is Test {
     }
 
     // ---------------------------------------------------------------------
+    // HB-13 (Ciclo 4): la identidad registrada debe ser un contrato
+    // ---------------------------------------------------------------------
+
+    function test_HB13_RegisterIdentity_ContractOk() public {
+        address identity = address(uint160(0xC0DE));
+        _asContract(identity);
+
+        registry.registerIdentity(wallet1, identity);
+
+        assertEq(registry.getIdentity(wallet1), identity);
+        assertTrue(registry.isRegistered(wallet1));
+    }
+
+    function test_HB13_RegisterIdentity_RevertWhen_Eoa() public {
+        address eoa = makeAddr("eoaIdentity");
+
+        vm.expectRevert("Identity must be a contract");
+        registry.registerIdentity(wallet1, eoa);
+
+        assertFalse(registry.isRegistered(wallet1));
+        assertEq(registry.getRegisteredCount(), 0);
+    }
+
+    function test_HB13_UpdateIdentity_ContractOk() public {
+        registry.registerIdentity(wallet1, identity1);
+
+        address newIdentity = address(uint160(0xC0DE));
+        _asContract(newIdentity);
+
+        registry.updateIdentity(wallet1, newIdentity);
+
+        assertEq(registry.getIdentity(wallet1), newIdentity);
+    }
+
+    function test_HB13_UpdateIdentity_RevertWhen_Eoa() public {
+        registry.registerIdentity(wallet1, identity1);
+
+        address eoa = makeAddr("eoaIdentity");
+
+        vm.expectRevert("Identity must be a contract");
+        registry.updateIdentity(wallet1, eoa);
+
+        assertEq(registry.getIdentity(wallet1), identity1);
+    }
+
+    // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------
+
+    /// @dev HB-13: dota a una dirección de código mínimo (un `STOP`) para satisfacer
+    /// `_identity.code.length > 0` conservando las direcciones deterministas de la suite.
+    function _asContract(address account) internal {
+        vm.etch(account, hex"00");
+    }
 
     function _registerThree() internal {
         registry.registerIdentity(wallet1, identity1);
@@ -386,7 +449,9 @@ contract IdentityRegistryTest is Test {
 
     function _registerMany(uint256 n) internal {
         for (uint256 i = 0; i < n; i++) {
-            registry.registerIdentity(address(uint160(0x1000 + i)), address(uint160(0x2000 + i)));
+            address identity = address(uint160(0x2000 + i));
+            _asContract(identity); // HB-13: identidad con código
+            registry.registerIdentity(address(uint160(0x1000 + i)), identity);
         }
     }
 

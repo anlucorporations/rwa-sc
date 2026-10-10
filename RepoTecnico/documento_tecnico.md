@@ -125,11 +125,11 @@ Todos los contratos fijan el pragma `^0.8.20` (RT-007). La columna **Evidencia**
 | Registries | `IdentityRegistry` | Vincula wallet ↔ contrato de identidad; `registered`, `registeredAddresses` | `Ownable`; array con *swap-and-pop* | `rwa-sc/sc/src/IdentityRegistry.sol:12` |
 | Registries | `TrustedIssuersRegistry` | Emisores confiables y topics autorizados por emisor; `hasClaimTopic` | `Ownable`; array con *swap-and-pop* | `rwa-sc/sc/src/TrustedIssuersRegistry.sol:11` |
 | Registries | `IClaimTopicsRegistry` | Interfaz de topics requeridos consumida por el token | `interface` | `rwa-sc/sc/src/IClaimTopicsRegistry.sol:9` |
-| Compliance | `ICompliance` | Interfaz de módulos: `canTransfer`, `transferred`, `created`, `destroyed` | `interface` (hoy **sin** `IERC165`) | `rwa-sc/sc/src/ICompliance.sol:8` |
-| Compliance | `ComplianceAggregator` | Agrega módulos por token y propaga `canTransfer`/notificaciones | `Ownable` + `ICompliance`; modifier `onlyOwnerOrToken` | `rwa-sc/sc/src/compliance/ComplianceAggregator.sol:23` |
-| Compliance | `MaxBalanceCompliance` | Limita el saldo máximo por cuenta | `Ownable` + `ICompliance` | `rwa-sc/sc/src/compliance/MaxBalanceCompliance.sol:12` |
-| Compliance | `MaxHoldersCompliance` | Limita el número máximo de tenedores | `Ownable` + `ICompliance` | `rwa-sc/sc/src/compliance/MaxHoldersCompliance.sol:12` |
-| Compliance | `TransferLockCompliance` | Bloqueo temporal tras la recepción | `Ownable` + `ICompliance` | `rwa-sc/sc/src/compliance/TransferLockCompliance.sol:12` |
+| Compliance | `ICompliance` | Interfaz de módulos: `canTransfer`, `transferred`, `created`, `destroyed` | `interface is IERC165` (**RF-003, Ciclo 4**) | `rwa-sc/sc/src/ICompliance.sol:16` |
+| Compliance | `ComplianceAggregator` | Agrega módulos por token y propaga `canTransfer`/notificaciones | `Ownable` + `ICompliance` + `ERC165`; modifier `onlyOwnerOrToken` | `rwa-sc/sc/src/compliance/ComplianceAggregator.sol:36` |
+| Compliance | `MaxBalanceCompliance` | Limita el saldo máximo por cuenta | `Ownable` + `ICompliance` + `ERC165` | `rwa-sc/sc/src/compliance/MaxBalanceCompliance.sol:14` |
+| Compliance | `MaxHoldersCompliance` | Limita el número máximo de tenedores | `Ownable` + `ICompliance` + `ERC165` | `rwa-sc/sc/src/compliance/MaxHoldersCompliance.sol:14` |
+| Compliance | `TransferLockCompliance` | Bloqueo temporal tras la recepción | `Ownable` + `ICompliance` + `ERC165` | `rwa-sc/sc/src/compliance/TransferLockCompliance.sol:14` |
 
 > **Nota de fidelidad.** Los *registries* usan `Ownable` de un paso, no `AccessControl`
 > (`casos_uso.md:123-126`). El actor A1 acumula `owner()` y `DEFAULT_ADMIN_ROLE` **solo si es la misma
@@ -225,8 +225,10 @@ Estos son los puntos que la arquitectura objetivo debe corregir, con evidencia d
 - **Los claims no tienen vigencia ni revocación por el issuer:** el struct `Claim` es
   `{topic, scheme, issuer, signature, data, uri}` (`IdentityCloneable.sol:21-28`) y `removeClaim` es
   `onlyOwner` del **titular** (`:105-123`); H-08.
-- **No hay validación ERC-165** de módulos: `ICompliance.sol:8` no hereda `IERC165` y no existe
-  `supportsInterface` en `src/` (H-17).
+- **Validación ERC-165 (resuelta en el Ciclo 4 / RF-003):** `ICompliance.sol:16` ya hereda `IERC165` y los
+  cuatro contratos de compliance implementan `supportsInterface`; `TokenCloneable.addComplianceModule`
+  (`:134`, require en `:137`) y `ComplianceAggregator.addModule` (`:95`, require en `:98`) rechazan EOAs y
+  contratos no conformes con `"Module does not implement ICompliance"` (H-17).
 - **Storage muerto:** `_tokenName`/`_tokenSymbol` (`TokenCloneable.sol:31-32`) duplican el nombre ERC-20
   (HB-06).
 - **Arrays no acotados O(n) (H-20, auditoría V1):** dos registries y dos factories mantienen arrays lineales
@@ -256,7 +258,7 @@ Estos son los puntos que la arquitectura objetivo debe corregir, con evidencia d
 | `TokenCloneable` — `isVerified` | **Fail-closed:** si `claimTopicsRegistry == address(0)` o `getClaimTopics()` está vacío, devuelve `false` (hoy `true`); se exige además claim vigente y no revocado | RF-011 | H-05 (auditoría V1) |
 | `TokenCloneable` — bypass/reentrancia | Se **elimina** `bypassCompliance` del storage; el bypass del agente queda acotado a `forcedTransfer` hacia `authorizedDestinations` con tope `maxForcedPerTx`; `ReentrancyGuardUpgradeable` en `transfer`/`forcedTransfer`/`mint`/`burn` y en las entradas del aggregator | RF-002 | H-03, H-18 (auditoría V1) |
 | `TokenCloneable` — `burn`/`forcedTransfer` | **Whitelist de destinos + límites:** `authorizedDestinations[address]`, `maxBurnPerTx`, `maxForcedPerTx`; administración solo por admin/compliance; guard `from != address(0)`; **tope de suministro** `maxSupply` administrable con evento, que no puede bajarse por debajo de lo ya emitido ni subirse sin evento (D-022) | RF-004 | **HB-02** (análisis base); H-06, H-27 (auditoría V1) |
-| `ICompliance` + 4 contratos de compliance | `ICompliance is IERC165` y `supportsInterface(type(ICompliance).interfaceId) == true` en `MaxBalanceCompliance`, `MaxHoldersCompliance`, `TransferLockCompliance` y `ComplianceAggregator`; validación al registrar módulos (token y aggregator) | RF-003 | H-17 (auditoría V1) |
+| `ICompliance` + 4 contratos de compliance | **Implementado (Ciclo 4):** `ICompliance is IERC165` y `supportsInterface(type(ICompliance).interfaceId) == true` en `MaxBalanceCompliance`, `MaxHoldersCompliance`, `TransferLockCompliance` y `ComplianceAggregator` (todos con `ERC165`); validación ERC-165 al registrar módulos (token y aggregator) con `"Module does not implement ICompliance"` y rechazo de duplicados en el token | RF-003 | H-17 (auditoría V1) |
 | `ComplianceAggregator` | **Fail-closed:** cero módulos o token no registrado ⇒ `canTransfer` devuelve `false`; administración de módulos restringida al **owner/rol del token** (no al owner global); **registro automático del token al añadir su primer módulo** (sin función `registerToken` externa, D-023) | RF-012 | H-22 (auditoría V1) |
 | Gobernanza / custodia de claves | **Roles separados:** `DEFAULT_ADMIN_ROLE` en **multisig 2-de-3**, `AGENT_ROLE` en cuenta operativa con los límites de RF-004, `COMPLIANCE_ROLE` en cuenta propia; **timelock** para acciones sensibles; **custodio de claves designado con rotación** (D-021) | RF-002, RF-004, RF-010 | H-06, H-25, H-27 (auditoría V1); backlog R-7 |
 | Repositorio / toolchain | Compilación reproducible: submódulos `forge-std`, OZ v5.5.0 y OZ-upgradeable v5.5.0 correctos, `forge build` y `forge test` al **100 %**, `solc`/optimizer/`evm_version` fijados | RF-005 | HB-05, HB-11, H-04 (auditoría V1) |
@@ -516,7 +518,7 @@ actor↔CU de `diagramas_casos_uso.md:461-497`; cualquier celda dudosa se ha reb
 | RF-013 | `IdentityCloneable` / struct `Claim` (con D-020) | CU-17 | A IMPLEMENTAR |
 
 Anclajes de código de este documento (verificados con grep/read): RF-001 `IdentityCloneable.sol:63-98`;
-RF-002 `TokenCloneable.sol:47,212,218`; RF-003 `ICompliance.sol:8`; RF-004 `TokenCloneable.sol:192-201`;
+RF-002 `TokenCloneable.sol:47,212,218`; RF-003 `ICompliance.sol:16`; RF-004 `TokenCloneable.sol:192-201`;
 RF-005 `metricas_ejecucion.md:39-49`; RF-006 `requerimientos.md:59`; RF-007/RF-008 `requerimientos.md:60-61`;
 RF-009 `entornos_globales.md:101`; RF-010 `deploy-besu.sh:14,37`; RF-011 `TokenCloneable.sol:245-247`;
 RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:21-28,105-123`.
@@ -789,7 +791,7 @@ como **D-019..D-024** (mismo texto que en `requerimientos.md:122-139`, donde se 
 
 | Criterio | Qué exige (resumen; texto en el informe) | RF / backlog / decisión |
 |---|---|---|
-| **C-1** | `supportsInterface(ICompliance)` verificado en token y aggregator | **RF-003** |
+| **C-1** | `supportsInterface(ICompliance)` verificado en token y aggregator — **implementado (Ciclo 4)** | **RF-003** |
 | **C-2** | `nonReentrant` en operaciones y entradas del aggregator + test con módulo malicioso | **RF-002** |
 | **C-3** | Aggregator fail-closed y gestión de módulos acotada al token + tests cross-token | **RF-012**; registro automático por **D-023** |
 | **C-4** | Escalabilidad: borrados/iteraciones O(1) y vistas paginadas | Backlog **M-11** (H-20; §2.3) |

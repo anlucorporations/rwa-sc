@@ -74,14 +74,15 @@ contract ClaimTopicsRegistryTest is Test {
         _assertNoHoles();
     }
 
-    /// @dev El contrato NO rechaza el topic 0 (no hay `require(_claimTopic != 0)`).
-    /// Se documenta el comportamiento real en el informe, sin modificarlo.
-    function test_AddClaimTopic_AcceptsZeroValue() public {
+    /// @dev HB-15 (Ciclo 4): el topic 0 queda reservado y se rechaza explícitamente.
+    /// Sustituye a `test_AddClaimTopic_AcceptsZeroValue` (comportamiento fail-open retirado);
+    /// conserva el caso de estudio (topic 0) invirtiendo la aserción a la nueva regla.
+    function test_HB15_AddClaimTopic_RevertWhen_ZeroValue() public {
+        vm.expectRevert("Invalid claim topic");
         registry.addClaimTopic(0);
 
-        assertTrue(registry.claimTopicExists(0));
-        assertEq(registry.getClaimTopicsCount(), 1);
-        assertEq(registry.getClaimTopics()[0], 0);
+        assertFalse(registry.claimTopicExists(0));
+        assertEq(registry.getClaimTopicsCount(), 0);
     }
 
     function test_AddClaimTopic_RevertWhen_Duplicate() public {
@@ -267,13 +268,16 @@ contract ClaimTopicsRegistryTest is Test {
     }
 
     function testFuzz_ClaimTopicExists(uint256 added) public {
-        assertFalse(registry.claimTopicExists(added));
+        // HB-15: se descarta el topic 0 (rechazado por el contrato); se conserva el resto del rango.
+        uint256 topic = bound(added, 1, type(uint256).max);
 
-        registry.addClaimTopic(added);
-        assertTrue(registry.claimTopicExists(added));
+        assertFalse(registry.claimTopicExists(topic));
 
-        registry.removeClaimTopic(added);
-        assertFalse(registry.claimTopicExists(added));
+        registry.addClaimTopic(topic);
+        assertTrue(registry.claimTopicExists(topic));
+
+        registry.removeClaimTopic(topic);
+        assertFalse(registry.claimTopicExists(topic));
     }
 
     function testFuzz_AddDistinctTopics(uint8 rawN) public {

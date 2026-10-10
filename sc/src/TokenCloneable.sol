@@ -5,6 +5,7 @@ import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IdentityRegistry} from "./IdentityRegistry.sol";
 import {TrustedIssuersRegistry} from "./TrustedIssuersRegistry.sol";
 import {IClaimTopicsRegistry} from "./IClaimTopicsRegistry.sol";
@@ -124,12 +125,41 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
     }
 
     /**
-     * @dev Add a compliance module
+     * @dev Add a compliance module.
+     * RF-003 (HB-04 / H-17): only contracts that declare `type(ICompliance).interfaceId` through
+     * ERC-165 are accepted; EOAs, `address(0)` and non-conforming contracts revert, so a module
+     * without `canTransfer`/`transferred`/`created`/`destroyed` can never break the transfer path.
+     * Duplicate registrations are rejected.
      */
     function addComplianceModule(address module) external onlyRole(COMPLIANCE_ROLE) {
         require(module != address(0), "Invalid module address");
+        require(!_isComplianceModule(module), "Module already added");
+        require(_implementsCompliance(module), "Module does not implement ICompliance");
         complianceModules.push(ICompliance(module));
         emit ComplianceModuleAdded(module);
+    }
+
+    /**
+     * @dev Checks whether `module` is already registered.
+     */
+    function _isComplianceModule(address module) private view returns (bool) {
+        for (uint256 i = 0; i < complianceModules.length; i++) {
+            if (address(complianceModules[i]) == module) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @dev Checks, without reverting on a non-contract target, whether `module` declares
+     * `type(ICompliance).interfaceId` through ERC-165. An EOA (empty return data) or a contract
+     * without `supportsInterface` (call failure or empty/short data) yields `false`.
+     */
+    function _implementsCompliance(address module) private view returns (bool) {
+        (bool success, bytes memory data) =
+            module.staticcall(abi.encodeWithSelector(IERC165.supportsInterface.selector, type(ICompliance).interfaceId));
+        return success && data.length >= 32 && abi.decode(data, (bool));
     }
 
     /**

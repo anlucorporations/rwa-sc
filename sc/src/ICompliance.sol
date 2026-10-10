@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+
 /**
  * @title ICompliance
  * @dev Interface for compliance modules
+ *
+ * RF-003 (HB-04 / H-17): al extender `IERC165`, todo modulo de compliance debe implementar
+ * `supportsInterface(bytes4)`. El `type(ICompliance).interfaceId` sigue siendo el XOR de los cuatro
+ * selectores propios (`canTransfer`, `transferred`, `created`, `destroyed`): Solidity excluye las
+ * funciones heredadas del calculo del `interfaceId` (FD-03), por lo que el valor no cambia al
+ * anadir `is IERC165`.
  */
-interface ICompliance {
+interface ICompliance is IERC165 {
     /**
      * @dev Check if a transfer is compliant
      * @param from Sender address

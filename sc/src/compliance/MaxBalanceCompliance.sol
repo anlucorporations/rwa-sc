@@ -2,6 +2,8 @@
 pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ICompliance} from "../ICompliance.sol";
 
 /**
@@ -9,7 +11,7 @@ import {ICompliance} from "../ICompliance.sol";
  * @dev Compliance module that enforces maximum balance per wallet
  * Implements rule #1: Maximum 1000 tokens per wallet
  */
-contract MaxBalanceCompliance is ICompliance, Ownable {
+contract MaxBalanceCompliance is ICompliance, ERC165, Ownable {
     // Maximum balance allowed per wallet
     uint256 public maxBalance;
 
@@ -21,6 +23,15 @@ contract MaxBalanceCompliance is ICompliance, Ownable {
     constructor(address initialOwner, uint256 _maxBalance) Ownable(initialOwner) {
         maxBalance = _maxBalance;
         emit MaxBalanceSet(_maxBalance);
+    }
+
+    /**
+     * @dev ERC-165 (RF-003): declara la conformidad con `ICompliance` y `IERC165`.
+     * @param interfaceId Interface identifier to query
+     * @return bool True if the interface is supported
+     */
+    function supportsInterface(bytes4 interfaceId) public view virtual override(IERC165, ERC165) returns (bool) {
+        return interfaceId == type(ICompliance).interfaceId || super.supportsInterface(interfaceId);
     }
 
     /**

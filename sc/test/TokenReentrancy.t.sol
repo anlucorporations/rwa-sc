@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Test, console} from "forge-std/Test.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {TokenCloneable} from "../src/TokenCloneable.sol";
 import {IdentityCloneable} from "../src/IdentityCloneable.sol";
@@ -46,6 +47,11 @@ contract MaliciousComplianceModule is ICompliance {
         return true;
     }
 
+    /// @dev RF-003: el token valida ERC-165 al dar de alta el modulo.
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+        return interfaceId == type(ICompliance).interfaceId || interfaceId == type(IERC165).interfaceId;
+    }
+
     function transferred(address, address, uint256) external {
         transferredCount++;
         _attack();
@@ -77,6 +83,11 @@ contract MaliciousComplianceModule is ICompliance {
 contract RejectingComplianceModule is ICompliance {
     function canTransfer(address, address, uint256) external view returns (bool) {
         return false;
+    }
+
+    /// @dev RF-003: conforme a ERC-165 para poder registrarse como modulo.
+    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+        return interfaceId == type(ICompliance).interfaceId || interfaceId == type(IERC165).interfaceId;
     }
 
     function transferred(address, address, uint256) external {}

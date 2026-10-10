@@ -14,6 +14,7 @@
 | Fecha | Ciclo | Requisito | Contratos afectados | Breaking |
 |---|---|---|---|---|
 | 2026-10-10 | Ciclo 2 | RF-001 (cierra H-01) | `IdentityCloneable`, `IdentityCloneFactory` | **Sí** |
+| 2026-10-10 | Ciclo 4 | RF-003 (cierra H-17/HB-04) | `ICompliance`, `ComplianceAggregator`, `MaxBalanceCompliance`, `MaxHoldersCompliance`, `TransferLockCompliance`, `TokenCloneable` | **No (aditivo)**; rompe a implementadores de módulos |
 
 ---
 
@@ -109,6 +110,48 @@ Acción requerida (cuando se retome la zona web, p. ej. RF-007/RF-008):
 2. Añadir `expiresAt` a las llamadas de `addClaim`/`createIdentityWithClaim`.
 3. Implementar la firma EIP-712 en el cliente (viem `signTypedData`/ethers `signTypedData`) con el
    dominio `RWA-Identity`/`1`/`chainId`/`verifyingContract = identidad del titular`.
+
+---
+
+## RF-003 — Validación ERC-165 de módulos de compliance (Ciclo 4)
+
+**Motivo:** `addComplianceModule`/`addModule` aceptaban cualquier dirección como módulo de compliance;
+un contrato sin `canTransfer`/`transferred`/`created`/`destroyed` rompía la ruta de transferencia
+(H-17/HB-04). Ahora `ICompliance` hereda `IERC165` y toda alta valida `supportsInterface`.
+
+### ABI: función nueva `supportsInterface(bytes4) returns (bool)`
+
+| Contrato | Firma nueva | Selector |
+|---|---|---|
+| `ICompliance` (interfaz, `is IERC165`) | `supportsInterface(bytes4) returns (bool)` | `0x01ffc9a7` |
+| `MaxBalanceCompliance` | idem (heredada de `ERC165`) | `0x01ffc9a7` |
+| `MaxHoldersCompliance` | idem | `0x01ffc9a7` |
+| `TransferLockCompliance` | idem | `0x01ffc9a7` |
+| `ComplianceAggregator` | idem | `0x01ffc9a7` |
+
+`type(ICompliance).interfaceId` **no cambia** al heredar `IERC165` (Solidity excluye las funciones
+heredadas): sigue siendo el XOR de `canTransfer`, `transferred`, `created` y `destroyed`.
+
+### Firmas existentes
+
+- `TokenCloneable.addComplianceModule(address)` — sin cambios en la firma; **sí** cambia el
+  comportamiento (rechaza EOA/contrato no conforme y duplicados).
+- `ComplianceAggregator.addModule(address,address)` — sin cambios en la firma; valida ERC-165.
+- `ComplianceAggregator.supportsInterface` es necesario porque el aggregator también se registra como
+  módulo del token (`token.addComplianceModule(aggregator)`).
+
+### Impacto / breaking
+
+- **Llamadas (consumidores):** no breaking; se añade una función de consulta estándar.
+- **Implementadores de módulos (terceros):** **breaking**. Un módulo que no implemente
+  `supportsInterface` no puede registrarse (`"Module does not implement ICompliance"`).
+- **Módulos ya desplegados antes del Ciclo 4:** al no implementar ERC-165, no pueden volver a darse de
+  alta. Sin proxy actualizable (D-019), el ciclo de vida es **redeploy limpio** (D-037): volver a
+  desplegar el módulo con `supportsInterface`, sustituir el `ComplianceAggregator` si aplica y
+  re-registrar los módulos por token.
+- ABIs de `rwa-web` (D-003, fuera de alcance): si alguna app registra módulos de compliance, debe
+  regenerar la ABI desde `sc/out/` y comprobar que el módulo objetivo declara
+  `supportsInterface(type(ICompliance).interfaceId) == true`.
 
 ---
 

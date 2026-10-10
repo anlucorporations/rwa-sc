@@ -215,5 +215,34 @@ contract ClaimTopicsRegistryCloneFactoryTest is Test {
         string memory info = factory.getGasSavingsInfo();
         assertTrue(bytes(info).length > 0);
     }
+
+    // ---------------------------------------------------------------------
+    // HB-15 (Ciclo 4): la variante de PRODUCCION (clon) rechaza el topic 0
+    // ---------------------------------------------------------------------
+
+    function test_HB15_Cloneable_AddClaimTopic_RevertWhen_ZeroValue() public {
+        address admin = makeAddr("admin");
+        address registry = factory.createRegistry(admin);
+        ClaimTopicsRegistryCloneable registryContract = ClaimTopicsRegistryCloneable(registry);
+
+        vm.prank(admin);
+        vm.expectRevert("Invalid claim topic");
+        registryContract.addClaimTopic(0);
+
+        assertFalse(registryContract.claimTopicExists(0));
+        assertEq(registryContract.getClaimTopicsCount(), 0);
+    }
+
+    function test_HB15_Cloneable_AddClaimTopic_NonZeroOk() public {
+        address admin = makeAddr("admin");
+        address registry = factory.createRegistry(admin);
+        ClaimTopicsRegistryCloneable registryContract = ClaimTopicsRegistryCloneable(registry);
+
+        vm.prank(admin);
+        registryContract.addClaimTopic(1);
+
+        assertTrue(registryContract.claimTopicExists(1));
+        assertEq(registryContract.getClaimTopicsCount(), 1);
+    }
 }
 
