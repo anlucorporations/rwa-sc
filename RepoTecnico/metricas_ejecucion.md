@@ -660,3 +660,122 @@ verificación vuelve a `true` (no hay bloqueo permanente).
 **Suites:** nueva `test/RF011_FailClosed.t.sol` (6 tests `test_RF011_*` de CU-15). Evidencia actualizada:
 `evidencias/PoC_H01_H05.t.sol` invierte el PoC de H-05 (`test_H05_isVerified_fail_closed_ok`) y **ambos**
 hallazgos (H-01 y H-05) quedan verificados como corregidos.
+
+## 14. Ciclo 7 — RF-012: `ComplianceAggregator` fail-closed y gestión solo por el token
+
+| Métrica | Antes (Ciclo 6) | Después (Ciclo 7) |
+|---|---|---|
+| Tests | 326 | **334** (+8) |
+| Fallos | 0 | **0** |
+| Suites | 16 | **17** (`+ test/RF012_AggregatorFailClosed.t.sol`) |
+| Suites revertidas en `setUp` | 0 | **0** |
+| Tests `test_RF012_*` nuevos | 0 | **8** (7 criterios CU-16 + aislamiento cross-token) |
+| Entradas de `.gas-snapshot` | 325 | **333** (+8) |
+| Gate de gas (`--check --tolerance 5`) | OK | **OK** (determinista, exit 0) |
+
+**Cambio en `src/` (pre-existente al ciclo, no retocado en esta tarea):** el modifier `onlyOwnerOrToken`
+(`"Only owner or token can call"`) pasa a **`onlyToken`** (`"Only token admin can call"`), de modo que
+`addModule`/`removeModule` solo aceptan al propio token; y `canTransfer` pasa a **fail-closed**: devuelve
+`false` si el token no está registrado (`_isTokenRegistered[token] == false`) o no tiene módulos (antes, cero
+módulos = permitir: fail-open H-22). La ruta de producción es
+`TokenCloneable.addComplianceModule(address(aggregator))` una vez + `addModuleThroughAggregator` /
+`removeModuleThroughAggregator` (requiere `COMPLIANCE_ROLE` y el aggregator ya dado de alta como módulo del
+token).
+
+### 14.1 Suites adaptadas (antes / después)
+
+Los 35 puntos de llamada directos a `aggregator.addModule`/`removeModule` de las 3 suites se reencaminan a la
+ruta de producción; **31** se convierten en llamadas vía token y **4** se conservan directas porque son
+**negativas a propósito** (`"Only token admin can call"`). No se borró, debilitó ni `vm.skip`ó ningún test.
+
+| Suite | Puntos directos | Adaptación |
+|---|---|---|
+| `test/ComplianceAggregator.t.sol` | 29 | 25 vía token; 4 negativos (no owner / dirección cero / modelo nuevo) |
+| `test/RF003_ERC165.t.sol` | 4 | 4 vía token (el aggregator conserva la validación ERC-165 y el token el rechazo de módulo cero) |
+| `test/TokenReentrancy.t.sol` | 2 | 2 vía token (el guard del aggregator se dispara igual) |
+
+Dos tests se renombran para reflejar la semántica nueva, conservando su montaje:
+
+- `test_NoModules_AllowsAll` → **`test_NoModules_FailClosed`** (antes acuñaba `MAX_BALANCE * 100`; ahora el
+  mint revierte `"Mint not compliant"` y el balance queda a 0).
+- `test_TokenAndOwnerCanBothManageModules` → **`test_TokenCanManageModules_OwnerCannot`** (el token sí añade
+  por su ruta; el owner global del aggregator revierte `"Only token admin can call"`).
+- `test_DynamicModuleAddition`: el estado inicial sin módulos ahora bloquea (fail-closed); se añade un módulo
+  holgado que permite acuñar `MAX_BALANCE * 2`, y después un módulo estricto que vuelve a bloquear, conservando
+  la aserción `balanceOf(user1) == MAX_BALANCE * 2`.
+- `test_RevertWhen_InvalidModuleAddress`: se enruta por el token (que conserva `"Invalid module address"`).
+- `test_RevertWhen_InvalidTokenAddress`: con `onlyToken`, `token == address(0)` se rechaza por autorización
+  antes de la comprobación de dirección; se asevera `"Only token admin can call"` y que no se registra nada
+  (ver D-043).
+
+### 14.2 Cobertura — antes / después (`src/`, D-017)
+
+Comando: `forge coverage --report summary`. Agregado sobre los **13 contratos de `src/` con código ejecutable**
+(las interfaces `ICompliance`/`IClaimTopicsRegistry` quedan excluidas por D-017):
+
+| Métrica | Antes (Ciclo 4/6) | Después (Ciclo 7) |
+|---|---|---|
+| Líneas | 96,44 % (623/646) | **97,01 %** (650/670) |
+| Sentencias | 96,27 % | **97,02 %** (619/638) |
+| Ramas | 84,62 % | **85,53 %** (195/228) |
+| Funciones | 97,22 % | **97,30 %** (144/148) |
+
+| Contrato | Líneas antes → después | Ramas antes → después |
+|---|---|---|
+| `TokenCloneable` | 99,44 % (176/177) → **99,44 %** (176/177) | 80,77 % (63/78) → **80,77 %** (63/78) |
+| `ComplianceAggregator` | 95,77 % (68/71) → **95,77 %** (68/71) | 100 % (18/18) → **88,89 %** (16/18) |
+
+**Ninguna métrica agregada de `src/` baja** y `TokenCloneable` (99,44 %) se mantiene. La única bajada es la
+**cobertura de ramas** de `ComplianceAggregator` (100 % → 88,89 %): son las dos ramas de los `require` de
+dirección cero que `onlyToken` vuelve inalcanzables desde llamadores externos (D-043). Sigue por encima del
+mínimo por contrato del 80 % (D-042).
+
+### 14.3 Gas — antes / después
+
+Medición de `.gas-snapshot` (el sobrecoste de los tests de gestión es **de setup**: ahora cada uno registra el
+aggregator como módulo del token con `addComplianceModule` + `addModuleThroughAggregator`, dos llamadas
+externas con `onlyRole` y validación ERC-165, en lugar de una llamada directa):
+
+| Test | Antes | Después | Δ |
+|---|---|---|---|
+| `ComplianceAggregatorTest:test_AddModule` | 221.262 | **309.504** | +88.242 |
+| `ComplianceAggregatorTest:test_AddMultipleModules` | 496.530 | **606.603** | +110.073 |
+| `ComplianceAggregatorTest:test_RemoveModule` | 413.805 | **518.090** | +104.285 |
+| `ComplianceAggregatorTest:test_TokenCanAddModuleThroughAggregator` | 358.662 | **356.511** | −2.151 |
+| `ComplianceAggregatorTest:test_MaxBalance_WithAggregator` | 628.813 | **641.720** | +12.907 |
+| `TokenReentrancyTest:test_RF002_reentrancy_aggregator_transferred_revierte` | 2.570.992 | **2.575.539** | +4.547 |
+
+El gas de **producción** de `addModule`/`removeModule` no cambia (mismo cuerpo; solo cambia el `require` de
+autorización) y el de `canTransfer` solo añade la lectura de `_isTokenRegistered`. `.gas-snapshot` regenerado
+(333 entradas, 8 nuevas de `RF012_AggregatorFailClosedTest`) y `forge snapshot --check --tolerance 5` OK.
+
+### 14.4 Verificaciones del ciclo
+
+| Verificación | Resultado |
+|---|---|
+| `forge build` | 0 errores |
+| `forge test` | **334/334**, 0 fallos, 0 suites revertidas en `setUp` |
+| Fail-closed sin módulos | `test_RF012_aggregator_sin_modulos_revierte_transfer` y `test_RF012_aggregator_failclosed_por_defecto` → `canTransfer == false`; transfer revierte `"Transfer not compliant"` |
+| Token no registrado | `test_RF012_aggregator_token_no_registrado_false` |
+| Ruta del token | `test_RF012_aggregator_admin_del_token_ok` (`isModuleActiveForToken == true`, `getModuleCount == 1`) |
+| Rechazo del owner global | `test_RF012_aggregator_owner_global_token_ajeno_revierte` → `"Only token admin can call"` |
+| Aislamiento cross-token | `test_RF012_aggregator_aislamiento_cross_token` (un token no altera módulos de otro) |
+| Registro automático (D-023) | `test_RF012_aggregator_registro_automatico_token` (`TokenRegistered` + `isTokenRegistered == true`) |
+| Todos los módulos deben aprobar | `test_RF012_aggregator_modulos_todos_true_ok` |
+| `forge coverage --report summary` | `src/` **97,01 %** líneas / **85,53 %** ramas (sin bajar el agregado) |
+| `forge fmt --check` | limpio |
+| `forge snapshot --check --tolerance 5` | OK (exit 0) |
+| `git status --short` | limpio tras el commit local |
+
+### 14.5 Decisiones y documentación
+
+- Decisiones nuevas: **D-043** (`require` de dirección cero inalcanzables con `onlyToken`; se conservan como
+  defensa en profundidad) y **D-044** (adaptación de las 3 suites a la ruta de producción, con los dos
+  renombrados de tests) en `requerimientos.md` (Bloque 6).
+- `documento_tecnico.md`: fila `| RF-012 |` de la tabla de estado → **IMPLEMENTADO (Ciclo 7)** con el modifier
+  `onlyToken`; fila `| H-22 (auditoría V1) |` de la tabla de hallazgos → **IMPLEMENTADO (Ciclo 7)**. El resto
+  del documento no se reescribe; quedan pendientes de una futura revisión editorial las citas de
+  `onlyOwnerOrToken` en §2.1 y en los anclajes de código (líneas 129 y 524), ajenas a las dos tablas pedidas.
+- ABI: **sin cambios de firma**. `ComplianceAggregator` no añade ni retira funciones/vistas/eventos; el cambio
+  es de comportamiento (autorización y fail-closed). `TokenCloneable` mantiene su ABI (la ruta
+  `addModuleThroughAggregator` ya existía).

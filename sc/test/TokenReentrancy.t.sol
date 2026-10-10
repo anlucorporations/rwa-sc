@@ -248,8 +248,10 @@ contract TokenReentrancyTest is Test {
         ComplianceAggregator aggregator = new ComplianceAggregator(admin);
         MaliciousComplianceModule aggregatorModule = new MaliciousComplianceModule();
 
-        aggregator.addModule(address(token), address(aggregatorModule));
+        // RF-012: el aggregator solo admite altas del propio token, asi que se da de alta como
+        // modulo de compliance del token y se anade el modulo por la ruta de produccion.
         token.addComplianceModule(address(aggregator));
+        token.addModuleThroughAggregator(address(aggregator), address(aggregatorModule));
 
         token.mint(user1, 100 ether);
 
@@ -265,8 +267,9 @@ contract TokenReentrancyTest is Test {
         ComplianceAggregator aggregator = new ComplianceAggregator(admin);
         MaliciousComplianceModule aggregatorModule = new MaliciousComplianceModule();
 
-        aggregator.addModule(address(token), address(aggregatorModule));
+        // RF-012: alta por la ruta de produccion (token -> aggregator).
         token.addComplianceModule(address(aggregator));
+        token.addModuleThroughAggregator(address(aggregator), address(aggregatorModule));
 
         aggregatorModule.arm(address(aggregator), abi.encodeCall(ComplianceAggregator.destroyed, (user1, 1 ether)));
 

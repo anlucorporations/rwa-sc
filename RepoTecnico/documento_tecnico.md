@@ -514,7 +514,7 @@ actor↔CU de `diagramas_casos_uso.md:461-497`; cualquier celda dudosa se ha reb
 | RF-009 | `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` | CU-11 | A IMPLEMENTAR |
 | RF-010 | `deploy-besu.sh`, `.gitignore` | CU-13 | A IMPLEMENTAR |
 | RF-011 | `TokenCloneable.isVerified` | CU-15 | **IMPLEMENTADO** (Ciclo 6) |
-| RF-012 | `ComplianceAggregator.canTransfer` + `onlyOwnerOrToken` (con D-023) | CU-16 | A IMPLEMENTAR |
+| RF-012 | `ComplianceAggregator.canTransfer` + `onlyToken` (con D-023) | CU-16 | **IMPLEMENTADO** (Ciclo 7) |
 | RF-013 | `IdentityCloneable` / struct `Claim` (con D-020) | CU-17 | A IMPLEMENTAR |
 
 Anclajes de código de este documento (verificados con grep/read): RF-001 `IdentityCloneable.sol:63-98`;
@@ -553,7 +553,7 @@ RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:2
 | H-01 (auditoría V1) | RF-001 | A IMPLEMENTAR |
 | H-05 (auditoría V1) | RF-011 | **IMPLEMENTADO** (Ciclo 6) |
 | H-08 (auditoría V1) | RF-013 | A IMPLEMENTAR |
-| H-22 (auditoría V1) | RF-012 | A IMPLEMENTAR |
+| H-22 (auditoría V1) | RF-012 | **IMPLEMENTADO** (Ciclo 7) |
 | H-02, H-03, H-04, H-06, H-07, H-09..H-21, H-23..H-34 | Cubiertos, parciales o al backlog | Ver `requerimientos.md:169-207` |
 
 > **Resumen de cobertura (fuente V1):** 10 hallazgos cubiertos, 3 parcialmente cubiertos y 21 en backlog

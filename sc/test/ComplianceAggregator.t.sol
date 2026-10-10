@@ -116,13 +116,32 @@ contract ComplianceAggregatorTest is Test {
         identityRegistry.registerIdentity(user, address(identity));
     }
 
+    // ============ Helpers de la ruta de produccion (RF-012 / CU-16) ============
+
+    /// @dev RF-012 (Ciclo 7): ruta de produccion para administrar modulos. El aggregator debe estar
+    /// dado de alta como modulo de compliance del token; despues es el propio token, a traves de
+    /// `COMPLIANCE_ROLE`, quien llama al aggregator, porque `addModule`/`removeModule` solo aceptan
+    /// al token (`onlyToken`).
+    function _registerAggregatorOnToken(TokenCloneable token) internal {
+        token.addComplianceModule(address(aggregator));
+    }
+
+    function _addModuleViaToken(TokenCloneable token, address module) internal {
+        token.addModuleThroughAggregator(address(aggregator), module);
+    }
+
+    function _removeModuleViaToken(TokenCloneable token, address module) internal {
+        token.removeModuleThroughAggregator(address(aggregator), module);
+    }
+
     // ============ Module Management Tests ============
 
     function test_AddModule() public {
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
 
-        aggregator.addModule(address(token1), address(maxBalanceModule));
+        _registerAggregatorOnToken(token1);
+        _addModuleViaToken(token1, address(maxBalanceModule));
         vm.stopPrank();
 
         assertEq(aggregator.getModuleCount(address(token1)), 1);
@@ -135,9 +154,10 @@ contract ComplianceAggregatorTest is Test {
         maxHoldersModule = new MaxHoldersCompliance(owner, MAX_HOLDERS);
         transferLockModule = new TransferLockCompliance(owner, LOCK_PERIOD);
 
-        aggregator.addModule(address(token1), address(maxBalanceModule));
-        aggregator.addModule(address(token1), address(maxHoldersModule));
-        aggregator.addModule(address(token1), address(transferLockModule));
+        _registerAggregatorOnToken(token1);
+        _addModuleViaToken(token1, address(maxBalanceModule));
+        _addModuleViaToken(token1, address(maxHoldersModule));
+        _addModuleViaToken(token1, address(transferLockModule));
         vm.stopPrank();
 
         assertEq(aggregator.getModuleCount(address(token1)), 3);
@@ -154,10 +174,11 @@ contract ComplianceAggregatorTest is Test {
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
         maxHoldersModule = new MaxHoldersCompliance(owner, MAX_HOLDERS);
 
-        aggregator.addModule(address(token1), address(maxBalanceModule));
-        aggregator.addModule(address(token1), address(maxHoldersModule));
+        _registerAggregatorOnToken(token1);
+        _addModuleViaToken(token1, address(maxBalanceModule));
+        _addModuleViaToken(token1, address(maxHoldersModule));
 
-        aggregator.removeModule(address(token1), address(maxBalanceModule));
+        _removeModuleViaToken(token1, address(maxBalanceModule));
         vm.stopPrank();
 
         assertEq(aggregator.getModuleCount(address(token1)), 1);
@@ -170,7 +191,8 @@ contract ComplianceAggregatorTest is Test {
 
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
-        aggregator.addModule(address(token1), address(maxBalanceModule));
+        _registerAggregatorOnToken(token1);
+        _addModuleViaToken(token1, address(maxBalanceModule));
         vm.stopPrank();
 
         assertTrue(aggregator.isTokenRegistered(address(token1)));
@@ -186,8 +208,10 @@ contract ComplianceAggregatorTest is Test {
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
         MaxBalanceCompliance maxBalanceModule2 = new MaxBalanceCompliance(owner, MAX_BALANCE * 2);
 
-        aggregator.addModule(address(token1), address(maxBalanceModule));
-        aggregator.addModule(address(token2), address(maxBalanceModule2));
+        _registerAggregatorOnToken(token1);
+        _registerAggregatorOnToken(token2);
+        _addModuleViaToken(token1, address(maxBalanceModule));
+        _addModuleViaToken(token2, address(maxBalanceModule2));
         vm.stopPrank();
 
         assertEq(aggregator.getTokenCount(), 2);
@@ -202,8 +226,8 @@ contract ComplianceAggregatorTest is Test {
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
         maxBalanceModule.setTokenContract(address(token1));
 
-        aggregator.addModule(address(token1), address(maxBalanceModule));
-        token1.addComplianceModule(address(aggregator));
+        _registerAggregatorOnToken(token1);
+        _addModuleViaToken(token1, address(maxBalanceModule));
 
         // Should allow minting under limit
         token1.mint(user1, 500 ether);
@@ -221,8 +245,8 @@ contract ComplianceAggregatorTest is Test {
         maxHoldersModule.setTokenContract(address(token1));
         maxHoldersModule.addAuthorizedCaller(address(aggregator)); // Authorize aggregator
 
-        aggregator.addModule(address(token1), address(maxHoldersModule));
-        token1.addComplianceModule(address(aggregator));
+        _registerAggregatorOnToken(token1);
+        _addModuleViaToken(token1, address(maxHoldersModule));
 
         // Add 2 holders
         token1.mint(user1, 100 ether);
@@ -240,8 +264,8 @@ contract ComplianceAggregatorTest is Test {
         transferLockModule.setTokenContract(address(token1));
         transferLockModule.addAuthorizedCaller(address(aggregator)); // Authorize aggregator
 
-        aggregator.addModule(address(token1), address(transferLockModule));
-        token1.addComplianceModule(address(aggregator));
+        _registerAggregatorOnToken(token1);
+        _addModuleViaToken(token1, address(transferLockModule));
 
         token1.mint(user1, 100 ether);
         vm.stopPrank();
@@ -272,11 +296,10 @@ contract ComplianceAggregatorTest is Test {
         transferLockModule.setTokenContract(address(token1));
         transferLockModule.addAuthorizedCaller(address(aggregator)); // Authorize aggregator
 
-        aggregator.addModule(address(token1), address(maxBalanceModule));
-        aggregator.addModule(address(token1), address(maxHoldersModule));
-        aggregator.addModule(address(token1), address(transferLockModule));
-
-        token1.addComplianceModule(address(aggregator));
+        _registerAggregatorOnToken(token1);
+        _addModuleViaToken(token1, address(maxBalanceModule));
+        _addModuleViaToken(token1, address(maxHoldersModule));
+        _addModuleViaToken(token1, address(transferLockModule));
 
         // Should enforce max balance
         vm.expectRevert("Mint not compliant");
@@ -293,15 +316,15 @@ contract ComplianceAggregatorTest is Test {
         // Token1: Only max balance
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
         maxBalanceModule.setTokenContract(address(token1));
-        aggregator.addModule(address(token1), address(maxBalanceModule));
-        token1.addComplianceModule(address(aggregator));
+        _registerAggregatorOnToken(token1);
+        _addModuleViaToken(token1, address(maxBalanceModule));
 
         // Token2: Only max holders
         MaxHoldersCompliance maxHoldersModule2 = new MaxHoldersCompliance(owner, 2);
         maxHoldersModule2.setTokenContract(address(token2));
         maxHoldersModule2.addAuthorizedCaller(address(aggregator)); // Authorize aggregator
-        aggregator.addModule(address(token2), address(maxHoldersModule2));
-        token2.addComplianceModule(address(aggregator));
+        _registerAggregatorOnToken(token2);
+        _addModuleViaToken(token2, address(maxHoldersModule2));
 
         // Token1 should enforce max balance but not max holders
         token1.mint(user1, MAX_BALANCE);
@@ -317,31 +340,42 @@ contract ComplianceAggregatorTest is Test {
         vm.stopPrank();
     }
 
-    function test_NoModules_AllowsAll() public {
-        vm.prank(owner);
+    /// @dev RF-012 (CU-16, fail-closed): con el aggregator dado de alta pero **sin modulos** ya no se
+    /// permite todo; el mint revierte ("Mint not compliant"). Antes este caso era `test_NoModules_AllowsAll`
+    /// (fail-open H-22). Se conserva el montaje y la asercion se invierte a la nueva semantica.
+    function test_NoModules_FailClosed() public {
+        vm.startPrank(owner);
         token1.addComplianceModule(address(aggregator));
 
-        // Without any modules, should allow everything
-        vm.prank(owner);
+        // Without any modules, the aggregator is fail-closed: nothing is allowed.
+        vm.expectRevert("Mint not compliant");
         token1.mint(user1, MAX_BALANCE * 100);
+        vm.stopPrank();
 
-        assertEq(token1.balanceOf(user1), MAX_BALANCE * 100);
+        assertEq(token1.balanceOf(user1), 0, "fail-closed: sin modulos no se acuna nada");
     }
 
     function test_DynamicModuleAddition() public {
         vm.startPrank(owner);
         token1.addComplianceModule(address(aggregator));
 
-        // Initially no modules, should allow large mint
+        // RF-012: inicialmente no hay modulos → fail-closed, el mint grande se bloquea.
+        vm.expectRevert("Mint not compliant");
+        token1.mint(user1, MAX_BALANCE * 2);
+
+        // Add a permissive max balance module: the large mint now succeeds.
+        maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE * 2);
+        maxBalanceModule.setTokenContract(address(token1));
+        _addModuleViaToken(token1, address(maxBalanceModule));
+
         token1.mint(user1, MAX_BALANCE * 2);
         assertEq(token1.balanceOf(user1), MAX_BALANCE * 2);
 
-        // Add max balance module
-        maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
-        maxBalanceModule.setTokenContract(address(token1));
-        aggregator.addModule(address(token1), address(maxBalanceModule));
+        // Add a stricter module: large mints are blocked again.
+        MaxBalanceCompliance strictModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
+        strictModule.setTokenContract(address(token1));
+        _addModuleViaToken(token1, address(strictModule));
 
-        // Now should block large mints
         vm.expectRevert("Mint not compliant");
         token1.mint(user2, MAX_BALANCE * 2);
         vm.stopPrank();
@@ -349,15 +383,16 @@ contract ComplianceAggregatorTest is Test {
 
     // ============ Error Cases ============
 
+    /// @dev RF-012: la autorizacion corre antes que el resto; solo el propio token puede entrar.
     function test_RevertWhen_AddModuleNotOwner() public {
         vm.prank(user1);
-        vm.expectRevert();
+        vm.expectRevert("Only token admin can call");
         aggregator.addModule(address(token1), address(maxBalanceModule));
     }
 
     function test_RevertWhen_RemoveModuleNotOwner() public {
         vm.prank(user1);
-        vm.expectRevert();
+        vm.expectRevert("Only token admin can call");
         aggregator.removeModule(address(token1), address(maxBalanceModule));
     }
 
@@ -365,10 +400,11 @@ contract ComplianceAggregatorTest is Test {
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
 
-        aggregator.addModule(address(token1), address(maxBalanceModule));
+        _registerAggregatorOnToken(token1);
+        _addModuleViaToken(token1, address(maxBalanceModule));
 
         vm.expectRevert("Module already added");
-        aggregator.addModule(address(token1), address(maxBalanceModule));
+        _addModuleViaToken(token1, address(maxBalanceModule));
         vm.stopPrank();
     }
 
@@ -377,23 +413,34 @@ contract ComplianceAggregatorTest is Test {
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
 
         vm.expectRevert("Module not active");
-        aggregator.removeModule(address(token1), address(maxBalanceModule));
+        _removeModuleViaToken(token1, address(maxBalanceModule));
         vm.stopPrank();
     }
 
+    /// @dev RF-012: `onlyToken` se evalua antes que `require(token != address(0))`, asi que una llamada
+    /// externa con `token == address(0)` se rechaza por autorizacion y nunca registra nada. La
+    /// comprobacion de direccion cero del aggregator queda inalcanzable desde llamadores externos
+    /// (documentado como D-043).
     function test_RevertWhen_InvalidTokenAddress() public {
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
 
-        vm.expectRevert("Invalid token address");
+        vm.expectRevert("Only token admin can call");
         aggregator.addModule(address(0), address(maxBalanceModule));
         vm.stopPrank();
+
+        assertEq(aggregator.getModuleCount(address(0)), 0);
+        assertFalse(aggregator.isTokenRegistered(address(0)));
     }
 
+    /// @dev RF-012: la ruta de produccion conserva el rechazo de modulo cero en el propio token.
     function test_RevertWhen_InvalidModuleAddress() public {
-        vm.prank(owner);
+        vm.startPrank(owner);
+        _registerAggregatorOnToken(token1);
+
         vm.expectRevert("Invalid module address");
-        aggregator.addModule(address(token1), address(0));
+        token1.addModuleThroughAggregator(address(aggregator), address(0));
+        vm.stopPrank();
     }
 
     function test_GetModuleAt() public {
@@ -401,8 +448,9 @@ contract ComplianceAggregatorTest is Test {
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
         maxHoldersModule = new MaxHoldersCompliance(owner, MAX_HOLDERS);
 
-        aggregator.addModule(address(token1), address(maxBalanceModule));
-        aggregator.addModule(address(token1), address(maxHoldersModule));
+        _registerAggregatorOnToken(token1);
+        _addModuleViaToken(token1, address(maxBalanceModule));
+        _addModuleViaToken(token1, address(maxHoldersModule));
         vm.stopPrank();
 
         assertEq(aggregator.getModuleAt(address(token1), 0), address(maxBalanceModule));
@@ -494,7 +542,11 @@ contract ComplianceAggregatorTest is Test {
         vm.stopPrank();
     }
 
-    function test_TokenAndOwnerCanBothManageModules() public {
+    /// @dev RF-012 (CU-16): modelo nuevo de administracion. El token (via `COMPLIANCE_ROLE`) si puede
+    /// administrar sus modulos; el owner global del aggregator **no**, porque no es el token y
+    /// `onlyToken` lo rechaza con "Only token admin can call". Sustituye a
+    /// `test_TokenAndOwnerCanBothManageModules`, conservando el montaje de los dos modulos.
+    function test_TokenCanManageModules_OwnerCannot() public {
         vm.startPrank(owner);
         token1.addComplianceModule(address(aggregator));
 
@@ -504,17 +556,19 @@ contract ComplianceAggregatorTest is Test {
         maxHoldersModule = new MaxHoldersCompliance(owner, MAX_HOLDERS);
         maxHoldersModule.setTokenContract(address(token1));
         maxHoldersModule.addAuthorizedCaller(address(aggregator));
+
+        // Token admin can add module through token
+        token1.addModuleThroughAggregator(address(aggregator), address(maxBalanceModule));
+        assertEq(aggregator.getModuleCount(address(token1)), 1);
+
+        // Owner global del aggregator: la ruta directa ya no esta permitida.
+        vm.expectRevert("Only token admin can call");
+        aggregator.addModule(address(token1), address(maxHoldersModule));
         vm.stopPrank();
 
-        // Owner can add module directly to aggregator
-        vm.prank(owner);
-        aggregator.addModule(address(token1), address(maxBalanceModule));
-
-        // Token admin can also add module through token
-        vm.prank(owner);
-        token1.addModuleThroughAggregator(address(aggregator), address(maxHoldersModule));
-
-        // Both modules should be active
-        assertEq(aggregator.getModuleCount(address(token1)), 2);
+        // Solo el modulo anadido por el token queda activo.
+        assertEq(aggregator.getModuleCount(address(token1)), 1);
+        assertTrue(aggregator.isModuleActiveForToken(address(token1), address(maxBalanceModule)));
+        assertFalse(aggregator.isModuleActiveForToken(address(token1), address(maxHoldersModule)));
     }
 }

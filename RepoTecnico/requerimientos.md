@@ -267,6 +267,21 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   PII/GDPR (H-11/R-3) se abordan en el ciclo del área web.
 - **D-042 (Ciclo 11 · gate de cobertura):** la CI exige el **agregado de `src/` ≥ 80 %** (D-017) **y un mínimo
   por contrato ≥ 80 %**, para que ningún contrato concreto quede sin cubrir tras un promedio alto.
+- **D-043 (Ciclo 7 · `require` de dirección cero inalcanzables con `onlyToken`):** al restringir
+  `addModule`/`removeModule` a `msg.sender == token`, las comprobaciones `token != address(0)` (en ambas) y
+  `module != address(0)` del **aggregator** dejan de ser alcanzables desde llamadores externos: nadie puede
+  ser `address(0)` y el token ya pre-valida el módulo en `addModuleThroughAggregator`. Se **conservan** en
+  `src/` (no se altera la semántica del ciclo) como defensa en profundidad y se documentan aquí; la cobertura
+  de **ramas** de `ComplianceAggregator` baja de 100 % (18/18) a **88,89 % (16/18)**, muy por encima del mínimo
+  por contrato del 80 % (D-042) y sin afectar a las líneas.
+- **D-044 (Ciclo 7 · adaptación de suites a la ruta de producción):** las 3 suites con llamadas directas
+  (`ComplianceAggregator.t.sol`, `RF003_ERC165.t.sol`, `TokenReentrancy.t.sol`) se adaptan a la ruta
+  **token → aggregator** (`token.addComplianceModule(aggregator)` una vez y, después,
+  `addModuleThroughAggregator`/`removeModuleThroughAggregator`), conservando intención y aserciones. Las 4
+  llamadas directas que quedan en esas suites (y 1 en la nueva) son **negativas a propósito** para comprobar
+  `"Only token admin can call"`. Dos tests se renombran para reflejar la semántica nueva —`test_NoModules_AllowsAll`
+  → `test_NoModules_FailClosed` (aserción invertida a fail-closed) y `test_TokenAndOwnerCanBothManageModules` →
+  `test_TokenCanManageModules_OwnerCannot`— sin borrar ni debilitar ningún caso.
 
 ## 7. Mapa RF → casos de uso (Fase 2)
 

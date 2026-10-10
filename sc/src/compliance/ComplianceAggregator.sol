@@ -79,20 +79,22 @@ contract ComplianceAggregator is ICompliance, ERC165, Ownable, ReentrancyGuard {
     }
 
     /**
-     * @dev Modifier to allow only owner or the token itself
+     * @dev Modifier (RF-012 / CU-16): solo el propio token puede administrar sus modulos. El owner
+     * global del aggregator ya **no** puede tocar los modulos de un token ajeno; la autorizacion
+     * efectiva la ejerce el sistema de roles del token (`COMPLIANCE_ROLE` en `addModuleThroughAggregator`).
      */
-    modifier onlyOwnerOrToken(address token) {
-        require(msg.sender == owner() || msg.sender == token, "Only owner or token can call");
+    modifier onlyToken(address token) {
+        require(msg.sender == token, "Only token admin can call");
         _;
     }
 
     /**
      * @dev Add a compliance module for a token
-     * Can be called by owner (for any token) or by the token itself
+     * Can only be called by the token itself (RF-012 / CU-16)
      * @param token Token address
      * @param module Compliance module address
      */
-    function addModule(address token, address module) external nonReentrant onlyOwnerOrToken(token) {
+    function addModule(address token, address module) external nonReentrant onlyToken(token) {
         require(token != address(0), "Invalid token address");
         require(module != address(0), "Invalid module address");
         require(_implementsCompliance(module), "Module does not implement ICompliance");
@@ -115,11 +117,11 @@ contract ComplianceAggregator is ICompliance, ERC165, Ownable, ReentrancyGuard {
 
     /**
      * @dev Remove a compliance module from a token
-     * Can be called by owner (for any token) or by the token itself
+     * Can only be called by the token itself (RF-012 / CU-16)
      * @param token Token address
      * @param module Compliance module address
      */
-    function removeModule(address token, address module) external nonReentrant onlyOwnerOrToken(token) {
+    function removeModule(address token, address module) external nonReentrant onlyToken(token) {
         require(isModuleActive[token][module], "Module not active");
 
         uint256 index = moduleIndex[token][module];
@@ -150,9 +152,10 @@ contract ComplianceAggregator is ICompliance, ERC165, Ownable, ReentrancyGuard {
     function canTransfer(address from, address to, uint256 amount) external view override returns (bool) {
         address token = msg.sender;
 
-        // If no modules configured, allow transfer
-        if (tokenModules[token].length == 0) {
-            return true;
+        // RF-012 (Ciclo 7): fail-closed. Un token no registrado o sin modulos activos NO puede
+        // transferir (antes se permitia todo: fail-open H-22 de la auditoria V1).
+        if (!_isTokenRegistered[token] || tokenModules[token].length == 0) {
+            return false;
         }
 
         // Check all modules - all must return true

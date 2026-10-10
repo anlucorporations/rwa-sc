@@ -40,7 +40,8 @@ contract WrongInterfaceContract {
  * - `supportsInterface` de los 3 módulos y del aggregator (ICompliance + IERC165).
  * - `TokenCloneable.addComplianceModule`: EOA, contrato sin interfaz, contrato con ERC-165 ajeno y
  *   `address(0)` revierten; módulo conforme se da de alta; duplicado revierte.
- * - `ComplianceAggregator.addModule`: mismos rechazos y alta conforme.
+ * - `ComplianceAggregator.addModule` a traves de la ruta de produccion token -> aggregator (RF-012 /
+ *   CU-16): el aggregator valida ERC-165 y el token conserva el rechazo de modulo cero.
  * - `addModuleThroughAggregator` sigue funcionando (CU-05).
  */
 contract RF003_ERC165Test is Test {
@@ -149,21 +150,24 @@ contract RF003_ERC165Test is Test {
     }
 
     // ---------------------------------------------------------------------
-    // ComplianceAggregator.addModule
+    // ComplianceAggregator.addModule (ruta de produccion token -> aggregator, RF-012)
     // ---------------------------------------------------------------------
 
     function test_RF003_aggregator_addModule_valida_erc165_ok() public {
         MaxHoldersCompliance module = new MaxHoldersCompliance(admin, 10);
 
-        aggregator.addModule(address(token), address(module));
+        token.addComplianceModule(address(aggregator));
+        token.addModuleThroughAggregator(address(aggregator), address(module));
 
         assertEq(aggregator.getModuleCount(address(token)), 1);
         assertTrue(aggregator.isModuleActiveForToken(address(token), address(module)));
     }
 
     function test_RF003_aggregator_addModule_revierte_eoa() public {
+        token.addComplianceModule(address(aggregator));
+
         vm.expectRevert("Module does not implement ICompliance");
-        aggregator.addModule(address(token), makeAddr("eoaModule"));
+        token.addModuleThroughAggregator(address(aggregator), makeAddr("eoaModule"));
 
         assertEq(aggregator.getModuleCount(address(token)), 0);
     }
@@ -171,15 +175,19 @@ contract RF003_ERC165Test is Test {
     function test_RF003_aggregator_addModule_revierte_contrato_sin_interfaz() public {
         NoInterfaceContract bad = new NoInterfaceContract();
 
+        token.addComplianceModule(address(aggregator));
+
         vm.expectRevert("Module does not implement ICompliance");
-        aggregator.addModule(address(token), address(bad));
+        token.addModuleThroughAggregator(address(aggregator), address(bad));
 
         assertEq(aggregator.getModuleCount(address(token)), 0);
     }
 
     function test_RF003_aggregator_addModule_zero_revierte() public {
+        token.addComplianceModule(address(aggregator));
+
         vm.expectRevert("Invalid module address");
-        aggregator.addModule(address(token), address(0));
+        token.addModuleThroughAggregator(address(aggregator), address(0));
     }
 
     // ---------------------------------------------------------------------
