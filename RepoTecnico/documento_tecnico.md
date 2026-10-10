@@ -126,7 +126,7 @@ Todos los contratos fijan el pragma `^0.8.20` (RT-007). La columna **Evidencia**
 | Registries | `TrustedIssuersRegistry` | Emisores confiables y topics autorizados por emisor; `hasClaimTopic` | `Ownable`; array con *swap-and-pop* | `rwa-sc/sc/src/TrustedIssuersRegistry.sol:11` |
 | Registries | `IClaimTopicsRegistry` | Interfaz de topics requeridos consumida por el token | `interface` | `rwa-sc/sc/src/IClaimTopicsRegistry.sol:9` |
 | Compliance | `ICompliance` | Interfaz de módulos: `canTransfer`, `transferred`, `created`, `destroyed` | `interface is IERC165` (**RF-003, Ciclo 4**) | `rwa-sc/sc/src/ICompliance.sol:16` |
-| Compliance | `ComplianceAggregator` | Agrega módulos por token y propaga `canTransfer`/notificaciones | `Ownable` + `ICompliance` + `ERC165`; modifier `onlyOwnerOrToken` | `rwa-sc/sc/src/compliance/ComplianceAggregator.sol:36` |
+| Compliance | `ComplianceAggregator` | Agrega módulos por token y propaga `canTransfer`/notificaciones | `Ownable` + `ICompliance` + `ERC165`; modifier `onlyToken` | `rwa-sc/sc/src/compliance/ComplianceAggregator.sol:36` |
 | Compliance | `MaxBalanceCompliance` | Limita el saldo máximo por cuenta | `Ownable` + `ICompliance` + `ERC165` | `rwa-sc/sc/src/compliance/MaxBalanceCompliance.sol:14` |
 | Compliance | `MaxHoldersCompliance` | Limita el número máximo de tenedores | `Ownable` + `ICompliance` + `ERC165` | `rwa-sc/sc/src/compliance/MaxHoldersCompliance.sol:14` |
 | Compliance | `TransferLockCompliance` | Bloqueo temporal tras la recepción | `Ownable` + `ICompliance` + `ERC165` | `rwa-sc/sc/src/compliance/TransferLockCompliance.sol:14` |
@@ -220,7 +220,7 @@ Estos son los puntos que la arquitectura objetivo debe corregir, con evidencia d
   `:212`/`:218` y consultado en `:317`/`:324`), sin `ReentrancyGuard` (H-03/H-18, auditoría V1).
 - **`isVerified` es fail-open** sin `claimTopicsRegistry` (`src/TokenCloneable.sol:245-247`; H-05).
 - **El aggregator es fail-open y de owner global:** `canTransfer` devuelve `true` con cero módulos
-  (`ComplianceAggregator.sol:115-135`) y `onlyOwnerOrToken` (`:50-53`) autoriza al owner global sobre
+  (`ComplianceAggregator.sol:115-135`) y `onlyToken` (`:50-53`) autoriza al owner global sobre
   cualquier token (H-22).
 - **Los claims no tienen vigencia ni revocación por el issuer:** el struct `Claim` es
   `{topic, scheme, issuer, signature, data, uri}` (`IdentityCloneable.sol:21-28`) y `removeClaim` es
@@ -254,7 +254,7 @@ Estos son los puntos que la arquitectura objetivo debe corregir, con evidencia d
 | Componente | Cambio objetivo | RF | Hallazgo |
 |---|---|---|---|
 | `IdentityCloneable` / struct `Claim` | **EIP-712 tipado** en `addClaim` (D-020): dominio `EIP712Domain = {name: "RWA-Identity", version: "1", chainId, verifyingContract: address(this)}` —en clones EIP-1167 `verifyingContract` es la **dirección del clon**, no la implementación— y `CLAIM_TYPEHASH = keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt)")`; `scheme == 1`, `signature.length == 65`, `ecrecover`, `recovered == issuer`, `hasClaimTopic(issuer, topic)` obligatorio; rechazo de firma vacía y sobrescritura solo con firma válida (D-018). La nueva firma de `addClaim` incorpora `expiresAt` y debe propagarse a `createIdentityWithClaim` y al CHANGELOG de ABIs | RF-001 | H-01 (auditoría V1); HB-01 (base) |
-| `IdentityCloneable` / struct `Claim` | **Ciclo de vida del claim:** `expiresAt` + `revoked`; **`expiresAt` forma parte del digest firmado (D-020)** ⇒ renovar la vigencia exige nueva firma del `issuer`; `revokeClaim` firmado por el propio `claim.issuer`; `isVerified` deja de aceptar claims vencidos o revocados; sobrescritura por D-018 | RF-013 | H-08 (auditoría V1) |
+| `IdentityCloneable` / struct `Claim` | **Implementado (Ciclo 8) — Ciclo de vida del claim:** struct `Claim` con `expiresAt` + `bool revoked` (append-only); **`expiresAt` forma parte del digest firmado (D-020)** ⇒ renovar la vigencia exige nueva firma del `issuer`; `revokeClaim(topic, issuer)` sin `onlyOwner`, firmado por el propio `claim.issuer` (conserva `data`/`uri`/`signature` y emite `ClaimRevoked`); vista `hasValidClaim(topic, issuer)` que aplica D-038 (`expiresAt == 0` = sin caducidad); `TokenCloneable.isVerified` deja de aceptar claims vencidos o revocados; sobrescritura/reactivación por D-018 | RF-013 | H-08 (auditoría V1) |
 | `TokenCloneable` — `isVerified` | **Fail-closed:** si `claimTopicsRegistry == address(0)` o `getClaimTopics()` está vacío, devuelve `false` (antes `true`; **implementado en el Ciclo 6**); se exige además claim vigente y no revocado | RF-011 | H-05 (auditoría V1) |
 | `TokenCloneable` — bypass/reentrancia | Se **elimina** `bypassCompliance` del storage; el bypass del agente queda acotado a `forcedTransfer` hacia `authorizedDestinations` con tope `maxForcedPerTx`; `ReentrancyGuardUpgradeable` en `transfer`/`forcedTransfer`/`mint`/`burn` y en las entradas del aggregator | RF-002 | H-03, H-18 (auditoría V1) |
 | `TokenCloneable` — `burn`/`forcedTransfer` | **Whitelist de destinos + límites:** `authorizedDestinations[address]`, `maxBurnPerTx`, `maxForcedPerTx`; administración solo por admin/compliance; guard `from != address(0)`; **tope de suministro** `maxSupply` administrable con evento, que no puede bajarse por debajo de lo ya emitido ni subirse sin evento (D-022) | RF-004 | **HB-02** (análisis base); H-06, H-27 (auditoría V1) |
@@ -442,9 +442,9 @@ Tabla tomada de `diccionario_datos.md` §5 (`:247-281`) y `diagrama_er.md:172-20
 | RF-004 | `maxSupply` | `uint256` | **Tope de suministro administrable con evento (D-022)**; no puede bajarse por debajo de `totalSupply()` ni subirse sin evento |
 | RF-011 | *(sin campos)* | — | Cambio de semántica: `isVerified` pasa a `false` sin topics |
 | RF-012 | *(sin `registerToken`)* | — | **Registro automático del token al añadir su primer módulo (D-023)**; sin registro o sin módulos ⇒ denegar |
-| RF-013 | `expiresAt` | `uint256` en `Claim` | Marca temporal de caducidad **firmada por el issuer (D-020)**; renovarla exige nueva firma |
-| RF-013 | `revoked` | `bool` en `Claim` | Estado de revocación por el issuer autorizado |
-| RF-013 | índice de revocación | p. ej. `mapping(uint256 => mapping(address => bool))` | Consulta O(1) desde `isVerified` |
+| RF-013 | `expiresAt` | `uint256` en `Claim` | **Implementado (Ciclo 8):** marca temporal de caducidad **firmada por el issuer (D-020)**; `0` = sin caducidad (D-038); renovarla exige nueva firma |
+| RF-013 | `revoked` | `bool` en `Claim` (al final) | **Implementado (Ciclo 8):** estado de revocación por el issuer autorizado; la renovación con firma válida lo devuelve a `false` |
+| RF-013 | consulta de validez | `hasValidClaim(uint256,address) view` | **Implementado (Ciclo 8):** consulta O(1) desde `isVerified` (vía `staticcall`); un fallo se trata como no válido |
 
 > **Regla de sincronización (H-14/H-13):** cada cambio de datos debe actualizar a la vez
 > `diccionario_datos.md`, `diagrama_er.md` y `base_datos.sql` con los mismos nombres
@@ -515,13 +515,13 @@ actor↔CU de `diagramas_casos_uso.md:461-497`; cualquier celda dudosa se ha reb
 | RF-010 | `deploy-besu.sh`, `.gitignore` | CU-13 | A IMPLEMENTAR |
 | RF-011 | `TokenCloneable.isVerified` | CU-15 | **IMPLEMENTADO** (Ciclo 6) |
 | RF-012 | `ComplianceAggregator.canTransfer` + `onlyToken` (con D-023) | CU-16 | **IMPLEMENTADO** (Ciclo 7) |
-| RF-013 | `IdentityCloneable` / struct `Claim` (con D-020) | CU-17 | A IMPLEMENTAR |
+| RF-013 | `IdentityCloneable` / struct `Claim` (con D-020 y D-045..D-047) | CU-17 | **IMPLEMENTADO** (Ciclo 8) |
 
 Anclajes de código de este documento (verificados con grep/read): RF-001 `IdentityCloneable.sol:63-98`;
 RF-002 `TokenCloneable.sol:47,212,218`; RF-003 `ICompliance.sol:16`; RF-004 `TokenCloneable.sol:192-201`;
 RF-005 `metricas_ejecucion.md:39-49`; RF-006 `requerimientos.md:59`; RF-007/RF-008 `requerimientos.md:60-61`;
 RF-009 `entornos_globales.md:101`; RF-010 `deploy-besu.sh:14,37`; RF-011 `TokenCloneable.sol:245-247`;
-RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:21-28,105-123`.
+RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:45,79,219,278` (`revoked`, `ClaimRevoked`, `revokeClaim`, `hasValidClaim`), `TokenCloneable.sol:343,398` y `IdentityRegistry.sol:95` (HB-14).
 
 **No funcionales (RNF-001..RNF-006)** — resumen; fuente: `casos_uso.md:1075-1084`:
 
@@ -552,7 +552,7 @@ RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:2
 | HB-12 | RF-010 | Cubierto por el plan |
 | H-01 (auditoría V1) | RF-001 | A IMPLEMENTAR |
 | H-05 (auditoría V1) | RF-011 | **IMPLEMENTADO** (Ciclo 6) |
-| H-08 (auditoría V1) | RF-013 | A IMPLEMENTAR |
+| H-08 (auditoría V1) | RF-013 | **IMPLEMENTADO** (Ciclo 8) |
 | H-22 (auditoría V1) | RF-012 | **IMPLEMENTADO** (Ciclo 7) |
 | H-02, H-03, H-04, H-06, H-07, H-09..H-21, H-23..H-34 | Cubiertos, parciales o al backlog | Ver `requerimientos.md:169-207` |
 

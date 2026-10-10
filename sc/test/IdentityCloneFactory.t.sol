@@ -131,7 +131,8 @@ contract IdentityCloneFactoryTest is Test {
         _assertClaimStored(IdentityCloneable(identity), 1, 1, issuer, signature, data, uri, EXPIRES_AT);
     }
 
-    /// @dev Comprueba los 7 campos de un claim almacenado (RF-001).
+    /// @dev Comprueba los 8 campos de un claim almacenado (RF-001 + RF-013). Se lee `getClaim`
+    /// en bloques para no agotar la pila con la tupla de 8 campos.
     function _assertClaimStored(
         IdentityCloneable identityContract,
         uint256 expectedTopic,
@@ -144,23 +145,26 @@ contract IdentityCloneFactoryTest is Test {
     ) internal view {
         assertTrue(identityContract.claimExists(expectedTopic, expectedIssuer));
 
-        (
-            uint256 returnedTopic,
-            uint256 returnedScheme,
-            address returnedIssuer,
-            bytes memory returnedSignature,
-            bytes memory returnedData,
-            string memory returnedUri,
-            uint256 returnedExpiresAt
-        ) = identityContract.getClaim(expectedTopic, expectedIssuer);
-
-        assertEq(returnedTopic, expectedTopic);
-        assertEq(returnedScheme, expectedScheme);
-        assertEq(returnedIssuer, expectedIssuer);
-        assertEq(returnedSignature, expectedSignature);
-        assertEq(returnedData, expectedData);
-        assertEq(returnedUri, expectedUri);
-        assertEq(returnedExpiresAt, expectedExpiresAt);
+        {
+            (uint256 returnedTopic, uint256 returnedScheme, address returnedIssuer,,,,,) =
+                identityContract.getClaim(expectedTopic, expectedIssuer);
+            assertEq(returnedTopic, expectedTopic);
+            assertEq(returnedScheme, expectedScheme);
+            assertEq(returnedIssuer, expectedIssuer);
+        }
+        {
+            (,,, bytes memory returnedSignature, bytes memory returnedData, string memory returnedUri,,) =
+                identityContract.getClaim(expectedTopic, expectedIssuer);
+            assertEq(returnedSignature, expectedSignature);
+            assertEq(returnedData, expectedData);
+            assertEq(returnedUri, expectedUri);
+        }
+        {
+            (,,,,,, uint256 returnedExpiresAt, bool returnedRevoked) =
+                identityContract.getClaim(expectedTopic, expectedIssuer);
+            assertEq(returnedExpiresAt, expectedExpiresAt);
+            assertFalse(returnedRevoked, "un claim recien creado no esta revocado");
+        }
     }
 
     function testGetIdentityAtRevertsOnInvalidIndex() public {

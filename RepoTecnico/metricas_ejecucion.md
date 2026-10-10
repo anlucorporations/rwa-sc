@@ -779,3 +779,104 @@ autorización) y el de `canTransfer` solo añade la lectura de `_isTokenRegister
 - ABI: **sin cambios de firma**. `ComplianceAggregator` no añade ni retira funciones/vistas/eventos; el cambio
   es de comportamiento (autorización y fail-closed). `TokenCloneable` mantiene su ABI (la ruta
   `addModuleThroughAggregator` ya existía).
+
+## 15. Ciclo 8 — RF-013: vigencia y revocación de claims por el issuer (+ HB-14)
+
+| Métrica | Antes (Ciclo 7) | Después (Ciclo 8) |
+|---|---|---|
+| Tests | 334 | **348** (+14) |
+| Fallos | 0 | **0** |
+| Suites | 17 | **18** (`+ test/RF013_ClaimLifecycle.t.sol`) |
+| Suites revertidas en `setUp` | 0 | **0** |
+| Tests `test_RF013_*` nuevos | 0 | **11** (6 Gherkin + 3 EARS + 2 de apoyo) |
+| Tests HB-14 nuevos | 0 | **3** (1 éxito + 2 revert) |
+| Entradas de `.gas-snapshot` | 333 | **347** (+14) |
+| Gate de gas (`--check --tolerance 5`) | OK | **OK** (exit 0, 0 diffs) |
+
+**Cambio en `src/`:**
+
+- `IdentityCloneable`: el struct `Claim` gana `bool revoked` (al final); `addClaim` resetea `revoked = false`
+  al renovar con firma válida; nueva `revokeClaim(uint256,address)` (sin `onlyOwner`, exige
+  `msg.sender == _issuer` y que el claim exista) que marca `revoked = true` y emite
+  `ClaimRevoked(topic, issuer)` **sin borrar** `data`/`uri`/`signature`; nueva vista
+  `hasValidClaim(uint256,address)`; `getClaim` pasa a devolver **8** campos (añade `revoked`).
+- `TokenCloneable.isVerified`: además de `trustedIssuersRegistry.hasClaimTopic(...)`, exige
+  `hasValidClaim(topic, issuer)` en el clon de identidad por `staticcall`; un fallo de la llamada (o
+  retorno mal formado) se trata como **no válido** (fail-closed, RF-011).
+- `IdentityRegistry.removeIdentity` (**HB-14**): comprueba explícitamente que el wallet figure en
+  `registeredAddresses` y revierte `"Wallet not in registered addresses"` si no; conserva *swap-and-pop*
+  y `IdentityRemoved`.
+
+**Semántica de vigencia (D-038 confirmada):** `expiresAt == 0` = **sin caducidad** (perpetuo);
+con `expiresAt > 0`, el claim es válido mientras `block.timestamp < expiresAt` (en el límite exacto ya
+vence). `hasValidClaim` es la única fuente de verdad y la que consulta `isVerified`.
+
+### 15.1 Cobertura — antes / después (`src/`, D-017)
+
+Comando: `forge coverage --report summary`. Agregado sobre los **13 contratos de `src/` con código
+ejecutable** (interfaces `ICompliance`/`IClaimTopicsRegistry` excluidas):
+
+| Métrica | Antes (Ciclo 7) | Después (Ciclo 8) |
+|---|---|---|
+| Líneas | 97,01 % (650/670) | **97,11 %** (671/691) |
+| Sentencias | 97,02 % (619/638) | **97,13 %** (642/661) |
+| Ramas | 85,53 % (195/228) | **86,13 %** (205/238) |
+| Funciones | 97,30 % (144/148) | **97,33 %** (146/150) |
+
+| Contrato | Líneas antes → después | Ramas antes → después |
+|---|---|---|
+| `TokenCloneable` | 99,44 % (176/177) → **99,45 %** (180/181) | 80,77 % (63/78) → **81,01 %** (64/79) |
+| `IdentityCloneable` | 100 % → **100 %** (60/60) | — → **98,18 %** (54/55) |
+| `IdentityRegistry` | 100 % → **100 %** (40/40) | 100 % → **100 %** (23/23) |
+
+**Ninguna métrica agregada de `src/` baja** y `IdentityCloneable` mantiene el 100 % de líneas. La única
+rama no cubierta de `IdentityCloneable` (54/55) pertenece al cortocircuito de `hasValidClaim`; el
+agregado y el mínimo por contrato (D-042) se cumplen con holgura.
+
+### 15.2 Gas — referencias del ciclo
+
+| Test | Gas |
+|---|---|
+| `RF013_ClaimLifecycleTest:test_RF013_claim_vigente_isVerified_true` | 581.828 |
+| `RF013_ClaimLifecycleTest:test_RF013_claim_expirado_isVerified_false` | 1.323.226 |
+| `RF013_ClaimLifecycleTest:test_RF013_claim_revocado_por_issuer_isVerified_false` | 703.121 |
+| `RF013_ClaimLifecycleTest:test_RF013_revocar_solo_issuer_revierte` | 607.196 |
+| `RF013_ClaimLifecycleTest:test_RF013_renovacion_actualiza_vigencia` | 772.877 |
+| `RF013_ClaimLifecycleTest:test_RF013_claim_inexistente_revierte` | 124.931 |
+| `IdentityRegistryTest:test_HB14_RemoveIdentity_Ok_CuandoPerteneceAlArray` | 490.128 |
+| `IdentityRegistryTest:test_HB14_RemoveIdentity_RevertWhen_MappingYArrayDesincronizados` | 73.056 |
+
+**Nota operativa (snapshot):** conviene **no** ejecutar `forge coverage` inmediatamente antes de
+`forge snapshot`; la instrumentación de cobertura deja artefactos que alteran el gas medido en la primera
+regeneración. Tras regenerar con artefactos normales, `forge snapshot` es determinista (dos ejecuciones
+seguidas producen el mismo archivo) y `forge snapshot --check --tolerance 5` da **exit 0 con 0 diffs**.
+
+### 15.3 Verificaciones del ciclo
+
+| Verificación | Resultado |
+|---|---|
+| `forge build` | 0 errores |
+| `forge test` | **348/348**, 0 fallos, 0 suites revertidas en `setUp` |
+| Claim vigente → `isVerified` | `test_RF013_claim_vigente_isVerified_true` → `true` |
+| Claim expirado → `isVerified` | `test_RF013_claim_expirado_isVerified_false` (con `vm.warp`) → `false`; transfer `"Transfer not compliant"` |
+| Claim revocado → `isVerified` | `test_RF013_claim_revocado_por_issuer_isVerified_false` (`ClaimRevoked`, `revoked == true`) → `false` |
+| Revocar sin ser issuer | `test_RF013_revocar_solo_issuer_revierte` → `"Only issuer can revoke"` |
+| Renovación limpia `revoked` | `test_RF013_renovacion_actualiza_vigencia` (`expiresAt` nuevo, `revoked == false`) |
+| Claim inexistente | `test_RF013_claim_inexistente_revierte` → `"Claim does not exist"` |
+| EARS vencidos | `test_RF013_isVerified_rechaza_vencidos` (`block.timestamp >= expiresAt`) |
+| EARS histórico | `test_RF013_revocacion_emite_evento_y_conserva_historico` |
+| EARS no reactivable | `test_RF013_revocacion_no_reactivable_por_titular` |
+| HB-14 éxito / revierte | `test_HB14_RemoveIdentity_Ok_CuandoPerteneceAlArray`, `test_HB14_RemoveIdentity_RevertWhen_MappingYArrayDesincronizados` (`vm.store`) y `..._ArraySinMapping` |
+| `forge coverage --report summary` | `src/` **97,11 %** líneas / **86,13 %** ramas (agregado sin bajar) |
+| `forge fmt --check` | limpio |
+| `forge snapshot --check --tolerance 5` | OK (exit 0, 0 diffs; 347 entradas) |
+| `git status --short` | limpio tras el commit local |
+
+### 15.4 ABI y documentación
+
+- Cambio de ABI **breaking** en `getClaim` (7 → 8 salidas, se añade `revoked`); API nueva aditiva
+  `revokeClaim` (`0x512752e4`), `hasValidClaim` (`0x03658fd8`) y evento `ClaimRevoked` (topic0
+  `0x2773a486…`). Documentado en `CHANGELOG_ABIS.md` (sección RF-013) con el impacto en `rwa-web`.
+- Decisiones nuevas: **D-045..D-049** en `requerimientos.md` (Bloque 6).
+- `documento_tecnico.md`: filas `RF-013` y `H-08 (auditoría V1)` → **IMPLEMENTADO (Ciclo 8)**, y fila
+  `IdentityCloneable` / struct `Claim` de §3.1 actualizada a implementado.

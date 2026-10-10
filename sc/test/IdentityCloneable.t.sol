@@ -96,7 +96,8 @@ contract IdentityCloneableRF001Test is Test {
             bytes memory returnedSig,
             bytes memory returnedData,
             string memory returnedUri,
-            uint256 expiresAt
+            uint256 expiresAt,
+            bool revoked
         ) = identity.getClaim(1, issuer);
 
         assertEq(topic, 1);
@@ -106,6 +107,7 @@ contract IdentityCloneableRF001Test is Test {
         assertEq(returnedData, data);
         assertEq(returnedUri, "https://kyc.example.com");
         assertEq(expiresAt, EXPIRES_AT, "expiresAt firmado y almacenado");
+        assertFalse(revoked, "un claim recien anadido no esta revocado");
     }
 
     function test_RF001_addClaim_emite_claimId_estable() public {
@@ -151,13 +153,20 @@ contract IdentityCloneableRF001Test is Test {
         uint256 newExpiry = EXPIRES_AT + 365 days;
         _add(1, issuer, ISSUER_PK, newData, "uri-v2", newExpiry);
 
-        (,, address returnedIssuer,, bytes memory returnedData, string memory returnedUri, uint256 expiresAt) =
-            identity.getClaim(1, issuer);
+        (
+            ,,
+            address returnedIssuer,,
+            bytes memory returnedData,
+            string memory returnedUri,
+            uint256 expiresAt,
+            bool revoked
+        ) = identity.getClaim(1, issuer);
 
         assertEq(returnedIssuer, issuer);
         assertEq(returnedData, newData, "los datos se sobrescriben");
         assertEq(returnedUri, "uri-v2", "la uri se sobrescribe");
         assertEq(expiresAt, newExpiry, "la vigencia se renueva");
+        assertFalse(revoked, "la renovacion limpia el estado de revocacion");
         assertEq(identity.getClaimIssuersForTopic(1).length, 1, "sin duplicar issuer");
     }
 
@@ -173,7 +182,7 @@ contract IdentityCloneableRF001Test is Test {
         vm.expectRevert(bytes("Signature signer mismatch"));
         identity.addClaim(1, 1, issuer, badSig, newData, "uri-nueva", EXPIRES_AT + 1 days);
 
-        (,,,, bytes memory returnedData, string memory returnedUri,) = identity.getClaim(1, issuer);
+        (,,,, bytes memory returnedData, string memory returnedUri,,) = identity.getClaim(1, issuer);
         assertEq(returnedData, oldData, "el claim previo no se altera");
         assertEq(returnedUri, "uri-original");
     }

@@ -77,6 +77,22 @@
   Suite nueva `RF011_FailClosed.t.sol` (6 tests, CU-15); **326/326 tests**; `TokenCloneable` 99,44 % de
   líneas. La evidencia `evidencias/PoC_H01_H05.t.sol` invierte también el PoC de H-05
   (`test_H05_isVerified_fail_closed_ok`): **H-01 y H-05 quedan verificados como corregidos**.
+- [x] **Ciclo 7 — RF-012 · `ComplianceAggregator` fail-closed y gestión solo por el token** (commit local
+  `f3183f8`): `addModule`/`removeModule` pasan a `onlyToken` (**el owner global ya no administra tokens
+  ajenos**: `"Only token admin can call"`) y `canTransfer` deniega si el token no está registrado o no tiene
+  módulos (antes permitía todo: fail-open H-22). Registro automático del token al primer módulo (`TokenRegistered`).
+  Suite nueva `RF012_AggregatorFailClosed.t.sol` (8 tests, CU-16) y **31 de 35** puntos de llamada de las 3
+  suites afectadas reencaminados a la ruta de producción `token → aggregator` (los 4 restantes son negativos de
+  autorización); `test_NoModules_AllowsAll` invertido a `test_NoModules_FailClosed`.
+  **334/334 tests**, `src/` 97,01 % líneas / 85,53 % ramas. Decisiones **D-043/D-044**.
+- [x] **Ciclo 8 — RF-013 · vigencia y revocación de claims por el issuer (+ HB-14)** (commit local
+  `RF-013`): struct `Claim` con `bool revoked` (append-only) y vista `hasValidClaim` que aplica D-038
+  (`expiresAt == 0` = sin caducidad); `revokeClaim` solo por el propio issuer (conserva histórico y emite
+  `ClaimRevoked`); `addClaim` renovado reactiva `revoked = false` (D-020/D-018); `isVerified` exige claim
+  vigente y no revocado (fail-closed); HB-14 verifica pertenencia en `registeredAddresses` y revierte
+  `"Wallet not in registered addresses"`. Suite nueva `RF013_ClaimLifecycle.t.sol` (11 tests, CU-17) y
+  **3 tests HB-14** en `IdentityRegistry.t.sol`. **348/348 tests**, `src/` 97,11 % líneas / 86,13 % ramas.
+  Decisiones **D-045..D-049**; cambio de ABI en `getClaim` (+`revoked`) documentado en `CHANGELOG_ABIS.md`.
 
 ### Corrección de cifras tras el Ciclo 1
 

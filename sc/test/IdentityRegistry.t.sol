@@ -432,6 +432,67 @@ contract IdentityRegistryTest is Test {
     }
 
     // ---------------------------------------------------------------------
+    // HB-14 (Ciclo 8): pertenencia explicita a `registeredAddresses`
+    // ---------------------------------------------------------------------
+
+    /// @dev Camino feliz: con mapping y array sincronizados, `removeIdentity` borra por
+    /// swap-and-pop y emite `IdentityRemoved` (comportamiento preexistente, ahora respaldado
+    /// por la comprobacion explicita de pertenencia).
+    function test_HB14_RemoveIdentity_Ok_CuandoPerteneceAlArray() public {
+        _registerThree();
+
+        vm.expectEmit(true, true, false, true, address(registry));
+        emit IdentityRemoved(wallet2, identity2);
+
+        registry.removeIdentity(wallet2);
+
+        assertFalse(registry.isRegistered(wallet2));
+        assertEq(registry.getRegisteredCount(), 2);
+        assertEq(registry.getRegisteredAddress(0), wallet1);
+        assertEq(registry.getRegisteredAddress(1), wallet3);
+        _assertNoHoles();
+    }
+
+    /// @dev HB-14: si el mapping `registered` afirma que el wallet esta registrado pero el array
+    /// `registeredAddresses` no lo contiene (estado desincronizado, hoy inalcanzable por las rutas
+    /// publicas), `removeIdentity` debe revertir en lugar de emitir el evento sin borrar nada.
+    /// Se fuerza la desincronizacion directamente en el storage para ejercitar la rama defensiva.
+    function test_HB14_RemoveIdentity_RevertWhen_MappingYArrayDesincronizados() public {
+        // Slot 2 = `registered` (slot 0 = Ownable._owner, slot 1 = `identities`).
+        bytes32 registeredSlot = keccak256(abi.encode(wallet1, uint256(2)));
+        vm.store(address(registry), registeredSlot, bytes32(uint256(1)));
+
+        // La premisa de la prueba: el mapping dice "registrado" pero el array esta vacio.
+        assertTrue(registry.isRegistered(wallet1), "mapping desincronizado a proposito");
+        assertEq(registry.getRegisteredCount(), 0, "el array no contiene al wallet");
+
+        vm.expectRevert("Wallet not in registered addresses");
+        registry.removeIdentity(wallet1);
+
+        // El estado no cambia: el require final revierte toda la transaccion.
+        assertTrue(registry.isRegistered(wallet1));
+        assertEq(registry.getRegisteredCount(), 0);
+    }
+
+    /// @dev HB-14 complementario: si el array contiene al wallet pero el mapping no, la primera
+    /// comprobacion (`"Wallet not registered"`) sigue siendo la que corta, sin tocar el array.
+    function test_HB14_RemoveIdentity_RevertWhen_ArraySinMapping() public {
+        _registerThree();
+
+        // Se borra el flag del mapping para wallet1 sin tocar el array (desincronizacion inversa).
+        bytes32 registeredSlot = keccak256(abi.encode(wallet1, uint256(2)));
+        vm.store(address(registry), registeredSlot, bytes32(uint256(0)));
+
+        assertFalse(registry.isRegistered(wallet1));
+        assertEq(registry.getRegisteredCount(), 3, "el array sigue conteniendo al wallet");
+
+        vm.expectRevert("Wallet not registered");
+        registry.removeIdentity(wallet1);
+
+        assertEq(registry.getRegisteredCount(), 3);
+    }
+
+    // ---------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------
 

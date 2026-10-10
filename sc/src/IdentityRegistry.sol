@@ -69,6 +69,11 @@ contract IdentityRegistry is Ownable {
     /**
      * @dev Remove an identity
      * @param _wallet Wallet address
+     *
+     * HB-14 (Ciclo 8): ademas de `registered[_wallet]`, se comprueba explicitamente que `_wallet`
+     * figure en `registeredAddresses` antes de dar por hecho el borrado. Si el mapping y el array
+     * se desincronizaran, la funcion revierte con `"Wallet not in registered addresses"` en lugar
+     * de emitir `IdentityRemoved` sin haber borrado nada. Se conserva el *swap-and-pop* y el evento.
      */
     function removeIdentity(address _wallet) external onlyOwner {
         require(registered[_wallet], "Wallet not registered");
@@ -77,14 +82,17 @@ contract IdentityRegistry is Ownable {
         delete identities[_wallet];
         registered[_wallet] = false;
 
-        // Remove from registered addresses array
+        // Remove from registered addresses array (swap-and-pop), verificando pertenencia (HB-14)
+        bool found = false;
         for (uint256 i = 0; i < registeredAddresses.length; i++) {
             if (registeredAddresses[i] == _wallet) {
                 registeredAddresses[i] = registeredAddresses[registeredAddresses.length - 1];
                 registeredAddresses.pop();
+                found = true;
                 break;
             }
         }
+        require(found, "Wallet not in registered addresses");
 
         emit IdentityRemoved(_wallet, identityAddress);
     }

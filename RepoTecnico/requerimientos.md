@@ -34,7 +34,7 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
 | HB-11 | 151 tests no ejecutados/verificados en este entorno | rwa-sc | Alto |
 | HB-12 | `deploy-besu.sh` maneja clave privada sin cifrado (`~/.foundry/keys.json`) | rwa-sc | Medio |
 | HB-13 | `IdentityRegistry` no valida que `_identity` sea un contrato: acepta una EOA o un contrato sin la interfaz (`src/IdentityRegistry.sol:38,56`). Detectado en el Ciclo 1b | rwa-sc | Medio |
-| HB-14 | `removeIdentity` no comprueba que el wallet esté en `registeredAddresses`; si mapping y array se desincronizan, emitiría el evento sin borrar (`src/IdentityRegistry.sol:73-79`). Hoy inalcanzable | rwa-sc | Bajo |
+| HB-14 | `removeIdentity` no comprueba que el wallet esté en `registeredAddresses`; si mapping y array se desincronizan, emitiría el evento sin borrar (`src/IdentityRegistry.sol:73-79`). Hoy inalcanzable. **Resuelto en el Ciclo 8 (D-048)** | rwa-sc | Bajo |
 | HB-15 | `addClaimTopic` acepta el topic `0` (no hay `require(_claimTopic != 0)`, `src/ClaimTopicsRegistry.sol:29-35`). Detectado en el Ciclo 1b | rwa-sc | Bajo |
 | HB-16 | Los 3 registries borran con swap-and-pop O(n) y reordenan el array (relacionado con H-20 de la auditoría V1) | rwa-sc | Medio |
 
@@ -282,6 +282,30 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   `"Only token admin can call"`. Dos tests se renombran para reflejar la semántica nueva —`test_NoModules_AllowsAll`
   → `test_NoModules_FailClosed` (aserción invertida a fail-closed) y `test_TokenAndOwnerCanBothManageModules` →
   `test_TokenCanManageModules_OwnerCannot`— sin borrar ni debilitar ningún caso.
+- **D-045 (Ciclo 8 · semántica de vigencia):** se confirma **D-038**: `expiresAt == 0` = **sin caducidad**
+  (perpetuo); con `expiresAt > 0` el claim es válido mientras `block.timestamp < expiresAt` (en el límite
+  exacto ya vence). La vista `IdentityCloneable.hasValidClaim(topic, issuer)` es la **única fuente de verdad**
+  y la que consulta `TokenCloneable.isVerified`; no se duplica la regla en el token.
+- **D-046 (Ciclo 8 · revocación por el issuer y layout):** `revokeClaim(topic, issuer)` exige
+  `msg.sender == _issuer` y que el claim exista, **sin `onlyOwner`** (el titular no revoca en nombre del
+  issuer); marca `revoked = true` y **conserva** `data`/`uri`/`signature` (no borra el histórico de
+  `ClaimAdded` ni retira al issuer de `topicIssuers`). El titular conserva `removeClaim` (onlyOwner) para
+  borrar su propio claim. `revoked` se **añade al final** del struct `Claim` (append-only: el *storage
+  layout* previo queda intacto); sin proxy actualizable (D-019), el ciclo de vida es redeploy limpio (D-037).
+- **D-047 (Ciclo 8 · evento `ClaimRevoked`):** se emite `ClaimRevoked(uint256 indexed topic, address indexed
+  issuer)` (topic0 `0x2773a486…`), **sin `timestamp`**, ciñéndose al diseño obligatorio de RF-013; el instante
+  de la revocación es el `block.timestamp` del bloque del evento. Queda documentado como desviación del texto
+  ilustrativo de CU-17 (`ClaimRevoked(topic, issuer, timestamp)`).
+- **D-048 (Ciclo 8 · HB-14 · pertenencia al borrar):** `IdentityRegistry.removeIdentity` comprueba
+  explícitamente que el wallet figure en `registeredAddresses` y revierte `"Wallet not in registered
+  addresses"` si no, en lugar de confiar solo en `registered[_wallet]`; se conservan *swap-and-pop* y el
+  evento `IdentityRemoved`. La desincronización mapping/array es hoy **inalcanzable** por las rutas públicas;
+  la rama defensiva se cubre forzando el storage con `vm.store` en `test_HB14_*`.
+- **D-049 (Ciclo 8 · `isVerified` consulta la validez, fail-closed):** `TokenCloneable.isVerified` exige,
+  además de `trustedIssuersRegistry.hasClaimTopic(...)`, que `hasValidClaim(topic, issuer)` del clon devuelva
+  `true` por `staticcall`; un fallo de la llamada, una identidad que no implemente la vista o un retorno mal
+  formado se tratan como **no válido** (coherente con el fail-closed de RF-011). El cambio es de
+  comportamiento: una identidad desplegada antes del Ciclo 8 sin `hasValidClaim` no verifica a nadie.
 
 ## 7. Mapa RF → casos de uso (Fase 2)
 
@@ -313,7 +337,7 @@ Ver `casos_uso/casos_uso.md` (**v1.3, 17 casos de uso**, 92 criterios Gherkin + 
 | H-05 | `isVerified()` fail-open sin `claimTopicsRegistry` | **Cubierto** | RF-011 (D-014) |
 | H-06 | Centralización de poderes: una EOA, `AGENT_ROLE` absoluto | **Cubierto (parcial)** | RF-004; gobernanza multisig/timelock al backlog R-7 |
 | H-07 | Factories permissionless; EIP-1167 sin ruta de upgrade | Backlog | M-7, R-6 |
-| H-08 | Claims sin vigencia ni revocación por el issuer | **Cubierto** | RF-013 (D-014) |
+| H-08 | Claims sin vigencia ni revocación por el issuer | **Cubierto (implementado, Ciclo 8)** | RF-013 (D-014, D-045..D-047) |
 | H-09 | Catálogo RNF incompleto (ISO 25010) | Backlog | R-1 (ver §8.3) |
 | H-10 | Sin RNF de cumplimiento regulatorio (sanciones/PEP/AML) | Backlog | R-2 |
 | H-11 | PII/KYC sin custodio, base legal, cifrado ni retención | Backlog | R-3 |

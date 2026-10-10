@@ -334,7 +334,11 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
     }
 
     /**
-     * @dev Check if an address is verified
+     * @dev Check if an address is verified.
+     *
+     * RF-011 (Ciclo 6): fail-closed sin politica de topics. RF-013 (Ciclo 8): para cada topic
+     * requerido, el claim del issuer confiable debe ademas ser **vigente y no revocado**
+     * (`IdentityCloneable.hasValidClaim`); si la consulta falla, el claim no cuenta.
      */
     function isVerified(address account) public view returns (bool) {
         if (address(identityRegistry) == address(0)) {
@@ -364,7 +368,7 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
         }
 
         for (uint256 i = 0; i < requiredTopics.length; i++) {
-            bool hasValidClaim = false;
+            bool topicSatisfied = false;
 
             // OPTIMIZED: Get issuers that have claims for this topic in the identity
             // Instead of iterating through ALL trusted issuers
@@ -375,19 +379,33 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
             if (success && data.length > 0) {
                 address[] memory claimIssuers = abi.decode(data, (address[]));
 
-                // Now check if ANY of these issuers is trusted and can issue this topic
+                // Now check if ANY of these issuers is trusted, can issue this topic AND holds a
+                // claim that is currently valid (not expired, not revoked).
                 for (uint256 j = 0; j < claimIssuers.length; j++) {
-                    if (address(trustedIssuersRegistry) != address(0)) {
-                        // Verify this issuer is trusted AND can issue this specific topic
-                        if (trustedIssuersRegistry.hasClaimTopic(claimIssuers[j], requiredTopics[i])) {
-                            hasValidClaim = true;
-                            break;
-                        }
+                    if (address(trustedIssuersRegistry) == address(0)) {
+                        continue;
+                    }
+
+                    // Verify this issuer is trusted AND can issue this specific topic
+                    if (!trustedIssuersRegistry.hasClaimTopic(claimIssuers[j], requiredTopics[i])) {
+                        continue;
+                    }
+
+                    // RF-013 (Ciclo 8): the claim must be valid right now (vigente y no revocado).
+                    // `hasValidClaim` is read through `staticcall`; a failed/absent call (or malformed
+                    // return) is treated as NOT valid, preserving the fail-closed policy of RF-011.
+                    (bool validCall, bytes memory validData) = identityAddress.staticcall(
+                        abi.encodeWithSignature("hasValidClaim(uint256,address)", requiredTopics[i], claimIssuers[j])
+                    );
+
+                    if (validCall && validData.length >= 32 && abi.decode(validData, (bool))) {
+                        topicSatisfied = true;
+                        break;
                     }
                 }
             }
 
-            if (!hasValidClaim) {
+            if (!topicSatisfied) {
                 return false;
             }
         }

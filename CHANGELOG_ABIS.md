@@ -15,6 +15,7 @@
 |---|---|---|---|---|
 | 2026-10-10 | Ciclo 2 | RF-001 (cierra H-01) | `IdentityCloneable`, `IdentityCloneFactory` | **Sí** |
 | 2026-10-10 | Ciclo 4 | RF-003 (cierra H-17/HB-04) | `ICompliance`, `ComplianceAggregator`, `MaxBalanceCompliance`, `MaxHoldersCompliance`, `TransferLockCompliance`, `TokenCloneable` | **No (aditivo)**; rompe a implementadores de módulos |
+| 2026-10-10 | Ciclo 8 | RF-013 (cierra H-08 auditoría V1) | `IdentityCloneable`, `IdentityRegistry` | **Sí** (`getClaim` añade salida; `revokeClaim`/`hasValidClaim`/`ClaimRevoked` son aditivos) |
 
 ---
 
@@ -187,3 +188,77 @@ heredadas): sigue siendo el XOR de `canTransfer`, `transferred`, `created` y `de
 
 > **Reproducibilidad (Ciclo 5):** `foundry.toml` fija `[fuzz] seed`, lo que hace determinista el baseline de gas
 > (`.gas-snapshot`) y permite el gate `forge snapshot --check --tolerance 5` (D-039).
+
+---
+
+## RF-013 — Ciclo de vida del claim: vigencia y revocación por el issuer (Ciclo 8)
+
+**Motivo:** el struct `Claim` no tenía vigencia ni estado de revocación, y `isVerified` aceptaba claims
+vencidos; solo el **titular** podía dejar de usar su claim (`removeClaim`, `onlyOwner`), nunca el issuer
+(H-08, auditoría V1). Ahora el claim es **vigente** (`expiresAt`, ya firmado desde RF-001/D-020) y el
+issuer puede **revocarlo**, y `TokenCloneable.isVerified` exige ambas condiciones. Incluye **HB-14**
+(`IdentityRegistry.removeIdentity` verifica la pertenencia a `registeredAddresses`).
+
+### Struct `Claim`
+
+| | |
+|---|---|
+| **Antes** | `Claim { uint256 topic; uint256 scheme; address issuer; bytes signature; bytes data; string uri; uint256 expiresAt; }` |
+| **Después** | `Claim { uint256 topic; uint256 scheme; address issuer; bytes signature; bytes data; string uri; uint256 expiresAt; bool revoked; }` |
+| **Breaking** | **Sí** — cambio de *storage layout* del clon. `revoked` se **añade al final**, por lo que el layout previo queda intacto (append-only). Sin proxy actualizable (D-019), el ciclo de vida sigue siendo **redeploy limpio** (D-037). |
+
+### `getClaim` — salidas
+
+| | |
+|---|---|
+| **Firma** | `getClaim(uint256,address) returns (uint256 topic, uint256 scheme, address issuer, bytes signature, bytes data, string uri, uint256 expiresAt)` |
+| **Selector** | `0x48e6b5a3` (no cambia; **sí cambian las salidas**) |
+| **Antes** | 7 salidas (hasta `expiresAt`) |
+| **Después** | 8 salidas: se añade `bool revoked` al final (posible en adelante y con el mismo selector) |
+| **Breaking** | Sí — cualquier cliente que decodifique la tupla de 7 campos debe leer 8 (o ignorar la última). La semántica: `revoked == true` ⇒ el claim sigue almacenado (trazabilidad) pero **no es válido**. |
+
+### API nueva (aditiva)
+
+| Firma | Selector | Notas |
+|---|---|---|
+| `revokeClaim(uint256 _topic, address _issuer)` | `0x512752e4` | **Sin `onlyOwner`**: exige `msg.sender == _issuer` y que el claim exista. Marca `revoked = true` y conserva `data`/`uri`/`signature`. Revierte `"Claim does not exist"` / `"Only issuer can revoke"`. |
+| `hasValidClaim(uint256 _topic, address _issuer) view returns (bool)` | `0x03658fd8` | `true` solo si el claim existe, no está revocado y (`expiresAt == 0` — sin caducidad, D-038 — o `block.timestamp < expiresAt`). Es la vista que consulta `isVerified` por `staticcall`. |
+
+### Evento `ClaimRevoked`
+
+| | |
+|---|---|
+| **Firma** | `ClaimRevoked(uint256 indexed topic, address indexed issuer)` — topic0 `0x2773a4866bfa84cbee6a7def6453a797ed617c6d11fcd93b8c0c1f94570b9434` |
+| **Nota** | El histórico de `ClaimAdded` **no se borra** al revocar (ni `claimExists` pasa a `false`). La revocación es granular por `(topic, issuer)`. |
+
+> Desviación respecto al texto ilustrativo de CU-17 (`ClaimRevoked(topic, issuer, timestamp)`): se emite
+> **sin timestamp** para ceñirse al diseño obligatorio de RF-013. El instante de la revocación es el
+> `block.timestamp` del bloque que contiene el evento (recuperable por el consumidor). Ver D-047.
+
+### Comportamiento (no de firma)
+
+- `addClaim` (renovación, D-018): un nuevo claim firmado del mismo `(topic, issuer)` **reactiva** el claim
+  (`revoked = false`) y actualiza `expiresAt`; `expiresAt` va dentro del digest (D-020), así que reactivar
+  exige una **nueva firma** del issuer.
+- `TokenCloneable.isVerified`: además de `trustedIssuersRegistry.hasClaimTopic(issuer, topic)`, exige
+  `hasValidClaim(topic, issuer)` en el clon de identidad; si el `staticcall` falla, el claim **no** cuenta
+  (fail-closed, RF-011). Un claim vencido o revocado ya no verifica al titular y bloquea `mint`/`transfer`.
+- `IdentityRegistry.removeIdentity` (HB-14): si el wallet no figura en `registeredAddresses`, revierte
+  `"Wallet not in registered addresses"` en lugar de emitir `IdentityRemoved` sin borrar. Sin cambio de firma.
+
+### Impacto en `rwa-web` (D-003: fuera de alcance, requiere trabajo posterior)
+
+- `rwa-web/web-identity/contracts/IdentityCloneable.abi.json` — ABI **estática y ya obsoleta** (no incluye
+  `expiresAt` de RF-001 ni ahora `revoked`/`revokeClaim`/`hasValidClaim`/`ClaimRevoked`); debe regenerarse
+  desde `sc/out/`.
+- `rwa-web/web-identity/lib/identity-claims.ts:164` — `getIdentityClaims` decodifica `getClaim` por nombre
+  (`claim.topic`…); al regenerar la ABI debe añadir `expiresAt` y `revoked` al tipo `IdentityClaim` y exponer
+  la vigencia en la UI (badge de vencido/revocado). Mientras la ABI siga desactualizada, la decodificación de
+  la tupla nueva puede fallar.
+- `rwa-web/web-identity/contracts/IdentityRegistry.abi.json` — sin cambio de firma (solo aparece un literal
+  de revert nuevo).
+- No existe hoy UI de revocación en el cliente; si se añade, `revokeClaim` debe firmarse **desde la cuenta
+  del issuer** (no desde la del titular).
+
+Acción requerida (cuando se retome la zona web, p. ej. RF-007/RF-008): `forge build` y copiar de `sc/out/`,
+leer las 8 salidas de `getClaim`, y filtrar los claims no válidos (`revoked`/`expiresAt`).

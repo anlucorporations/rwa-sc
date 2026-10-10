@@ -39,11 +39,16 @@ contract IdentityCloneable is OwnableUpgradeable {
         bytes data;
         string uri;
         uint256 expiresAt;
+        /// @dev RF-013: `true` cuando el propio issuer revoco el claim. La entrada no se borra
+        /// (se conserva `data`/`uri`/`signature` y el historico de `ClaimAdded`); solo deja de
+        /// ser valido para `hasValidClaim`. Un `addClaim` renovado lo devuelve a `false`.
+        bool revoked;
     }
 
     /// @dev Tipo EIP-712 firmado por el issuer (D-020). `expiresAt` forma parte del
     /// digest: renovar la vigencia exige una nueva firma. Su *enforcement* (rechazar
-    /// claims vencidos) es del Ciclo 8/RF-013; aqui solo se firma y se persiste.
+    /// claims vencidos) es del Ciclo 8/RF-013 (`hasValidClaim`), que es lo que consulta
+    /// `TokenCloneable.isVerified`.
     bytes32 public constant CLAIM_TYPEHASH =
         keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt)");
 
@@ -69,6 +74,10 @@ contract IdentityCloneable is OwnableUpgradeable {
 
     event ClaimRemoved(uint256 indexed topic, address indexed issuer);
 
+    /// @dev RF-013: el issuer revoca un claim existente. El claim sigue almacenado
+    /// (`getClaim` lo refleja con `revoked == true`) y el historico de `ClaimAdded` se conserva.
+    event ClaimRevoked(uint256 indexed topic, address indexed issuer);
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -92,7 +101,9 @@ contract IdentityCloneable is OwnableUpgradeable {
      *
      * Reintento (D-018): si ya existe un claim para el mismo par `(topic, issuer)`,
      * se sobrescribe (renovacion) **solo** tras validar la firma; el issuer no se
-     * duplica en `topicIssuers`.
+     * duplica en `topicIssuers`. RF-013: la renovacion ademas **reactiva** el claim
+     * (`revoked = false`) y actualiza `expiresAt`, que va dentro del digest firmado
+     * (D-020), de modo que reactivar un claim revocado exige una nueva firma del issuer.
      *
      * Alcance de la autorizacion (D-025): este contrato **no** comprueba que el
      * issuer este autorizado para el topic. Esa comprobacion la impone de forma
@@ -100,16 +111,13 @@ contract IdentityCloneable is OwnableUpgradeable {
      * del token: una firma valida solo prueba el consentimiento del issuer, y un
      * issuer no autorizado nunca cuenta porque el token no lo reconoce.
      *
-     * `_expiresAt` queda firmado y almacenado; su *enforcement* corresponde al
-     * Ciclo 8/RF-013, no a este ciclo.
-     *
      * @param _topic Claim topic (e.g., 1 for KYC)
      * @param _scheme Signature scheme (only 1 = ECDSA supported)
      * @param _issuer Address of the claim issuer (must equal the recovered signer)
      * @param _signature 65-byte ECDSA signature (r || s || v, v in {27,28})
      * @param _data Claim data (committed as keccak256(_data) inside the digest)
      * @param _uri URI for additional claim information
-     * @param _expiresAt Expiration timestamp, signed and stored (enforced by RF-013)
+     * @param _expiresAt Expiration timestamp, signed and stored (enforced by `hasValidClaim`)
      * @return claimId Deterministic id: keccak256(abi.encode(issuer, topic))
      */
     function addClaim(
@@ -145,7 +153,8 @@ contract IdentityCloneable is OwnableUpgradeable {
             signature: _signature,
             data: _data,
             uri: _uri,
-            expiresAt: _expiresAt
+            expiresAt: _expiresAt,
+            revoked: false
         });
 
         // Track this issuer for this topic (sin duplicados al renovar, D-018)
@@ -194,7 +203,35 @@ contract IdentityCloneable is OwnableUpgradeable {
     }
 
     /**
+     * @dev Revoca un claim existente (RF-013 / CU-17).
+     *
+     * Solo el propio `issuer` del claim puede revocarlo; el titular (owner de la identidad) **no**
+     * puede revocar en nombre del issuer ni reactivar sin una nueva firma. La entrada **no se
+     * borra**: se conservan `data`, `uri` y `signature` (y el historico de `ClaimAdded`) para
+     * trazabilidad; el claim simplemente deja de ser valido en `hasValidClaim`.
+     *
+     * Un `addClaim` posterior y firmado por el issuer renueva el claim y lo reactiva
+     * (`revoked = false`), conforme a D-018.
+     *
+     * @param _topic Claim topic
+     * @param _issuer Issuer address (debe ser `msg.sender`)
+     */
+    function revokeClaim(uint256 _topic, address _issuer) external {
+        require(claims[_topic][_issuer].issuer != address(0), "Claim does not exist");
+        require(msg.sender == _issuer, "Only issuer can revoke");
+
+        claims[_topic][_issuer].revoked = true;
+
+        emit ClaimRevoked(_topic, _issuer);
+    }
+
+    /**
      * @dev Get a claim
+     *
+     * RF-013: la tupla incluye `revoked` como ultimo campo (cambio de ABI documentado en
+     * `rwa-sc/CHANGELOG_ABIS.md`). `revoked` es `true` tambien para claims revocados que
+     * siguen almacenados a efectos de trazabilidad.
+     *
      * @param _topic Claim topic
      * @param _issuer Issuer address
      */
@@ -208,11 +245,49 @@ contract IdentityCloneable is OwnableUpgradeable {
             bytes memory signature,
             bytes memory data,
             string memory uri,
-            uint256 expiresAt
+            uint256 expiresAt,
+            bool revoked
         )
     {
         Claim memory claim = claims[_topic][_issuer];
-        return (claim.topic, claim.scheme, claim.issuer, claim.signature, claim.data, claim.uri, claim.expiresAt);
+        return (
+            claim.topic,
+            claim.scheme,
+            claim.issuer,
+            claim.signature,
+            claim.data,
+            claim.uri,
+            claim.expiresAt,
+            claim.revoked
+        );
+    }
+
+    /**
+     * @dev Comprueba si un claim es **valido ahora mismo** (RF-013 / CU-17).
+     *
+     * Devuelve `true` solo si el claim existe, no esta revocado y no ha vencido:
+     * `expiresAt == 0` significa **sin caducidad** (perpetuo, D-038); si `expiresAt > 0`,
+     * es valido mientras `block.timestamp < expiresAt`.
+     *
+     * Es la vista que consulta `TokenCloneable.isVerified` (por `staticcall`) para exigir
+     * vigencia y no-revocacion, y la unica fuente de verdad de la semantica de D-038.
+     *
+     * @param _topic Claim topic
+     * @param _issuer Issuer address
+     */
+    function hasValidClaim(uint256 _topic, address _issuer) external view returns (bool) {
+        Claim storage claim = claims[_topic][_issuer];
+
+        if (claim.issuer == address(0)) {
+            return false;
+        }
+        if (claim.revoked) {
+            return false;
+        }
+        if (claim.expiresAt == 0) {
+            return true;
+        }
+        return block.timestamp < claim.expiresAt;
     }
 
     /**
