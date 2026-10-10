@@ -67,7 +67,15 @@ contract IdentityCloneFactory is Ownable {
      * @param signature Claim signature
      * @param data Claim data
      * @param uri Claim URI
+     * @param expiresAt Claim expiration timestamp (signed and stored; enforced by RF-013)
      * @return identity The address of the newly created Identity clone
+     *
+     * @dev RF-001 (D-020): la firma es EIP-712 y su digest incluye el
+     * `verifyingContract` (la direccion del clon) y el `walletOwner`. Como el clon se
+     * inicializa con la factory como owner temporal para poder llamar a `addClaim`
+     * (onlyOwner), el `walletOwner` firmado en esta ruta concreta es la direccion de
+     * la factory (ver D-027). El anti-replay entre identidades sigue garantizado por
+     * `verifyingContract`, que es unico por clon.
      */
     function createIdentityWithClaim(
         address owner,
@@ -76,7 +84,8 @@ contract IdentityCloneFactory is Ownable {
         address issuer,
         bytes memory signature,
         bytes memory data,
-        string memory uri
+        string memory uri,
+        uint256 expiresAt
     ) external returns (address identity) {
         require(owner != address(0), "Invalid owner address");
 
@@ -88,7 +97,7 @@ contract IdentityCloneFactory is Ownable {
         identityContract.initialize(address(this));
 
         // Add the claim before transferring ownership
-        identityContract.addClaim(topic, scheme, issuer, signature, data, uri);
+        identityContract.addClaim(topic, scheme, issuer, signature, data, uri, expiresAt);
 
         // Transfer ownership to the actual owner
         identityContract.transferOwnership(owner);

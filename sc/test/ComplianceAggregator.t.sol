@@ -13,6 +13,7 @@ import {IdentityCloneFactory} from "../src/IdentityCloneFactory.sol";
 import {IdentityRegistry} from "../src/IdentityRegistry.sol";
 import {TrustedIssuersRegistry} from "../src/TrustedIssuersRegistry.sol";
 import {ClaimTopicsRegistry} from "../src/ClaimTopicsRegistry.sol";
+import {SigUtils} from "./helpers/SigUtils.sol";
 
 contract ComplianceAggregatorTest is Test {
     ComplianceAggregator public aggregator;
@@ -39,12 +40,15 @@ contract ComplianceAggregatorTest is Test {
     uint256 constant MAX_HOLDERS = 5;
     uint256 constant LOCK_PERIOD = 30 days;
 
+    uint256 internal constant ISSUER_PK = 0xB0B;
+    uint256 internal constant EXPIRES_AT = 2_000_000_000;
+
     function setUp() public {
         owner = makeAddr("owner");
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
         user3 = makeAddr("user3");
-        issuer = makeAddr("issuer");
+        issuer = vm.addr(ISSUER_PK);
 
         // Deploy aggregator
         vm.prank(owner);
@@ -94,14 +98,18 @@ contract ComplianceAggregatorTest is Test {
         // Clon inicializado con owner = user (patrón de producción)
         IdentityCloneable identity = IdentityCloneable(identityFactory.createIdentity(user));
 
+        bytes memory data = abi.encode("KYC", user);
+        bytes memory signature = SigUtils.signClaim(ISSUER_PK, address(identity), user, 1, 1, data, EXPIRES_AT);
+
         vm.prank(user);
         identity.addClaim(
             1, // KYC topic
             1, // ECDSA scheme
             issuer,
-            hex"", // signature
-            hex"", // data
-            "" // uri
+            signature, // firma EIP-712 valida (RF-001)
+            data, // claim data
+            "", // uri
+            EXPIRES_AT
         );
 
         vm.prank(owner);

@@ -37,7 +37,7 @@ contract DeployIdentityCloneFactory is Script {
         console.log("Create identities by calling:");
         console.log("  factory.createIdentity(ownerAddress)");
         console.log("\nOr with a claim:");
-        console.log("  factory.createIdentityWithClaim(owner, topic, scheme, issuer, signature, data, uri)");
+        console.log("  factory.createIdentityWithClaim(owner, topic, scheme, issuer, signature, data, uri, expiresAt)");
 
         return factory;
     }

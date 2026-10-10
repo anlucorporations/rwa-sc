@@ -56,11 +56,12 @@ library BenchmarkDeployer {
         address issuer,
         bytes memory signature,
         bytes memory data,
-        string memory uri
+        string memory uri,
+        uint256 expiresAt
     ) internal returns (address addr) {
         bytes memory code = abi.encodePacked(
             type(IdentityWithClaimBenchmark).creationCode,
-            abi.encode(initialOwner, topic, scheme, issuer, signature, data, uri)
+            abi.encode(initialOwner, topic, scheme, issuer, signature, data, uri, expiresAt)
         );
         assembly {
             addr := create(0, add(code, 0x20), mload(code))

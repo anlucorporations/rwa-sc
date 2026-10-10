@@ -21,6 +21,7 @@ contract IdentityBenchmark is Ownable {
         bytes signature;
         bytes data;
         string uri;
+        uint256 expiresAt;
     }
 
     // Mismos mapeos que IdentityCloneable (mismo coste de SSTORE al inicializar).
@@ -29,7 +30,13 @@ contract IdentityBenchmark is Ownable {
     mapping(uint256 => mapping(address => bool)) internal topicIssuerExists;
 
     event ClaimAdded(
-        uint256 indexed topic, uint256 scheme, address indexed issuer, bytes signature, bytes data, string uri
+        uint256 indexed topic,
+        uint256 scheme,
+        address indexed issuer,
+        bytes signature,
+        bytes data,
+        string uri,
+        uint256 expiresAt
     );
 
     /// @notice Identidad simple: despliegue + owner (espejo de `createIdentity`).
@@ -41,9 +48,10 @@ contract IdentityBenchmark is Ownable {
         address issuer,
         bytes memory signature,
         bytes memory data,
-        string memory uri
+        string memory uri,
+        uint256 expiresAt
     ) external onlyOwner returns (bytes32) {
-        return _addClaim(topic, scheme, issuer, signature, data, uri);
+        return _addClaim(topic, scheme, issuer, signature, data, uri, expiresAt);
     }
 
     function claimExists(uint256 topic, address issuer) external view returns (bool) {
@@ -56,10 +64,17 @@ contract IdentityBenchmark is Ownable {
         address issuer,
         bytes memory signature,
         bytes memory data,
-        string memory uri
+        string memory uri,
+        uint256 expiresAt
     ) internal returns (bytes32) {
         claims[topic][issuer] = Claim({
-            topic: topic, scheme: scheme, issuer: issuer, signature: signature, data: data, uri: uri
+            topic: topic,
+            scheme: scheme,
+            issuer: issuer,
+            signature: signature,
+            data: data,
+            uri: uri,
+            expiresAt: expiresAt
         });
 
         if (!topicIssuerExists[topic][issuer]) {
@@ -67,7 +82,7 @@ contract IdentityBenchmark is Ownable {
             topicIssuerExists[topic][issuer] = true;
         }
 
-        emit ClaimAdded(topic, scheme, issuer, signature, data, uri);
+        emit ClaimAdded(topic, scheme, issuer, signature, data, uri, expiresAt);
 
         bytes32 claimId;
         assembly {
@@ -92,8 +107,9 @@ contract IdentityWithClaimBenchmark is IdentityBenchmark {
         address issuer,
         bytes memory signature,
         bytes memory data,
-        string memory uri
+        string memory uri,
+        uint256 expiresAt
     ) IdentityBenchmark(initialOwner) {
-        _addClaim(topic, scheme, issuer, signature, data, uri);
+        _addClaim(topic, scheme, issuer, signature, data, uri, expiresAt);
     }
 }

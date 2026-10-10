@@ -149,23 +149,29 @@ contract CompleteDeploymentExample is Script {
     }
 
     function createInvestorIdentities() internal {
+        // NOTA RF-001: estas firmas de ejemplo estan vacias y por tanto serian
+        // rechazadas por `addClaim`; sustituyelas por firmas EIP-712 reales del
+        // issuer (ver sc/test/helpers/SigUtils.sol) antes de ejecutar el script.
+        uint256 expiresAt = block.timestamp + 365 days;
+
         // Create identity for investor1 with full claims
         address identity1 = identityFactory.createIdentityWithClaim(
             investor1,
             1, // KYC topic
             1, // ECDSA scheme
             issuer,
-            hex"", // signature
+            hex"", // signature (debe ser EIP-712 valida)
             hex"", // data
-            "" // uri
+            "", // uri
+            expiresAt
         );
 
         // Add more claims to investor1
         IdentityCloneable identityContract1 = IdentityCloneable(identity1);
         identityContract1.transferOwnership(admin);
-        identityContract1.addClaim(2, 1, issuer, hex"", hex"", ""); // AML
-        identityContract1.addClaim(3, 1, issuer, hex"", hex"", ""); // Accredited
-        identityContract1.addClaim(4, 1, issuer, hex"", hex"", ""); // Tax
+        identityContract1.addClaim(2, 1, issuer, hex"", hex"", "", expiresAt); // AML
+        identityContract1.addClaim(3, 1, issuer, hex"", hex"", "", expiresAt); // Accredited
+        identityContract1.addClaim(4, 1, issuer, hex"", hex"", "", expiresAt); // Tax
         identityContract1.transferOwnership(investor1);
 
         // Register identity
@@ -180,7 +186,8 @@ contract CompleteDeploymentExample is Script {
             issuer,
             hex"",
             hex"",
-            ""
+            "",
+            expiresAt
         );
 
         identityRegistry.registerIdentity(investor2, identity2);

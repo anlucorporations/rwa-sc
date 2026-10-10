@@ -12,6 +12,7 @@ import {ClaimTopicsRegistry} from "../src/ClaimTopicsRegistry.sol";
 import {MaxBalanceCompliance} from "../src/compliance/MaxBalanceCompliance.sol";
 import {MaxHoldersCompliance} from "../src/compliance/MaxHoldersCompliance.sol";
 import {TransferLockCompliance} from "../src/compliance/TransferLockCompliance.sol";
+import {SigUtils} from "./helpers/SigUtils.sol";
 
 contract TokenTest is Test {
     TokenCloneable public token;
@@ -41,12 +42,15 @@ contract TokenTest is Test {
     uint256 constant MAX_HOLDERS = 10;
     uint256 constant LOCK_PERIOD = 30 days;
 
+    uint256 internal constant ISSUER_PK = 0xB0B;
+    uint256 internal constant EXPIRES_AT = 2_000_000_000;
+
     bytes32 public constant AGENT_ROLE = keccak256("AGENT_ROLE");
     bytes32 public constant COMPLIANCE_ROLE = keccak256("COMPLIANCE_ROLE");
 
     function setUp() public {
         admin = address(this);
-        issuer = makeAddr("issuer");
+        issuer = vm.addr(ISSUER_PK);
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
         user3 = makeAddr("user3");
@@ -108,8 +112,26 @@ contract TokenTest is Test {
     }
 
     function _addClaims(IdentityCloneable identity) internal {
-        identity.addClaim(KYC_TOPIC, 1, issuer, "", "", "");
-        identity.addClaim(AML_TOPIC, 1, issuer, "", "", "");
+        bytes memory kycData = abi.encode("KYC", address(identity));
+        bytes memory amlData = abi.encode("AML", address(identity));
+        identity.addClaim(
+            KYC_TOPIC,
+            1,
+            issuer,
+            SigUtils.signClaim(ISSUER_PK, address(identity), admin, KYC_TOPIC, 1, kycData, EXPIRES_AT),
+            kycData,
+            "",
+            EXPIRES_AT
+        );
+        identity.addClaim(
+            AML_TOPIC,
+            1,
+            issuer,
+            SigUtils.signClaim(ISSUER_PK, address(identity), admin, AML_TOPIC, 1, amlData, EXPIRES_AT),
+            amlData,
+            "",
+            EXPIRES_AT
+        );
     }
 
     function test_Constructor() public {
@@ -187,7 +209,16 @@ contract TokenTest is Test {
         identityRegistry.registerIdentity(user4, address(identity4));
 
         // Add only KYC claim, missing AML
-        identity4.addClaim(KYC_TOPIC, 1, issuer, "", "", "");
+        bytes memory kycData = abi.encode("KYC", address(identity4));
+        identity4.addClaim(
+            KYC_TOPIC,
+            1,
+            issuer,
+            SigUtils.signClaim(ISSUER_PK, address(identity4), admin, KYC_TOPIC, 1, kycData, EXPIRES_AT),
+            kycData,
+            "",
+            EXPIRES_AT
+        );
 
         assertFalse(token.isVerified(user4));
     }

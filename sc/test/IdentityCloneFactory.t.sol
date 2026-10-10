@@ -6,6 +6,7 @@ import {IdentityCloneFactory} from "../src/IdentityCloneFactory.sol";
 import {IdentityCloneable} from "../src/IdentityCloneable.sol";
 import {IdentityBenchmark, IdentityWithClaimBenchmark} from "./benchmarks/IdentityBenchmark.sol";
 import {BenchmarkDeployer} from "./benchmarks/BenchmarkDeployer.sol";
+import {SigUtils} from "./helpers/SigUtils.sol";
 
 contract IdentityCloneFactoryTest is Test {
     IdentityCloneFactory public factory;
@@ -14,15 +15,27 @@ contract IdentityCloneFactoryTest is Test {
     address public user2;
     address public issuer;
 
+    uint256 internal constant ISSUER_PK = 0xB0B;
+    uint256 internal constant EXPIRES_AT = 2_000_000_000;
+
     event IdentityCreated(address indexed identity, address indexed owner);
 
     function setUp() public {
         owner = address(this);
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
-        issuer = makeAddr("issuer");
+        issuer = vm.addr(ISSUER_PK);
 
         factory = new IdentityCloneFactory(owner);
+    }
+
+    /// @dev Firma EIP-712 (RF-001) para una identidad concreta.
+    function _sign(address identity, address walletOwner, uint256 topic, bytes memory data, uint256 expiresAt)
+        internal
+        view
+        returns (bytes memory)
+    {
+        return SigUtils.signClaim(ISSUER_PK, identity, walletOwner, topic, 1, data, expiresAt);
     }
 
     function testDeployment() public view {
@@ -77,14 +90,17 @@ contract IdentityCloneFactoryTest is Test {
         IdentityCloneable contract2 = IdentityCloneable(identity2);
 
         // Add claim to identity1 as user1
+        bytes memory data = abi.encode(user1, true);
+        bytes memory signature = _sign(identity1, user1, 1, data, EXPIRES_AT);
         vm.startPrank(user1);
         bytes32 claimId = contract1.addClaim(
             1, // KYC topic
             1, // ECDSA scheme
             issuer,
-            hex"123456",
-            abi.encode(user1, true),
-            "https://kyc.example.com/user1"
+            signature,
+            data,
+            "https://kyc.example.com/user1",
+            EXPIRES_AT
         );
         vm.stopPrank();
 
@@ -99,38 +115,52 @@ contract IdentityCloneFactoryTest is Test {
     }
 
     function testCreateIdentityWithClaim() public {
-        uint256 topic = 1;
-        uint256 scheme = 1;
-        bytes memory signature = hex"abcdef123456";
         bytes memory data = abi.encode(user1, true);
         string memory uri = "https://kyc.example.com";
 
-        address identity = factory.createIdentityWithClaim(user1, topic, scheme, issuer, signature, data, uri);
+        // `createIdentityWithClaim` inicializa el clon con la factory como owner
+        // temporal (necesario para llamar a `addClaim`, onlyOwner), de modo que el
+        // `walletOwner` firmado es la factory. La direccion del clon se predice por CREATE.
+        address predicted = vm.computeCreateAddress(address(factory), vm.getNonce(address(factory)));
+        bytes memory signature = _sign(predicted, address(factory), 1, data, EXPIRES_AT);
 
-        IdentityCloneable identityContract = IdentityCloneable(identity);
+        address identity = factory.createIdentityWithClaim(user1, 1, 1, issuer, signature, data, uri, EXPIRES_AT);
+        assertEq(identity, predicted, "la direccion del clon debe ser predecible");
+        assertEq(IdentityCloneable(identity).owner(), user1);
 
-        // Verify ownership
-        assertEq(identityContract.owner(), user1);
+        _assertClaimStored(IdentityCloneable(identity), 1, 1, issuer, signature, data, uri, EXPIRES_AT);
+    }
 
-        // Verify claim exists
-        assertTrue(identityContract.claimExists(topic, issuer));
+    /// @dev Comprueba los 7 campos de un claim almacenado (RF-001).
+    function _assertClaimStored(
+        IdentityCloneable identityContract,
+        uint256 expectedTopic,
+        uint256 expectedScheme,
+        address expectedIssuer,
+        bytes memory expectedSignature,
+        bytes memory expectedData,
+        string memory expectedUri,
+        uint256 expectedExpiresAt
+    ) internal view {
+        assertTrue(identityContract.claimExists(expectedTopic, expectedIssuer));
 
-        // Verify claim data
         (
             uint256 returnedTopic,
             uint256 returnedScheme,
             address returnedIssuer,
             bytes memory returnedSignature,
             bytes memory returnedData,
-            string memory returnedUri
-        ) = identityContract.getClaim(topic, issuer);
+            string memory returnedUri,
+            uint256 returnedExpiresAt
+        ) = identityContract.getClaim(expectedTopic, expectedIssuer);
 
-        assertEq(returnedTopic, topic);
-        assertEq(returnedScheme, scheme);
-        assertEq(returnedIssuer, issuer);
-        assertEq(returnedSignature, signature);
-        assertEq(returnedData, data);
-        assertEq(returnedUri, uri);
+        assertEq(returnedTopic, expectedTopic);
+        assertEq(returnedScheme, expectedScheme);
+        assertEq(returnedIssuer, expectedIssuer);
+        assertEq(returnedSignature, expectedSignature);
+        assertEq(returnedData, expectedData);
+        assertEq(returnedUri, expectedUri);
+        assertEq(returnedExpiresAt, expectedExpiresAt);
     }
 
     function testGetIdentityAtRevertsOnInvalidIndex() public {
@@ -168,17 +198,20 @@ contract IdentityCloneFactoryTest is Test {
         assertGt(simpleSaved, 200_000, "Absolute saving should exceed 200k gas");
 
         // (2) Identidad con claim inicial (mismo trabajo que createIdentityWithClaim)
-        bytes memory signature = hex"abcdef123456";
         bytes memory data = abi.encode(user1, true);
         string memory uri = "https://kyc.example.com";
 
+        // Firma EIP-712 valida para el clon que va a crear la factory (RF-001).
+        address predicted = vm.computeCreateAddress(address(factory), vm.getNonce(address(factory)));
+        bytes memory signature = _sign(predicted, address(factory), 1, data, EXPIRES_AT);
+
         gasBefore = gasleft();
-        factory.createIdentityWithClaim(user1, 1, 1, issuer, signature, data, uri);
+        factory.createIdentityWithClaim(user1, 1, 1, issuer, signature, data, uri, EXPIRES_AT);
         uint256 cloneClaimGas = gasBefore - gasleft();
 
         gasBefore = gasleft();
         address claimBaseline =
-            BenchmarkDeployer.deployIdentityWithClaimBenchmark(user1, 1, 1, issuer, signature, data, uri);
+            BenchmarkDeployer.deployIdentityWithClaimBenchmark(user1, 1, 1, issuer, signature, data, uri, EXPIRES_AT);
         uint256 fullClaimGas = gasBefore - gasleft();
 
         assertEq(IdentityWithClaimBenchmark(claimBaseline).owner(), user1);
@@ -200,27 +233,18 @@ contract IdentityCloneFactoryTest is Test {
         address identity = factory.createIdentity(user1);
         IdentityCloneable identityContract = IdentityCloneable(identity);
 
+        bytes memory kycData = abi.encode(user1, "KYC approved");
+        bytes memory accData = abi.encode(user1, "Accredited investor");
+        bytes memory kycSig = _sign(identity, user1, 1, kycData, EXPIRES_AT);
+        bytes memory accSig = _sign(identity, user1, 2, accData, EXPIRES_AT);
+
         vm.startPrank(user1);
 
         // Add KYC claim
-        identityContract.addClaim(
-            1, // KYC
-            1,
-            issuer,
-            hex"aabb11",
-            abi.encode(user1, "KYC approved"),
-            "https://kyc.example.com"
-        );
+        identityContract.addClaim(1, 1, issuer, kycSig, kycData, "https://kyc.example.com", EXPIRES_AT);
 
         // Add accreditation claim
-        identityContract.addClaim(
-            2, // Accreditation
-            1,
-            issuer,
-            hex"ccdd22",
-            abi.encode(user1, "Accredited investor"),
-            "https://accreditation.example.com"
-        );
+        identityContract.addClaim(2, 1, issuer, accSig, accData, "https://accreditation.example.com", EXPIRES_AT);
 
         vm.stopPrank();
 
@@ -233,10 +257,13 @@ contract IdentityCloneFactoryTest is Test {
         address identity = factory.createIdentity(user1);
         IdentityCloneable identityContract = IdentityCloneable(identity);
 
+        bytes memory data = abi.encode(user1);
+        bytes memory signature = _sign(identity, user1, 1, data, EXPIRES_AT);
+
         vm.startPrank(user1);
 
         // Add claim
-        identityContract.addClaim(1, 1, issuer, hex"aabbcc", abi.encode(user1), "https://example.com");
+        identityContract.addClaim(1, 1, issuer, signature, data, "https://example.com", EXPIRES_AT);
         assertTrue(identityContract.claimExists(1, issuer));
 
         // Remove claim
