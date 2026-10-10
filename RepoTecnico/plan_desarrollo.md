@@ -109,6 +109,16 @@
 | **Criterios de aceptación** | Claim vencido o revocado → `isVerified == false` y transferencia revertida; renovación exige nueva firma (D-020) |
 | **Cierra** | **B-6** |
 
+## Ciclo 8c — RF-013 · Nonce firmado anti-replay en la revocación
+
+| Campo | Detalle |
+|---|---|
+| **Objetivo** | Cerrar el bypass detectado en el Ciclo 8 (D-046): la firma EIP-712 original seguía siendo válida tras `revokeClaim` y permitía reactivar el claim por replay. |
+| **Requisitos** | RF-013 (D-046) · CU-17 |
+| **Entregables** | `CLAIM_TYPEHASH` con `uint256 nonce`; mapping `claimNonce[topic][issuer]`; `revokeClaim` lo incrementa; `addClaim` firma con el nonce vigente sin incrementarlo (D-018); vista `claimNonce(uint256,address)`; helper `SigUtils.signClaim` con overload sin nonce |
+| **Criterios de aceptación** | Reintroducir la firma original tras revocar revierte (`"Signature signer mismatch"`) y el claim sigue revocado; reactivar exige firma nueva con el nonce incrementado; reaplicar una firma válida sin revocación sigue siendo idempotente; ninguna métrica de `src/` baja |
+| **Cierra** | Cierra el bypass de D-046 (residual de H-08) |
+
 ## Ciclo 8b — Revisión del toolchain (decidido por el usuario)
 
 | Campo | Detalle |

@@ -16,6 +16,7 @@
 | 2026-10-10 | Ciclo 2 | RF-001 (cierra H-01) | `IdentityCloneable`, `IdentityCloneFactory` | **Sí** |
 | 2026-10-10 | Ciclo 4 | RF-003 (cierra H-17/HB-04) | `ICompliance`, `ComplianceAggregator`, `MaxBalanceCompliance`, `MaxHoldersCompliance`, `TransferLockCompliance`, `TokenCloneable` | **No (aditivo)**; rompe a implementadores de módulos |
 | 2026-10-10 | Ciclo 8 | RF-013 (cierra H-08 auditoría V1) | `IdentityCloneable`, `IdentityRegistry` | **Sí** (`getClaim` añade salida; `revokeClaim`/`hasValidClaim`/`ClaimRevoked` son aditivos) |
+| 2026-10-11 | Ciclo 8c | RF-013 (cierra el bypass de revocación por replay) | `IdentityCloneable` | **Sí off-chain**: `CLAIM_TYPEHASH` gana `uint256 nonce`; nueva vista `claimNonce(uint256,address)` (aditiva); el digest firmado cambia |
 
 ---
 
@@ -50,6 +51,10 @@ typeHash   = keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,b
 structHash = keccak256(abi.encode(typeHash, walletOwner, topic, scheme, keccak256(data), expiresAt))
 digest     = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash))
 ```
+
+> **Obsoleto desde el Ciclo 8c:** este `typeHash` es el **histórico** de RF-001; el vigente añade
+> `uint256 nonce` (ver la sección «RF-013 · Nonce firmado anti-replay (Ciclo 8c)» al final). Un firmante
+> que use el typehash de este bloque produce un digest inválido.
 
 `walletOwner` es el `owner()` de la identidad en el momento del `addClaim` (anti-replay entre titulares).
 La autorización del `issuer` **para el topic** no se comprueba en este contrato (D-025): la impone
@@ -262,3 +267,66 @@ issuer puede **revocarlo**, y `TokenCloneable.isVerified` exige ambas condicione
 
 Acción requerida (cuando se retome la zona web, p. ej. RF-007/RF-008): `forge build` y copiar de `sc/out/`,
 leer las 8 salidas de `getClaim`, y filtrar los claims no válidos (`revoked`/`expiresAt`).
+
+---
+
+## RF-013 — Nonce firmado anti-replay en la revocación de claims (Ciclo 8c)
+
+**Motivo:** `revokeClaim` marcaba `revoked = true`, pero la **firma EIP-712 original** del issuer seguía
+siendo válida para la tupla `(walletOwner, topic, scheme, dataHash, expiresAt)`. El titular podía
+reintroducirla con `addClaim` y reactivar el claim: la revocación **no era definitiva** (D-046, detectado
+en el Ciclo 8). El Ciclo 8c incorpora el `nonce` al digest firmado y lo incrementa **solo** al revocar,
+de modo que toda firma anterior a la revocación queda inservible.
+
+### Cambio crítico de firma off-chain — `CLAIM_TYPEHASH`
+
+| | |
+|---|---|
+| **Antes** | `keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt)")` |
+| **Después** | `keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce)")` — valor `0x8f719673d99f0733a2d1b85addf49c9a7b0dd6360023e749aa7c0494375a6ead` |
+| **Selector `CLAIM_TYPEHASH()`** | `0x6b0509b1` (sin cambio: es un getter constante) |
+| **Breaking** | **Sí, crítico off-chain.** Un firmante que use el typehash antiguo produce un digest distinto y `addClaim` revierte `"Signature signer mismatch"`. |
+
+Nuevo digest firmado por el issuer (EIP-712):
+
+```
+domain     = {name: "RWA-Identity", version: "1", chainId, verifyingContract: <dirección del clon>}
+typeHash   = keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce)")
+structHash = keccak256(abi.encode(typeHash, walletOwner, topic, scheme, keccak256(data), expiresAt, nonce))
+digest     = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash))
+```
+
+`nonce` = `claimNonce(topic, issuer)` **leído en el momento de firmar** (0 en el alta inicial; se
+incrementa en cada `revokeClaim`).
+
+### API nueva (aditiva) — `claimNonce`
+
+| | |
+|---|---|
+| **Firma** | `claimNonce(uint256 _topic, address _issuer) view returns (uint256)` |
+| **Selector** | `0x8a2eff53` |
+| **Semántica** | Nonce vigente del par `(topic, issuer)`. Empieza en `0`; `revokeClaim` lo incrementa en 1 (y solo entonces). Forma parte del digest firmado. |
+| **Breaking** | No para consumidores que no firman; **obligatorio** para todo cliente que construya firmas de claim. |
+
+### Funciones existentes: firmas sin cambios
+
+| Función | Selector | Cambio |
+|---|---|---|
+| `addClaim(uint256,uint256,address,bytes,bytes,string,uint256)` | `0x16cd5ffe` | **Sin cambio de firma**; cambia el digest que verifica y **no** incrementa el nonce (D-018 intacto). |
+| `revokeClaim(uint256,address)` | `0x512752e4` | **Sin cambio de firma**; además de marcar `revoked = true` incrementa `claimNonce[topic][issuer]`. |
+| `getClaim(uint256,address)` | `0x48e6b5a3` | **Sin cambio**: sigue devolviendo 8 salidas. El nonce vive en un mapping aparte, no en el struct `Claim`. |
+| `hasValidClaim(uint256,address)` | `0x03658fd8` | Sin cambio de semántica. |
+
+### Impacto en `rwa-web` (D-003: fuera de alcance, requiere trabajo posterior)
+
+- El cliente **debe leer `claimNonce(topic, issuer)` antes de firmar** y añadir `uint256 nonce` como último
+  campo del mensaje EIP-712 (`signTypedData`). Con el typehash antiguo la firma **no verifica**.
+- `rwa-web/web-identity/contracts/IdentityCloneable.abi.json` — ABI estática: al regenerarla desde
+  `sc/out/` incorpora el getter `claimNonce`.
+- Al reactivar un claim previamente revocado, el cliente debe **volver a leer** el nonce (habrá cambiado)
+  y pedir al issuer una firma nueva; la firma original ya no es reutilizable.
+- `rwa-web/web-identity/lib/identity-claims.ts` — hoy no firma EIP-712; cuando implemente la firma
+  (RF-007/RF-008), debe usar el typehash con `nonce`.
+
+Acción requerida: `forge build` en `rwa-sc/sc/`, copiar las ABIs de `sc/out/`, exponer `claimNonce` en el
+cliente y actualizar el mensaje EIP-712 antes de firmar cualquier claim.

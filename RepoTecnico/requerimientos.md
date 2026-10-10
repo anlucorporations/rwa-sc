@@ -306,6 +306,23 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   `true` por `staticcall`; un fallo de la llamada, una identidad que no implemente la vista o un retorno mal
   formado se tratan como **no válido** (coherente con el fail-closed de RF-011). El cambio es de
   comportamiento: una identidad desplegada antes del Ciclo 8 sin `hasValidClaim` no verifica a nadie.
+- **D-050 (Ciclo 8c · nonce firmado anti-replay):** cierra el bypass detectado en D-046: la firma EIP-712
+  original seguía siendo válida tras la revocación y el titular podía reactivar el claim reintroduciéndola.
+  `CLAIM_TYPEHASH` pasa a
+  `keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce)")`
+  y `addClaim` construye el `structHash` con `claimNonce[topic][issuer]`. `revokeClaim` **incrementa** ese
+  nonce (además de marcar `revoked = true`), de modo que toda firma anterior a la revocación deja de
+  verificar; reactivar exige una **firma nueva** del issuer con el nonce incrementado. El alta/renovación
+  **no** incrementa el nonce: D-018 (sobrescritura idempotente con firma válida) queda intacto.
+- **D-051 (Ciclo 8c · layout y ABI del nonce):** el nonce vive en un mapping aparte
+  `mapping(uint256 => mapping(address => uint256)) public claimNonce` (por par `(topic, issuer)`), **no** en
+  el struct `Claim`: `getClaim` sigue devolviendo **8** salidas y el struct no gana campos. La vista
+  `claimNonce(uint256,address)` (`0x8a2eff53`) es aditiva y la necesitan los clientes que firman.
+- **D-052 (Ciclo 8c · compatibilidad de los helpers de test):** `SigUtils.signClaim` gana el parámetro
+  `nonce` al final y conserva un **overload sin `nonce` que firma con `0`**, para no romper las llamadas
+  existentes; igual patrón en `claimDigest`/`claimStructHash`. La suite `RF013_ClaimLifecycle.t.sol` firma
+  con el nonce vigente leído de `claimNonce` y añade 5 tests del cierre (replay, incremento, reactivación,
+  idempotencia D-018 y digest). Ningún test se borra ni se debilita.
 
 ## 7. Mapa RF → casos de uso (Fase 2)
 

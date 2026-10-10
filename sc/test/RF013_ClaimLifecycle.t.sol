@@ -95,11 +95,28 @@ contract RF013_ClaimLifecycleTest is Test {
     }
 
     /// @dev Emite (o renueva) el claim de KYC del wallet, firmado EIP-712 por `issuer`.
+    /// Ciclo 8c: firma con el `claimNonce` vigente de `(topic, issuer)` (0 en el alta; >0 si ya se revoco).
     function _attest(address wallet, bytes memory data, string memory uri, uint256 expiresAt) internal {
         IdentityCloneable identity = identities[wallet];
-        bytes memory sig = SigUtils.signClaim(ISSUER_PK, address(identity), wallet, KYC_TOPIC, 1, data, expiresAt);
+        uint256 nonce = identity.claimNonce(KYC_TOPIC, issuer);
+        bytes memory sig =
+            SigUtils.signClaim(ISSUER_PK, address(identity), wallet, KYC_TOPIC, 1, data, expiresAt, nonce);
         vm.prank(wallet);
         identity.addClaim(KYC_TOPIC, 1, issuer, sig, data, uri, expiresAt);
+    }
+
+    /// @dev Ciclo 8c: nonce firmado vigente para el par `(topic, issuer)` de ese wallet.
+    function _nonce(address wallet) internal view returns (uint256) {
+        return identities[wallet].claimNonce(KYC_TOPIC, issuer);
+    }
+
+    /// @dev Firma EIP-712 de `issuer` para un `nonce` explicito.
+    function _sign(address wallet, bytes memory data, uint256 expiresAt, uint256 nonce)
+        internal
+        view
+        returns (bytes memory)
+    {
+        return SigUtils.signClaim(ISSUER_PK, address(identities[wallet]), wallet, KYC_TOPIC, 1, data, expiresAt, nonce);
     }
 
     function _claimData(address wallet) internal view returns (bytes memory) {
@@ -275,8 +292,9 @@ contract RF013_ClaimLifecycleTest is Test {
         bytes memory data = _claimData(user1);
         string memory uri = "https://kyc.example.com/history";
         uint256 expiresAt = block.timestamp + 30 days;
-        bytes memory sig =
-            SigUtils.signClaim(ISSUER_PK, address(identities[user1]), user1, KYC_TOPIC, 1, data, expiresAt);
+        bytes memory sig = SigUtils.signClaim(
+            ISSUER_PK, address(identities[user1]), user1, KYC_TOPIC, 1, data, expiresAt, _nonce(user1)
+        );
 
         // Historico: `ClaimAdded` queda registrado en la cadena y no se borra al revocar.
         vm.expectEmit(true, true, true, true, address(identities[user1]));
@@ -324,13 +342,15 @@ contract RF013_ClaimLifecycleTest is Test {
         identities[user1].revokeClaim(KYC_TOPIC, issuer);
         assertFalse(token.isVerified(user1));
 
-        // El titular intenta reactivar aportando una firma que NO es del issuer: se rechaza.
+        // El titular intenta reactivar aportando una firma que NO es del issuer: se rechaza
+        // (firmada con el nonce vigente para aislar la comprobacion del firmante).
+        uint256 forgedExpiry = block.timestamp + 60 days;
         bytes memory forgedSig = SigUtils.signClaim(
-            STRANGER_PK, address(identities[user1]), user1, KYC_TOPIC, 1, _claimData(user1), block.timestamp + 60 days
+            STRANGER_PK, address(identities[user1]), user1, KYC_TOPIC, 1, _claimData(user1), forgedExpiry, _nonce(user1)
         );
         vm.prank(user1);
         vm.expectRevert("Signature signer mismatch");
-        identities[user1].addClaim(KYC_TOPIC, 1, issuer, forgedSig, _claimData(user1), "uri", block.timestamp + 60 days);
+        identities[user1].addClaim(KYC_TOPIC, 1, issuer, forgedSig, _claimData(user1), "uri", forgedExpiry);
 
         assertTrue(_revoked(user1), "sigue revocado");
         assertFalse(identities[user1].hasValidClaim(KYC_TOPIC, issuer));
@@ -341,5 +361,116 @@ contract RF013_ClaimLifecycleTest is Test {
         identities[user1].removeClaim(KYC_TOPIC, issuer);
         assertFalse(identities[user1].claimExists(KYC_TOPIC, issuer));
         assertFalse(token.isVerified(user1));
+    }
+
+    // ------------------------------------------------------------------
+    // Ciclo 8c — nonce firmado: cierra el bypass de la revocacion por replay
+    // ------------------------------------------------------------------
+
+    /// D-046/D-050: tras revocar, la **firma original** ya no sirve para reactivar el claim.
+    function test_RF013_revocacion_replay_firma_original_revierte() public {
+        bytes memory data = _claimData(user1);
+        uint256 expiresAt = block.timestamp + 30 days;
+
+        // Firma original del issuer (nonce 0) y alta del claim.
+        bytes memory originalSig = _sign(user1, data, expiresAt, 0);
+        vm.prank(user1);
+        identities[user1].addClaim(KYC_TOPIC, 1, issuer, originalSig, data, "uri", expiresAt);
+        assertTrue(token.isVerified(user1));
+
+        vm.prank(issuer);
+        identities[user1].revokeClaim(KYC_TOPIC, issuer);
+        assertFalse(token.isVerified(user1));
+
+        // El titular reintroduce exactamente la firma original (replay): debe revertir.
+        vm.prank(user1);
+        vm.expectRevert("Signature signer mismatch");
+        identities[user1].addClaim(KYC_TOPIC, 1, issuer, originalSig, data, "uri", expiresAt);
+
+        // El claim sigue revocado y el titular sin verificar.
+        assertTrue(_revoked(user1), "la revocacion es definitiva frente al replay");
+        assertFalse(identities[user1].hasValidClaim(KYC_TOPIC, issuer));
+        assertFalse(token.isVerified(user1));
+    }
+
+    /// El nonce de `(topic, issuer)` pasa de 0 a 1 al revocar (y solo entonces).
+    function test_RF013_revocacion_incrementa_nonce() public {
+        _attest(user1, _claimData(user1), "uri", block.timestamp + 30 days);
+        assertEq(_nonce(user1), 0, "nonce inicial");
+
+        vm.prank(issuer);
+        identities[user1].revokeClaim(KYC_TOPIC, issuer);
+        assertEq(_nonce(user1), 1, "revocar incrementa el nonce");
+
+        // Una segunda revocacion del mismo claim lo vuelve a incrementar (no hay techo).
+        vm.prank(issuer);
+        identities[user1].revokeClaim(KYC_TOPIC, issuer);
+        assertEq(_nonce(user1), 2, "cada revocacion incrementa el nonce");
+
+        // El nonce es por par `(topic, issuer)`: otro topic no se ve afectado.
+        assertEq(identities[user1].claimNonce(2, issuer), 0, "nonce aislado por topic");
+    }
+
+    /// Reactivacion legitima: el issuer firma con el nonce nuevo (1) y el claim vuelve a ser valido.
+    function test_RF013_reactivacion_con_nonce_nuevo_ok() public {
+        bytes memory data = _claimData(user1);
+        uint256 expiresAt = block.timestamp + 30 days;
+        _attest(user1, data, "uri-v1", expiresAt);
+
+        vm.prank(issuer);
+        identities[user1].revokeClaim(KYC_TOPIC, issuer);
+        assertEq(_nonce(user1), 1);
+        assertFalse(token.isVerified(user1));
+
+        // Nueva firma del issuer con el nonce incrementado.
+        uint256 newExpiry = block.timestamp + 365 days;
+        bytes memory newSig = _sign(user1, data, newExpiry, 1);
+        vm.prank(user1);
+        identities[user1].addClaim(KYC_TOPIC, 1, issuer, newSig, data, "uri-v2", newExpiry);
+
+        (,,,,,, uint256 storedExpiry, bool revoked) = identities[user1].getClaim(KYC_TOPIC, issuer);
+        assertEq(storedExpiry, newExpiry, "la vigencia se actualiza");
+        assertFalse(revoked, "la firma con el nonce nuevo reactiva el claim");
+        assertTrue(identities[user1].hasValidClaim(KYC_TOPIC, issuer));
+        assertTrue(token.isVerified(user1), "vuelve a estar verificado");
+    }
+
+    /// D-018 intacto: sin revocacion, reaplicar la misma firma (nonce 0) sigue siendo idempotente.
+    function test_RF013_renovacion_sin_revocar_sigue_idempotente() public {
+        bytes memory data = _claimData(user1);
+        uint256 expiresAt = block.timestamp + 30 days;
+        bytes memory sig = _sign(user1, data, expiresAt, 0);
+
+        vm.prank(user1);
+        identities[user1].addClaim(KYC_TOPIC, 1, issuer, sig, data, "uri", expiresAt);
+
+        // Reaplicar la MISMA firma valida (mismo nonce 0) no revierte y no duplica al issuer.
+        vm.prank(user1);
+        identities[user1].addClaim(KYC_TOPIC, 1, issuer, sig, data, "uri", expiresAt);
+
+        assertEq(_nonce(user1), 0, "el alta no incrementa el nonce");
+        assertTrue(identities[user1].hasValidClaim(KYC_TOPIC, issuer));
+        assertTrue(token.isVerified(user1));
+        assertEq(identities[user1].getClaimIssuersForTopic(KYC_TOPIC).length, 1, "issuer sin duplicar");
+    }
+
+    /// El `nonce` forma parte del digest: una firma con el nonce antiguo no vale contra el nuevo.
+    function test_RF013_digest_incluye_nonce() public {
+        bytes memory data = _claimData(user1);
+        uint256 expiresAt = block.timestamp + 30 days;
+
+        bytes32 digestNonce0 = SigUtils.claimDigest(address(identities[user1]), user1, KYC_TOPIC, 1, data, expiresAt, 0);
+        bytes32 digestNonce1 = SigUtils.claimDigest(address(identities[user1]), user1, KYC_TOPIC, 1, data, expiresAt, 1);
+        assertTrue(digestNonce0 != digestNonce1, "el digest cambia con el nonce");
+
+        _attest(user1, data, "uri", expiresAt);
+        vm.prank(issuer);
+        identities[user1].revokeClaim(KYC_TOPIC, issuer);
+
+        // Firma NUEVA del issuer, pero construida sobre el nonce 0: no verifica cuando el nonce es 1.
+        bytes memory sigNonce0 = _sign(user1, data, expiresAt, 0);
+        vm.prank(user1);
+        vm.expectRevert("Signature signer mismatch");
+        identities[user1].addClaim(KYC_TOPIC, 1, issuer, sigNonce0, data, "uri", expiresAt);
     }
 }

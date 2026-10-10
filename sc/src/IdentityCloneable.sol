@@ -31,6 +31,11 @@ contract IdentityCloneable is OwnableUpgradeable {
     // Mapping to check if an issuer is in the array (to avoid duplicates)
     mapping(uint256 => mapping(address => bool)) private topicIssuerExists;
 
+    /// @dev RF-013 (Ciclo 8c): nonce por par `(topic, issuer)` que forma parte del digest EIP-712
+    /// firmado. Se incrementa **solo** en `revokeClaim`; asi cualquier firma anterior a la revocacion
+    /// queda inservible (anti-replay) y reactivar exige una firma nueva con el nonce incrementado.
+    mapping(uint256 => mapping(address => uint256)) public claimNonce;
+
     struct Claim {
         uint256 topic;
         uint256 scheme;
@@ -49,8 +54,14 @@ contract IdentityCloneable is OwnableUpgradeable {
     /// digest: renovar la vigencia exige una nueva firma. Su *enforcement* (rechazar
     /// claims vencidos) es del Ciclo 8/RF-013 (`hasValidClaim`), que es lo que consulta
     /// `TokenCloneable.isVerified`.
-    bytes32 public constant CLAIM_TYPEHASH =
-        keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt)");
+    ///
+    /// Ciclo 8c (anti-replay de la revocacion): el digest incluye ademas el `nonce`
+    /// vigente de `(topic, issuer)`. Como `revokeClaim` lo incrementa, la firma original
+    /// deja de verificar tras la revocacion y el titular no puede reactivar el claim
+    /// reintroduciendola.
+    bytes32 public constant CLAIM_TYPEHASH = keccak256(
+        "Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce)"
+    );
 
     /// @dev `keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")`
     bytes32 private constant DOMAIN_TYPEHASH =
@@ -111,6 +122,11 @@ contract IdentityCloneable is OwnableUpgradeable {
      * del token: una firma valida solo prueba el consentimiento del issuer, y un
      * issuer no autorizado nunca cuenta porque el token no lo reconoce.
      *
+     * Anti-replay tras revocacion (Ciclo 8c): el digest incorpora `claimNonce[_topic][_issuer]`,
+     * que `revokeClaim` incrementa. El alta/renovacion **no** incrementa el nonce (D-018), de modo
+     * que reaplicar una firma valida sigue siendo idempotente; pero una firma emitida antes de una
+     * revocacion ya no verifica y no puede reactivar el claim.
+     *
      * @param _topic Claim topic (e.g., 1 for KYC)
      * @param _scheme Signature scheme (only 1 = ECDSA supported)
      * @param _issuer Address of the claim issuer (must equal the recovered signer)
@@ -135,8 +151,12 @@ contract IdentityCloneable is OwnableUpgradeable {
 
         // El `walletOwner` firmado es el owner de esta identidad: una firma emitida
         // para otra identidad (u otro titular) no puede recuperar a `_issuer`.
+        // El `nonce` firmado es el vigente para `(topic, issuer)`; el alta NO lo incrementa.
+        // (Se precalcula `dataHash` y el `nonce` para no desbordar la pila del compilador.)
+        bytes32 dataHash = keccak256(_data);
+        uint256 nonce = claimNonce[_topic][_issuer];
         bytes32 structHash =
-            keccak256(abi.encode(CLAIM_TYPEHASH, owner(), _topic, _scheme, keccak256(_data), _expiresAt));
+            keccak256(abi.encode(CLAIM_TYPEHASH, owner(), _topic, _scheme, dataHash, _expiresAt, nonce));
         bytes32 digest = _hashTypedDataV4(structHash);
 
         // ECDSA.tryRecover aplica las comprobaciones de maleabilidad de OpenZeppelin
@@ -211,7 +231,9 @@ contract IdentityCloneable is OwnableUpgradeable {
      * trazabilidad; el claim simplemente deja de ser valido en `hasValidClaim`.
      *
      * Un `addClaim` posterior y firmado por el issuer renueva el claim y lo reactiva
-     * (`revoked = false`), conforme a D-018.
+     * (`revoked = false`), conforme a D-018, pero **solo** si la firma usa el `claimNonce`
+     * vigente (Ciclo 8c): la revocacion incrementa `claimNonce[_topic][_issuer]`, de modo que
+     * la firma original queda invalidada y no sirve para reactivar el claim por replay.
      *
      * @param _topic Claim topic
      * @param _issuer Issuer address (debe ser `msg.sender`)
@@ -221,6 +243,11 @@ contract IdentityCloneable is OwnableUpgradeable {
         require(msg.sender == _issuer, "Only issuer can revoke");
 
         claims[_topic][_issuer].revoked = true;
+
+        // Ciclo 8c (anti-replay): invalida toda firma emitida para el nonce anterior. El alta
+        // (addClaim) NO incrementa el nonce, por lo que D-018 (reaplicar una firma valida es
+        // idempotente) queda intacto mientras no haya revocacion.
+        claimNonce[_topic][_issuer]++;
 
         emit ClaimRevoked(_topic, _issuer);
     }

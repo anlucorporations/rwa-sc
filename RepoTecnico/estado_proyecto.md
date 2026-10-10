@@ -49,7 +49,8 @@
 - [x] **Documentación versionada:** `RepoTecnico/` se movió dentro del repo (`rwa-sc/RepoTecnico/`, commit
   `fb38e4f`), por lo que los ciclos siguientes versionan código **y** documentación. Decisión del usuario.
 - [ ] Ciclo 3 (RF-002) → Ciclo 4 (RF-003) → Ciclo 5 (RF-004) → Ciclo 6 (RF-011)
-  → Ciclo 7 (RF-012) → Ciclo 8 (RF-013) → **Ciclo 8b (toolchain: solc ≥ 0.8.24 + `EIP712Upgradeable` de OZ,
+  → Ciclo 7 (RF-012) → Ciclo 8 (RF-013) → **Ciclo 8c (nonce firmado anti-replay, hecho)** →
+  **Ciclo 8b (toolchain: solc ≥ 0.8.24 + `EIP712Upgradeable` de OZ,
   decidido por el usuario antes del despliegue)** → Ciclo 9 (RF-010) → Ciclo 10 (RF-006) → Ciclo 11 (RF-009).
 
 - [x] **Ciclo 1b — RF-005 · Cobertura ≥ 80 % por contrato en los registries** (commit local `a92cf1d`):
@@ -93,6 +94,16 @@
   `"Wallet not in registered addresses"`. Suite nueva `RF013_ClaimLifecycle.t.sol` (11 tests, CU-17) y
   **3 tests HB-14** en `IdentityRegistry.t.sol`. **348/348 tests**, `src/` 97,11 % líneas / 86,13 % ramas.
   Decisiones **D-045..D-049**; cambio de ABI en `getClaim` (+`revoked`) documentado en `CHANGELOG_ABIS.md`.
+- [x] **Ciclo 8c — RF-013 · nonce firmado anti-replay en la revocación de claims** (commit local `RF-013-8c`):
+  cierra el bypass detectado en D-046. `CLAIM_TYPEHASH` gana `uint256 nonce`; el nuevo mapping público
+  `claimNonce[topic][issuer]` (fuera del struct `Claim`: `getClaim` sigue con 8 salidas) entra en el digest
+  firmado; `revokeClaim` lo incrementa (y **solo** entonces), de modo que la firma original deja de
+  verificar y no puede reactivar el claim por replay; el alta/renovación **no** lo incrementa y preserva
+  D-018 (sobrescritura idempotente con firma válida). 5 tests nuevos en `RF013_ClaimLifecycle.t.sol`
+  (replay, incremento, reactivación con nonce nuevo, idempotencia y digest) y adaptación de los existentes
+  de firma tras revocación sin borrar ni debilitar ninguno. **353/353 tests**, `src/` 97,11 % líneas /
+  86,13 % ramas, `IdentityCloneable` 100 % líneas. Decisiones **D-050..D-052**; cambio crítico de firma
+  off-chain documentado en `CHANGELOG_ABIS.md` (impacto en `rwa-web`).
 
 ### Corrección de cifras tras el Ciclo 1
 

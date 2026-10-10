@@ -880,3 +880,87 @@ seguidas producen el mismo archivo) y `forge snapshot --check --tolerance 5` da 
 - Decisiones nuevas: **D-045..D-049** en `requerimientos.md` (Bloque 6).
 - `documento_tecnico.md`: filas `RF-013` y `H-08 (auditoría V1)` → **IMPLEMENTADO (Ciclo 8)**, y fila
   `IdentityCloneable` / struct `Claim` de §3.1 actualizada a implementado.
+
+## 16. Ciclo 8c — RF-013: nonce firmado anti-replay en la revocación de claims
+
+**Objetivo:** cerrar el bypass detectado en el Ciclo 8 (D-046): tras `revokeClaim`, la firma EIP-712
+original seguía verificando y el titular podía reactivar el claim reintroduciéndola. El `nonce` entra en el
+digest firmado y `revokeClaim` lo incrementa.
+
+| Métrica | Antes (Ciclo 8) | Después (Ciclo 8c) |
+|---|---|---|
+| Tests | 348 | **353** (+5) |
+| Fallos | 0 | **0** |
+| Suites | 18 | **18** (sin suite nueva: los 5 casos se añaden a `RF013_ClaimLifecycle.t.sol`) |
+| Suites revertidas en `setUp` | 0 | **0** |
+| Tests `RF013_*` | 11 | **16** (+5 del cierre anti-replay) |
+| Entradas de `.gas-snapshot` | 347 | **352** (+5) |
+| Gate de gas (`--check --tolerance 5`) | OK | **OK** (exit 0, 0 diffs) |
+
+**Cambio en `src/` (`IdentityCloneable`):**
+
+- Nuevo mapping público `claimNonce[topic][issuer]` (nonce por par, fuera del struct `Claim`).
+- `CLAIM_TYPEHASH` gana `uint256 nonce` (valor `0x8f719673…`); `addClaim` construye el `structHash` con el
+  nonce vigente y **no** lo incrementa (D-018 intacto); `revokeClaim` lo incrementa tras marcar
+  `revoked = true`.
+- `getClaim` sigue con **8** salidas; `hasValidClaim`, `claimExists` y `TokenCloneable.isVerified` no cambian
+  de semántica.
+
+### 16.1 Cobertura — antes / después (`src/`, D-017)
+
+Comando: `forge coverage --report summary`. Agregado sobre los **13 contratos de `src/` con código
+ejecutable**:
+
+| Métrica | Antes (Ciclo 8) | Después (Ciclo 8c) |
+|---|---|---|
+| Líneas | 97,11 % (671/691) | **97,11 %** (673/693) |
+| Sentencias | 97,13 % (642/661) | **97,14 %** (646/665) |
+| Ramas | 86,13 % (205/238) | **86,13 %** (205/238) |
+| Funciones | 97,33 % (146/150) | **97,33 %** (146/150) |
+
+| Contrato | Líneas antes → después | Ramas antes → después |
+|---|---|---|
+| `IdentityCloneable` | 100 % (60/60) → **100 %** (62/62) | 98,18 % (54/55) → **98,31 %** (58/59) |
+| `TokenCloneable` | 99,45 % (180/181) → **99,45 %** (180/181) | 81,01 % (64/79) → **81,01 %** (64/79) |
+
+**Ninguna métrica agregada de `src/` baja** y `IdentityCloneable` mantiene el **100 %** de líneas.
+
+### 16.2 Gas — referencias del ciclo
+
+| Test | Gas |
+|---|---|
+| `RF013_ClaimLifecycleTest:test_RF013_revocacion_replay_firma_original_revierte` | 822.596 |
+| `RF013_ClaimLifecycleTest:test_RF013_revocacion_incrementa_nonce` | 625.260 |
+| `RF013_ClaimLifecycleTest:test_RF013_reactivacion_con_nonce_nuevo_ok` | 836.433 |
+| `RF013_ClaimLifecycleTest:test_RF013_renovacion_sin_revocar_sigue_idempotente` | 633.061 |
+| `RF013_ClaimLifecycleTest:test_RF013_digest_incluye_nonce` | 578.554 |
+
+**Nota operativa (snapshot):** se respetó la regla del Ciclo 8: tras `forge coverage` se hizo
+`forge clean && forge build` (artefactos sin instrumentar) y **después** `forge snapshot`; el gate
+`forge snapshot --check --tolerance 5` da **exit 0 con 0 diffs**.
+
+### 16.3 Verificaciones del ciclo
+
+| Verificación | Resultado |
+|---|---|
+| `forge build` | 0 errores |
+| `forge test` | **353/353**, 0 fallos, 0 suites revertidas en `setUp` |
+| Replay de la firma original | `test_RF013_revocacion_replay_firma_original_revierte` → `"Signature signer mismatch"` y el claim sigue revocado |
+| Nonce se incrementa al revocar | `test_RF013_revocacion_incrementa_nonce` → 0 → 1 → 2 |
+| Reactivación con firma nueva | `test_RF013_reactivacion_con_nonce_nuevo_ok` → `revoked == false`, `isVerified == true` |
+| D-018 intacto | `test_RF013_renovacion_sin_revocar_sigue_idempotente` (misma firma, nonce 0, sin duplicar issuer) |
+| Digest con nonce | `test_RF013_digest_incluye_nonce` (la firma con nonce 0 no vale cuando el nonce es 1) |
+| `forge coverage --report summary` | `src/` **97,11 %** líneas / **86,13 %** ramas; `IdentityCloneable` 100 % líneas |
+| `forge fmt --check` | limpio |
+| `forge snapshot --check --tolerance 5` | OK (exit 0, 0 diffs; 352 entradas) |
+| `git status --short` | limpio tras el commit local |
+
+### 16.4 ABI y documentación
+
+- **Cambio crítico de firma off-chain:** `CLAIM_TYPEHASH` gana `uint256 nonce`; nueva vista aditiva
+  `claimNonce(uint256,address)` (`0x8a2eff53`). `addClaim` (`0x16cd5ffe`), `revokeClaim` (`0x512752e4`) y
+  `getClaim` (`0x48e6b5a3`) **no** cambian de selector ni de número de salidas. Documentado en
+  `CHANGELOG_ABIS.md` (sección RF-013 · Ciclo 8c) con el impacto en `rwa-web`.
+- Decisiones nuevas: **D-050..D-052** en `requerimientos.md` (Bloque 6).
+- `documento_tecnico.md`: fila `IdentityCloneable`/RF-013 y diccionario de datos (fila `nonce`) actualizados;
+  D-020 corregida con el `nonce`.

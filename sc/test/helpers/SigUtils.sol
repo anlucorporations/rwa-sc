@@ -11,14 +11,18 @@ import {Vm} from "forge-std/Vm.sol";
  * chainId, verifyingContract}` y el `CLAIM_TYPEHASH` de D-020, para que los tests
  * verifiquen el contrato y no una copia de su propia implementacion.
  *
- * Uso: `bytes memory sig = SigUtils.signClaim(pk, address(identity), walletOwner, topic, scheme, data, expiresAt);`
+ * Uso: `bytes memory sig = SigUtils.signClaim(pk, address(identity), walletOwner, topic, scheme, data, expiresAt, nonce);`
+ *
+ * Ciclo 8c: el `CLAIM_TYPEHASH` gana `uint256 nonce` (anti-replay de la revocacion). Se conservan
+ * overloads sin `nonce` que firman con `0`, para no romper las llamadas historicas.
  */
 library SigUtils {
     address internal constant VM_ADDRESS = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     Vm internal constant VM = Vm(VM_ADDRESS);
 
-    bytes32 internal constant CLAIM_TYPEHASH =
-        keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt)");
+    bytes32 internal constant CLAIM_TYPEHASH = keccak256(
+        "Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce)"
+    );
 
     bytes32 internal constant DOMAIN_TYPEHASH =
         keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
@@ -34,13 +38,25 @@ library SigUtils {
             );
     }
 
-    /// @notice `structHash` del Claim firmado.
+    /// @notice `structHash` del Claim firmado (Ciclo 8c: incluye `nonce`).
+    function claimStructHash(
+        address walletOwner,
+        uint256 topic,
+        uint256 scheme,
+        bytes memory data,
+        uint256 expiresAt,
+        uint256 nonce
+    ) internal pure returns (bytes32) {
+        return keccak256(abi.encode(CLAIM_TYPEHASH, walletOwner, topic, scheme, keccak256(data), expiresAt, nonce));
+    }
+
+    /// @notice Overload historico (pre-Ciclo 8c): firma con `nonce == 0`.
     function claimStructHash(address walletOwner, uint256 topic, uint256 scheme, bytes memory data, uint256 expiresAt)
         internal
         pure
         returns (bytes32)
     {
-        return keccak256(abi.encode(CLAIM_TYPEHASH, walletOwner, topic, scheme, keccak256(data), expiresAt));
+        return claimStructHash(walletOwner, topic, scheme, data, expiresAt, 0);
     }
 
     /// @notice Digest final EIP-712 (`\x19\x01 || domainSeparator || structHash`).
@@ -50,15 +66,28 @@ library SigUtils {
         uint256 topic,
         uint256 scheme,
         bytes memory data,
-        uint256 expiresAt
+        uint256 expiresAt,
+        uint256 nonce
     ) internal view returns (bytes32) {
         return keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 domainSeparator(verifyingContract),
-                claimStructHash(walletOwner, topic, scheme, data, expiresAt)
+                claimStructHash(walletOwner, topic, scheme, data, expiresAt, nonce)
             )
         );
+    }
+
+    /// @notice Overload historico (pre-Ciclo 8c): digest con `nonce == 0`.
+    function claimDigest(
+        address verifyingContract,
+        address walletOwner,
+        uint256 topic,
+        uint256 scheme,
+        bytes memory data,
+        uint256 expiresAt
+    ) internal view returns (bytes32) {
+        return claimDigest(verifyingContract, walletOwner, topic, scheme, data, expiresAt, 0);
     }
 
     /// @notice Firma EIP-712 y devuelve `r || s || v` (65 bytes) listo para `addClaim`.
@@ -69,11 +98,25 @@ library SigUtils {
         uint256 topic,
         uint256 scheme,
         bytes memory data,
-        uint256 expiresAt
+        uint256 expiresAt,
+        uint256 nonce
     ) internal view returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = VM.sign(
-            privateKey, claimDigest(verifyingContract, walletOwner, topic, scheme, data, expiresAt)
+            privateKey, claimDigest(verifyingContract, walletOwner, topic, scheme, data, expiresAt, nonce)
         );
         return abi.encodePacked(r, s, v);
+    }
+
+    /// @notice Overload historico (pre-Ciclo 8c): firma con `nonce == 0`.
+    function signClaim(
+        uint256 privateKey,
+        address verifyingContract,
+        address walletOwner,
+        uint256 topic,
+        uint256 scheme,
+        bytes memory data,
+        uint256 expiresAt
+    ) internal view returns (bytes memory) {
+        return signClaim(privateKey, verifyingContract, walletOwner, topic, scheme, data, expiresAt, 0);
     }
 }
