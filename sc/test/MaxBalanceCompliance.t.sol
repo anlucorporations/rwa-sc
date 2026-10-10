@@ -154,4 +154,25 @@ contract MaxBalanceComplianceTest is Test {
         // destroyed() should not revert (no-op function)
         compliance.destroyed(user1, 100 * 10 ** 18);
     }
+
+    // ============ AF-01: lectura defensiva del saldo ============
+
+    /// @notice AF-01: sin `tokenContract` configurado, `canTransfer` degrada a `false` sin revertir.
+    function test_AF01_canTransfer_sin_tokenContract_degrada_a_false_sin_revert() public {
+        MaxBalanceCompliance fresh = new MaxBalanceCompliance(owner, MAX_BALANCE);
+        assertEq(fresh.tokenContract(), address(0), "precondicion: sin tokenContract");
+
+        // Antes: `abi.decode` sobre retorno vacio revertia (Panic). Ahora: false, sin revert.
+        bool allowed = fresh.canTransfer(user1, user2, 1);
+        assertFalse(allowed, "fail-closed sin tokenContract");
+    }
+
+    /// @notice AF-01: con `tokenContract` apuntando a una cuenta sin `balanceOf` tampoco revierte.
+    function test_AF01_canTransfer_tokenContract_sin_codigo_degrada_a_false_sin_revert() public {
+        MaxBalanceCompliance fresh = new MaxBalanceCompliance(owner, MAX_BALANCE);
+        fresh.setTokenContract(makeAddr("eoaSinBalanceOf"));
+
+        bool allowed = fresh.canTransfer(user1, user2, 1);
+        assertFalse(allowed, "fail-closed si el token no responde");
+    }
 }

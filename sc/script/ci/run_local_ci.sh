@@ -4,8 +4,9 @@
 #
 # Ejecuta, en el MISMO orden que los jobs de `.gitlab-ci.yml`, exactamente los
 # mismos comandos (validate -> build -> fmt -> test -> coverage+gate -> gas ->
-# ci-checks) y devuelve exit 0 solo si todas las etapas pasan. Es el ensayo del
-# pipeline que aún no puede correr en remoto (no hay `push`, ver README.md).
+# ci-checks) y devuelve exit 0 solo si todas las etapas pasan. Reproduce en local
+# el pipeline `.gitlab-ci.yml`, que ya corrio en remoto en verde (IDs 2934202154 y
+# 2934241152, 7/7 jobs). Ver README.md.
 #
 # Uso:
 #   sc/script/ci/run_local_ci.sh

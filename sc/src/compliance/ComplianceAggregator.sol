@@ -89,15 +89,39 @@ contract ComplianceAggregator is ICompliance, ERC165, Ownable, ReentrancyGuard {
     }
 
     /**
+     * @dev AF-01 (RF-003/RF-004): comprueba, sin revertir, si un modulo esta vinculado a `token`.
+     *
+     * - Si el modulo **no expone** `tokenContract()` (staticcall falla), se considera un modulo
+     *   multi-token y queda exento.
+     * - Si lo expone con retorno mal formado (`data.length < 32`), se rechaza.
+     * - Si lo expone, debe devolver exactamente `token` (aqui el token destinatario del alta).
+     */
+    function _isLinkedToToken(address module, address token) private view returns (bool) {
+        (bool success, bytes memory data) = module.staticcall(abi.encodeWithSignature("tokenContract()"));
+        if (!success) {
+            return true;
+        }
+        if (data.length < 32) {
+            return false;
+        }
+        return abi.decode(data, (address)) == token;
+    }
+
+    /**
      * @dev Add a compliance module for a token
      * Can only be called by the token itself (RF-012 / CU-16)
      * @param token Token address
      * @param module Compliance module address
+     *
+     * AF-01: ademas de ERC-165, se exige que un modulo de un solo token este vinculado al token
+     * destinatario (`module.tokenContract() == token`). Los modulos multi-token que no exponen
+     * `tokenContract()` quedan exentos.
      */
     function addModule(address token, address module) external nonReentrant onlyToken(token) {
         require(token != address(0), "Invalid token address");
         require(module != address(0), "Invalid module address");
         require(_implementsCompliance(module), "Module does not implement ICompliance");
+        require(_isLinkedToToken(module, token), "Module not linked to this token");
         require(!isModuleActive[token][module], "Module already added");
 
         // Register token if not already registered

@@ -13,9 +13,10 @@
 #   ci-checks -> check_no_bypass_flag.sh (RF-002) + check_docs.sh + abi_diff.sh
 #                (RF-006) + check_secrets.sh (RF-010)
 #
-# La rama de CI es `rwa-sc-DSH-GCP`. El pipeline AÚN NO ha corrido en remoto:
-# no se ha hecho `push` (regla del proyecto: sin orden explícita del usuario no
-# hay push). Ver `README.md` y `RepoTecnico/entornos_globales.md`.
+# La rama de CI es `rwa-sc-DSH-GCP`. El pipeline YA HA CORRIDO EN REMOTO en verde:
+# IDs `2934202154` y `2934241152`, 7/7 jobs en `success` (AF-11, cierre de Fase 4).
+# `run_local_ci.sh` reproduce el mismo pipeline en local. Ver `README.md` y
+# `RepoTecnico/entornos_globales.md`.
 #
 # Sin secretos: el pipeline no despliega; las claves de despliegue viven en
 # variables protegidas / GCP Secret Manager (RF-010).

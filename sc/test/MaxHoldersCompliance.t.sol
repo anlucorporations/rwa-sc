@@ -307,4 +307,30 @@ contract MaxHoldersComplianceTest is Test {
             assertTrue(compliance.canTransfer(user1, user2, 100));
         }
     }
+
+    // ============ AF-01: lectura defensiva de saldos en los callbacks ============
+
+    /// @notice AF-01: sin `tokenContract`, `transferred` no revierte y no altera el conteo.
+    function test_AF01_transferred_sin_tokenContract_no_revierte_ni_actualiza() public {
+        MaxHoldersCompliance fresh = new MaxHoldersCompliance(owner, MAX_HOLDERS);
+        assertEq(fresh.tokenContract(), address(0));
+
+        // El callback se invoca directamente (autorizado) para aislar la lectura defensiva.
+        fresh.addAuthorizedCaller(address(this));
+        fresh.transferred(user1, user2, 100);
+
+        assertEq(fresh.holderCount(), 0, "sin cambios al no poder leer saldos");
+        assertFalse(fresh.getIsHolder(user2));
+    }
+
+    /// @notice AF-01: con `tokenContract` sin codigo, `destroyed` no revierte ni corrompe el conteo.
+    function test_AF01_destroyed_sin_tokenContract_no_revierte_ni_actualiza() public {
+        MaxHoldersCompliance fresh = new MaxHoldersCompliance(owner, MAX_HOLDERS);
+        fresh.setTokenContract(makeAddr("eoaSinBalanceOf"));
+
+        fresh.addAuthorizedCaller(address(this));
+        fresh.destroyed(user1, 100);
+
+        assertEq(fresh.holderCount(), 0, "sin cambios al no poder leer saldos");
+    }
 }

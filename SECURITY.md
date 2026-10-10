@@ -36,13 +36,13 @@ identidades y claims (KYC/AML) que habilitan operar; (c) control de acceso a fun
 |---|---|---|---|---|
 | T1 | **Forja de claims** | Un titular de identidad se añade un claim de KYC sin firma válida del issuer | Firma **EIP-712** obligatoria en `addClaim` (RF-001); `isVerified` exige claim vigente y no revocado | Firmas EIP-712 propias (no `EIP712Upgradeable`), sin auditoría |
 | T2 | **Fail-open de verificación** | Token sin `claimTopicsRegistry` (o sin topics) marca a cualquiera como verificado | `isVerified` **fail-closed** (RF-011) | — |
-| T3 | **Módulo de compliance malicioso/incompatible** | Registrar una EOA o un contrato sin `ICompliance` como módulo | Validación **ERC-165** en token y aggregator (RF-003) | — |
+| T3 | **Módulo de compliance malicioso/incompatible o mal configurado** | Registrar una EOA, un contrato sin `ICompliance` o un módulo de un solo token no vinculado a este token | Validación **ERC-165** en token y aggregator (RF-003) + **vinculación `tokenContract() == token`** (AF-01) + lectura defensiva en los módulos | — |
 | T4 | **Reentrancia** | Callbacks `transferred`/`created`/`destroyed` de un módulo malicioso | `ReentrancyGuardUpgradeable` (`nonReentrant`) en `transfer`/`forcedTransfer`/`mint`/`burn` (RF-002) | — |
-| T5 | **Abuso de poderes del agente** | `burn`/`forcedTransfer` masivos o a destinos arbitrarios | Whitelist `authorizedDestinations` + `maxBurnPerTx`/`maxForcedPerTx` + `maxSupply` (RF-004) | Gobernanza en una sola EOA hasta el multisig (H-06/R-7) |
+| T5 | **Abuso de poderes del agente** | `burn`/`forcedTransfer` masivos o a destinos arbitrarios; `mint`/`burn` durante una pausa de emergencia | Whitelist `authorizedDestinations` + `maxBurnPerTx`/`maxForcedPerTx` + `maxSupply` (RF-004) + `whenNotPaused` en `mint`/`burn` y `mint` a cuenta congelada rechazado (AF-02) | Gobernanza en una sola EOA hasta el multisig (H-06/R-7) |
 | T6 | **Aggregator fail-open / cross-token** | 0 módulos = permitir todo; owner global gestiona módulos ajenos | `ComplianceAggregator` **fail-closed** y gestión solo por el token (RF-012) | Estado singleton de módulos (H-19, backlog M-10) |
 | T7 | **Replay de un claim revocado** | Reintroducir la firma original tras una revocación | `claimNonce` por `(topic, issuer)` dentro del digest; `revokeClaim` lo incrementa (RF-013, Ciclo 8c) | — |
 | T8 | **Fuga de claves de despliegue** | Clave privada en `argv`/`ps` o en `~/.foundry/keys.json` | `deploy.sh` lee la clave de variable de entorno/Secret Manager y firma con keystore efímero (D-054/D-055) | Custodia de claves y rotación pendientes (H-06/R-7) |
-| T9 | **Deriva de ABI no declarada** | Un cambio de interfaz rompe a `rwa-web` sin aviso | `script/ci/abi_diff.sh` contra `sc/abis/` + `CHANGELOG_ABIS.md` (RF-006) | El pipeline de CI aún no existe (RF-009) |
+| T9 | **Deriva de ABI no declarada** | Un cambio de interfaz rompe a `rwa-web` sin aviso | `script/ci/abi_diff.sh` contra `sc/abis/` + `CHANGELOG_ABIS.md` (RF-006) | — (pipeline RF-009 en verde: IDs `2934202154` y `2934241152`) |
 | T10 | **Documentación que sobreafirma** | Publicar "production-ready"/"ERC-3643 compliant" o cifras sin respaldo | Gate `script/ci/check_docs.sh`; cifras enlazadas a artefacto (RF-006) | — |
 
 ## 2. Estado de los hallazgos de la auditoría V1
@@ -55,8 +55,8 @@ test o un gate que lo demuestre.
 | ID | Título breve | Estado | Ciclo / RF | Evidencia (test o gate) |
 |---|---|---|---|---|
 | **H-01** | Claims auto-forjados sin verificación de firma | **Corregido** | Ciclo 2 · RF-001 | `test/RF001_*` en `test/IdentityCloneable.t.sol` (`test_RF001_addClaim_firma_vacia_revierte`, `test_RF001_addClaim_firma_de_otra_clave_revierte`, `test_RF001_addClaim_firma_maleable_s_alto_revierte`, `test_RF001_addClaim_con_firma_valida`) |
-| **H-02** | "139 tests (100 % passing)" falso; suites muertas; cobertura 42,86 % | **Corregido** | Ciclos 1/1b · RF-005, y Ciclo 10 · RF-006 | `forge test` → **353/353**; cobertura `src/` **97,11 % líneas / 86,13 % ramas** (`metricas_ejecucion.md` §16.3) |
-| **H-04** | Build no reproducible: submódulos, pin de `solc`, sin CI | **Corregido** (CI pendiente en RF-009) | Ciclo 1 · RF-005 | `.gitmodules` único + `sc/foundry.lock`; `solc_version = 0.8.20` y `evm_version` en `sc/foundry.toml`; `metricas_ejecucion.md` §7.4 |
+| **H-02** | "139 tests (100 % passing)" falso; suites muertas; cobertura 42,86 % | **Corregido** | Ciclos 1/1b · RF-005, y Ciclo 10 · RF-006 | `forge test` → **386/386**; cobertura `src/` **97,05 % líneas** (690/711; mínimo por contrato 91,53 %; D-017/D-042) |
+| **H-04** | Build no reproducible: submódulos, pin de `solc`, sin CI | **Corregido** | Ciclos 1 y 11 · RF-005/RF-009 | `.gitmodules` único + `sc/foundry.lock`; `solc_version = 0.8.20` y `evm_version` en `sc/foundry.toml`; `sc/.gitlab-ci.yml` (7 jobs) en verde (`2934202154`, `2934241152`) |
 | **H-05** | `isVerified()` fail-open sin `claimTopicsRegistry` | **Corregido** | Ciclo 6 · RF-011 | `test/RF011_FailClosed.t.sol` (`test_RF011_isVerified_sin_registry_topics_false`, `test_RF011_mint_transfer_bloqueados_sin_politica`) |
 | **H-08** | Claims sin vigencia ni revocación por el issuer | **Corregido** | Ciclos 8/8c · RF-013 | `test/RF013_ClaimLifecycle.t.sol` (`test_RF013_claim_expirado_isVerified_false`, `test_RF013_claim_revocado_por_issuer_isVerified_false`, `test_RF013_revocacion_replay_firma_original_revierte`) |
 | **H-17** | `addComplianceModule`/`addModule` sin validar `ICompliance` | **Corregido** | Ciclo 4 · RF-003 | `test/RF003_ERC165.t.sol` (`test_RF003_addComplianceModule_revierte_eoa`, `test_RF003_aggregator_addModule_revierte_contrato_sin_interfaz`) |
@@ -118,8 +118,8 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
 | HB-07 | Docs referencian archivos inexistentes | **Corregido** | RF-006 / Ciclo 10 (`script/ci/check_docs.sh`) |
 | HB-08 | `web-registry-trusted2` duplicado (zona web) | **Pausado** | D-003 (fuera de alcance) |
 | HB-09 | Direcciones hardcodeadas en `rwa-web` | **Pausado** | D-003 (fuera de alcance) |
-| HB-10 | No hay CI/CD | Backlog | RF-009 / Ciclo 11 |
-| HB-11 | 151 tests no verificados en el entorno | **Corregido** | RF-005 / Ciclo 1; hoy **353/353** |
+| HB-10 | No hay CI/CD | **Corregido** | RF-009 / Ciclo 11 (`sc/.gitlab-ci.yml`, 7 jobs; pipelines `2934202154` y `2934241152` en verde) |
+| HB-11 | 151 tests no verificados en el entorno | **Corregido** | RF-005 / Ciclo 1; hoy **386/386** |
 | HB-12 | `deploy-besu.sh` maneja clave privada en claro | **Corregido** | RF-010 / Ciclo 9 (D-054/D-055) |
 
 ## 4. Controles implementados (con su prueba)
@@ -150,6 +150,19 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
    que falla ante deriva no declarada en `CHANGELOG_ABIS.md`.
 9. **Gate de documentación (RF-006).** `script/ci/check_docs.sh` falla ante referencias inexistentes,
    afirmaciones sin matizar o ausencia de `SECURITY.md`/`CHANGELOG_ABIS.md`.
+10. **Vinculación del módulo al token (AF-01).** `TokenCloneable.addComplianceModule` y
+    `ComplianceAggregator.addModule` exigen que un módulo de un solo token devuelva
+    `tokenContract() == token`; los módulos multi-token que no exponen `tokenContract()` (el aggregator)
+    quedan exentos. Los módulos hacen **lectura defensiva** (`staticcall` + `success && data.length >= 32`)
+    y degradan a `false`/sin cambios en vez de revertir con un `abi.decode` opaco. Pruebas:
+    `test/AuditoriaFinalAF.t.sol` (`test_AF01_*`) y `test/MaxBalanceCompliance.t.sol`/`MaxHoldersCompliance.t.sol`.
+11. **Pausa y congelación en operaciones privilegiadas (AF-02).** `mint` y `burn` son `whenNotPaused`;
+    `mint` rechaza destinos congelados; `forcedTransfer` sigue operativo en pausa como mecanismo de
+    recuperación de emergencia (siempre con `AGENT_ROLE`, destino whitelisted y verificado). Pruebas:
+    `test/AuditoriaFinalAF.t.sol` (`test_AF02_*`).
+12. **Ciclo de vida y migración (D-019/RT-008).** Sin proxy actualizable: el redeploy limpio está
+    documentado en `RUNBOOK_MIGRACION.md` (orden de despliegue, configuración obligatoria, verificación con
+    `cast`, actualización de consumidores y rollback).
 
 ## 5. Riesgos residuales (declaración honesta)
 
@@ -160,8 +173,10 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
    backlog R-7.
 3. **PII off-chain sin política formal.** Los documentos KYC viven en MongoDB/GridFS sin base legal,
    cifrado ni retención documentados (H-11).
-4. **Sin pipeline de CI todavía.** Los gates `check_docs.sh`, `abi_diff.sh` y `check_no_bypass_flag.sh`
-   existen y se ejecutan manualmente, pero RF-009 (`.gitlab-ci.yml`) sigue pendiente (H-04/HB-10).
+4. **Pipeline de CI en verde.** Los gates `validate`, `build`, `fmt`, `test`, `coverage`, `gas` y `ci-checks`
+   (`check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh`, `check_secrets.sh`) están versionados en
+   `sc/.gitlab-ci.yml` (RF-009) y se han ejecutado en remoto en verde: pipelines **`2934202154`** y
+   **`2934241152`**, **7/7 jobs** (H-04/HB-10). `sc/script/ci/run_local_ci.sh` reproduce el pipeline en local.
 5. **Claim topics no canónicos.** El catálogo de topics diverge entre documentos (H-13).
 6. **Escalabilidad y observabilidad.** Arrays O(n), vistas sin paginación, sin indexer de eventos
    (H-12/H-20/H-21).
@@ -181,4 +196,4 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
 
 ---
 
-*Última revisión: Ciclo 10 (RF-006). Fuente de los hallazgos: [`RepoTecnico/INFORME_OPTIMIZACION_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_V1.md).*
+*Última revisión: Fase 4 (cierre, hallazgos AF-01/AF-02/AF-06/AF-11 de la auditoría adversarial final). Fuente de los hallazgos: [`RepoTecnico/INFORME_OPTIMIZACION_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_V1.md).*

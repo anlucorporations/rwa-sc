@@ -147,13 +147,40 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
      * ERC-165 are accepted; EOAs, `address(0)` and non-conforming contracts revert, so a module
      * without `canTransfer`/`transferred`/`created`/`destroyed` can never break the transfer path.
      * Duplicate registrations are rejected.
+     *
+     * AF-01 (RF-003/RF-004): un modulo que expone `tokenContract()` debe estar **vinculado a este
+     * token** (su `tokenContract()` tiene que devolver `address(this)`). Esto cierra el fallo ALTA
+     * de la auditoria adversarial: un modulo de un solo token registrado sin `setTokenContract`
+     * (o apuntando a otro token) quedaba mal configurado y bloqueaba el token. Los modulos
+     * multi-token que **no** exponen `tokenContract()` (p. ej. `ComplianceAggregator`) quedan
+     * exentos de esta comprobacion porque no pertenecen a un unico token.
      */
     function addComplianceModule(address module) external onlyRole(COMPLIANCE_ROLE) {
         require(module != address(0), "Invalid module address");
         require(!_isComplianceModule(module), "Module already added");
         require(_implementsCompliance(module), "Module does not implement ICompliance");
+        require(_isLinkedToToken(module, address(this)), "Module not linked to this token");
         complianceModules.push(ICompliance(module));
         emit ComplianceModuleAdded(module);
+    }
+
+    /**
+     * @dev AF-01 (RF-003/RF-004): comprueba, sin revertir, si un modulo esta vinculado a `token`.
+     *
+     * - Si el modulo **no expone** `tokenContract()` (staticcall falla), se considera un modulo
+     *   multi-token y queda exento (p. ej. `ComplianceAggregator`).
+     * - Si lo expone con retorno mal formado (`data.length < 32`), se rechaza.
+     * - Si lo expone, debe devolver exactamente `token`.
+     */
+    function _isLinkedToToken(address module, address token) private view returns (bool) {
+        (bool success, bytes memory data) = module.staticcall(abi.encodeWithSignature("tokenContract()"));
+        if (!success) {
+            return true;
+        }
+        if (data.length < 32) {
+            return false;
+        }
+        return abi.decode(data, (address)) == token;
     }
 
     /**
@@ -264,8 +291,14 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
      * @dev Mint new tokens
      * @dev `nonReentrant` covers the whole path: the compliance pre-check (external `canTransfer`),
      * the `_mint` -> `_update` balance write and the trailing `created` notification loop.
+     *
+     * AF-02 (`mint`): la emision es una operacion privilegiada que **respeta la pausa de emergencia**
+     * (`whenNotPaused`) y **no puede acreditar** en una cuenta congelada (`require(!frozen[to])`).
+     * Antes de esta correccion `AGENT_ROLE` podia acunar a una cuenta congelada (una transferencia
+     * normal a esa misma cuenta revería) y podia seguir emitiendo durante una pausa.
      */
-    function mint(address to, uint256 amount) external nonReentrant onlyRole(AGENT_ROLE) {
+    function mint(address to, uint256 amount) external nonReentrant onlyRole(AGENT_ROLE) whenNotPaused {
+        require(!frozen[to], "Recipient frozen");
         require(isVerified(to), "Recipient not verified");
 
         // RF-004: tope de suministro (0 = sin tope)
@@ -290,8 +323,10 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
      * @dev Burn tokens
      * @dev `nonReentrant` covers `_burn` -> `_update` and the trailing `destroyed` notification loop.
      * RF-004: la quema esta acotada por `maxBurnPerTx` (0 = operacion desactivada, CU-06 A6.5).
+     *
+     * AF-02 (`burn`): la quema tambien respeta la pausa de emergencia (`whenNotPaused`).
      */
-    function burn(address from, uint256 amount) external nonReentrant onlyRole(AGENT_ROLE) {
+    function burn(address from, uint256 amount) external nonReentrant onlyRole(AGENT_ROLE) whenNotPaused {
         require(maxBurnPerTx > 0 && amount <= maxBurnPerTx, "Exceeds max burn per tx");
 
         _burn(from, amount);
@@ -315,6 +350,12 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
      * RF-004 (Ciclo 5): la recuperacion esta acotada por la **whitelist de destinos**
      * (`authorizedDestinations`, fail-closed: vacia = ninguna recuperacion) y por el **tope por
      * operacion** `maxForcedPerTx` (0 = operacion desactivada, CU-06 A6.5).
+     *
+     * AF-02: `forcedTransfer` es el **mecanismo de recuperacion de emergencia** y por diseno sigue
+     * operativo durante la pausa (`pause()` solo bloquea `transfer`/`transferFrom`/`mint`/`burn`).
+     * La operacion sigue exigiendo `AGENT_ROLE`, destino **whitelisted** y destino **verificado**;
+     * no acredita en cuentas congeladas salvo que el agente lo decida explicitamente (la
+     * congelacion es la herramienta de bloqueo y la recuperacion su contrapartida).
      */
     function forcedTransfer(address from, address to, uint256 amount) external nonReentrant onlyRole(AGENT_ROLE) {
         require(from != address(0), "Invalid from address");
@@ -529,10 +570,24 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
      * @dev Remove a compliance module through the ComplianceAggregator
      * @param aggregator ComplianceAggregator address
      * @param module Compliance module address
+     *
+     * AF-13: se aplica la **misma simetria que en el alta**. Antes de delegar se exige que el
+     * aggregator sea modulo registrado de este token y que el modulo este **activo para este
+     * token** en el aggregator; sin esta comprobacion una retirada sobre un modulo ajeno revertia
+     * con un motivo generico en el aggregator.
      */
     function removeModuleThroughAggregator(address aggregator, address module) external onlyRole(COMPLIANCE_ROLE) {
         require(aggregator != address(0), "Invalid aggregator address");
         require(module != address(0), "Invalid module address");
+
+        // Mismo criterio que el alta: el aggregator debe estar dado de alta como modulo del token.
+        require(_isComplianceModule(aggregator), "Aggregator not added as compliance module");
+
+        // AF-13: el modulo debe estar activo para este token antes de delegar la retirada.
+        require(
+            ComplianceAggregator(aggregator).isModuleActiveForToken(address(this), module),
+            "Module not active for this token"
+        );
 
         // Call aggregator to remove the module
         ComplianceAggregator(aggregator).removeModule(address(this), module);

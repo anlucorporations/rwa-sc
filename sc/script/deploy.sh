@@ -16,6 +16,9 @@
 #     de entorno del proceso hijo, y se borra al terminar.
 #   * El exito NO se decide con `grep` de logs: se decide por codigo de salida de `forge` y por
 #     verificacion on-chain (`cast code` sobre cada direccion y `cast call` de estado).
+#   * AF-07 (Fase 4): ademas de verificar el despliegue, se ejecuta un **smoke test de
+#     operatividad** (`cast call` de `maxBurnPerTx`, `maxForcedPerTx`, `authorizedDestinations` e
+#     `identityRegistry`), de modo que "verde" implica token OPERABLE, no solo desplegado.
 #
 # Uso:
 #   source /home/dsh/workspace/gcp-env.sh      # exporta RPC_URL, CHAIN_ID, ADMIN_PRIVATE_KEY...
@@ -294,6 +297,45 @@ printf '  aggregator.isModuleActiveForToken() = %s\n' "$MODULE_ACTIVE"
 MODULE_TOKEN="$("$CAST" call "$MODULE_ADDR" 'tokenContract()(address)' --rpc-url "$RPC_URL" 2>/dev/null)"
 [ "$(lower "$MODULE_TOKEN")" = "$(lower "$TOKEN")" ] || fail "module.tokenContract() ($MODULE_TOKEN) != token ($TOKEN)"
 printf '  module.tokenContract()          = %s\n' "$MODULE_TOKEN"
+
+# --------------------------------------------------------------------------------------
+# 6b. Smoke test (AF-07): "verde" debe implicar OPERATIVO, no solo desplegado.
+#     Se comprueban los controles de operacion configurados por DeployFullStack y una
+#     lectura coherente del registro de identidad, cotejando artefacto vs on-chain.
+# --------------------------------------------------------------------------------------
+DEPLOYER_ADDR="$(jq -r '.deployer' "$DEPLOYMENT_JSON")"
+[ -n "$DEPLOYER_ADDR" ] && [ "$DEPLOYER_ADDR" != "null" ] || fail "el artefacto no contiene '.deployer'"
+EXPECTED_BURN="$(jq -r '.token.maxBurnPerTx' "$DEPLOYMENT_JSON")"
+EXPECTED_FORCED="$(jq -r '.token.maxForcedPerTx' "$DEPLOYMENT_JSON")"
+[ -n "$EXPECTED_BURN" ] && [ "$EXPECTED_BURN" != "null" ] || fail "el artefacto no contiene '.token.maxBurnPerTx'"
+[ -n "$EXPECTED_FORCED" ] && [ "$EXPECTED_FORCED" != "null" ] || fail "el artefacto no contiene '.token.maxForcedPerTx'"
+
+log "Smoke test de operatividad (AF-07)..."
+
+ONCHAIN_BURN="$("$CAST" call "$TOKEN" 'maxBurnPerTx()(uint256)' --rpc-url "$RPC_URL" 2>/dev/null)"
+[ "$ONCHAIN_BURN" = "$EXPECTED_BURN" ] || fail "token.maxBurnPerTx() ($ONCHAIN_BURN) != artefacto ($EXPECTED_BURN)"
+[ "$ONCHAIN_BURN" != "0" ] || fail "maxBurnPerTx es 0: la quema esta DESACTIVADA (token inoperable)"
+printf '  token.maxBurnPerTx()            = %s\n' "$ONCHAIN_BURN"
+
+ONCHAIN_FORCED="$("$CAST" call "$TOKEN" 'maxForcedPerTx()(uint256)' --rpc-url "$RPC_URL" 2>/dev/null)"
+[ "$ONCHAIN_FORCED" = "$EXPECTED_FORCED" ] || fail "token.maxForcedPerTx() ($ONCHAIN_FORCED) != artefacto ($EXPECTED_FORCED)"
+[ "$ONCHAIN_FORCED" != "0" ] || fail "maxForcedPerTx es 0: la recuperacion forzada esta DESACTIVADA"
+printf '  token.maxForcedPerTx()          = %s\n' "$ONCHAIN_FORCED"
+
+AUTH_DEST="$("$CAST" call "$TOKEN" 'authorizedDestinations(address)(bool)' "$DEPLOYER_ADDR" --rpc-url "$RPC_URL" 2>/dev/null)"
+[ "$AUTH_DEST" = "true" ] || fail "el deployer no esta autorizado como destino de forcedTransfer (valor: $AUTH_DEST)"
+printf '  token.authorizedDestinations(deployer) = %s\n' "$AUTH_DEST"
+
+IS_REGISTERED="$("$CAST" call "$IR" 'isRegistered(address)(bool)' "$DEPLOYER_ADDR" --rpc-url "$RPC_URL" 2>/dev/null)"
+[ "$IS_REGISTERED" = "true" ] || fail "el deployer no tiene identidad registrada en IdentityRegistry (valor: $IS_REGISTERED)"
+printf '  identityRegistry.isRegistered(deployer) = %s\n' "$IS_REGISTERED"
+
+IDENTITY_ADDR="$("$CAST" call "$IR" 'getIdentity(address)(address)' "$DEPLOYER_ADDR" --rpc-url "$RPC_URL" 2>/dev/null)"
+IDENTITY_ARTIFACT="$(jq -r '.contracts.Identity' "$DEPLOYMENT_JSON")"
+[ "$(lower "$IDENTITY_ADDR")" = "$(lower "$IDENTITY_ARTIFACT")" ] || fail "getIdentity(deployer) ($IDENTITY_ADDR) != Identity del artefacto ($IDENTITY_ARTIFACT)"
+printf '  identityRegistry.getIdentity(deployer) = %s\n' "$IDENTITY_ADDR"
+
+ok "Smoke test de operatividad correcto (topes, whitelist y registro coherentes)"
 ok "Verificacion on-chain correcta (estado del token y de su compliance)"
 
 # --------------------------------------------------------------------------------------

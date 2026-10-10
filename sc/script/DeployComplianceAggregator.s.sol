@@ -29,11 +29,14 @@ contract DeployComplianceAggregator is Script {
         console.log("ComplianceAggregator deployed at:", address(aggregator));
         console.log("Owner:", aggregator.owner());
 
-        console.log("\nNext Steps:");
-        console.log("1. Configure tokens:");
-        console.log("   aggregator.configureToken(tokenAddress, maxBalance, maxHolders, lockPeriod)");
-        console.log("\n2. Add aggregator to tokens:");
+        console.log("\nNext Steps (RF-012: los modulos los administra el propio token):");
+        console.log("1. Add the aggregator as a compliance module of the token:");
         console.log("   token.addComplianceModule(address(aggregator))");
+        console.log("\n2. Add each compliance module through the token (not the aggregator owner):");
+        console.log("   module.setTokenContract(address(token))  // AF-01: vinculo obligatorio");
+        console.log("   token.addModuleThroughAggregator(address(aggregator), address(module))");
+        console.log("\n3. To remove a module (only the token, only if active for that token):");
+        console.log("   token.removeModuleThroughAggregator(address(aggregator), address(module))");
 
         console.log("\nBenefits:");
         console.log("- Single contract for all tokens");

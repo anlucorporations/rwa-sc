@@ -1148,11 +1148,11 @@ RESULTADO: OK (pipeline local en verde)
 
 ### 19.4 Estado real del pipeline
 
-El pipeline está **listo y validado en local**, pero **no ha corrido en remoto**: no se ha hecho `push`
-(regla del proyecto). Requisitos para ejecutarlo: **(1)** `push` de `rwa-sc-DSH-GCP`; **(2)** runner de
-GitLab registrado. Nota: la imagen oficial de Foundry es no-root y no trae `jq` (que `abi_diff.sh` exige);
-`ci-checks` lo instala si el runner permite root o si el ejecutor es shell, y si no hay que usar una imagen
-propia con `jq`. Detalle en `entornos_globales.md` §13.
+El pipeline está **ejecutado en remoto en verde** en la rama `rwa-sc-DSH-GCP`: pipelines **`2934202154`** y
+**`2934241152`**, con **7/7 jobs en `success`** (AF-11, cierre de Fase 4). `run_local_ci.sh` reproduce las
+mismas 7 etapas en local. Nota: la imagen oficial de Foundry es no-root y no trae `jq` (que `abi_diff.sh`
+exige); `ci-checks` lo instala si el runner permite root o si el ejecutor es shell, y si no hay que usar una
+imagen propia con `jq`. Detalle en `entornos_globales.md` §13.
 
 ### 19.5 Documentación y decisiones
 
@@ -1357,3 +1357,57 @@ al inyectar una clave `0x…64 hex` en `sc/script/deploy.sh`.
 
 **Lección aplicada al proceso:** un agente no puede validar su propio gate cuando el gate documenta los
 patrones que prohíbe; hace falta re-ejecución independiente del Lead (que es la que encontró F4-01..F4-03).
+
+---
+
+## 23. Fase 4 — Cierre: auditoría adversarial final (AF-01..AF-15)
+
+Corrección de los hallazgos de `RepoTecnico/pruebas/auditoria_final.md` (1 ALTA · 10 MEDIA · 4 BAJA).
+Quedan **fuera** del cierre (D-082): AF-03, AF-04, AF-05, AF-12 y AF-14.
+
+### 23.1 Conteo y cobertura — antes / después
+
+| Métrica | Antes (§22) | Después |
+|---|---:|---:|
+| Tests (`forge test`, resumen) | 368 | **386** |
+| Suites | 22 | **23** |
+| Funciones `invariant_*` | 19 | 19 |
+| Cobertura `src/` (líneas) | 97,11 % (672/692) | **97,05 % (690/711)** (líneas nuevas de AF-01/AF-02/AF-13) |
+| Mínimo por contrato | 91,53 % | **91,53 %** (`ClaimTopicsRegistryCloneFactory.sol`) |
+
+`forge test` → `Ran 23 test suites ... 386 tests passed, 0 failed, 0 skipped` (`+18` pruebas).
+
+### 23.2 Cambios de código (AF-01/AF-02/AF-13)
+
+| Hallazgo | Cambio | Evidencia de prueba |
+|---|---|---|
+| **AF-01 (ALTA)** | `TokenCloneable.addComplianceModule` y `ComplianceAggregator.addModule` exigen `tokenContract() == token` (helper `_isLinkedToToken`, exento si el módulo no expone el getter). Los 3 módulos usan **lectura defensiva** (`success && data.length >= 32`) en vez de `abi.decode` directo | `test/AuditoriaFinalAF.t.sol` (`test_AF01_*`), `test/MaxBalanceCompliance.t.sol`, `test/MaxHoldersCompliance.t.sol` |
+| **AF-02 (MEDIA)** | `mint`/`burn` → `whenNotPaused`; `mint` → `require(!frozen[to])`; `forcedTransfer` sigue operativo en pausa (recuperación de emergencia) | `test/AuditoriaFinalAF.t.sol` (`test_AF02_*`) |
+| **AF-13 (BAJA)** | `removeModuleThroughAggregator` exige aggregator registrado y módulo activo para este token antes de delegar | `test/AuditoriaFinalAF.t.sol` (`test_AF13_*`), `test/ComplianceAggregator.t.sol` |
+
+### 23.3 Scripts y documentación (AF-06..AF-11, AF-15)
+
+- **AF-06:** `pruebas/matriz_criterios.md` **v2** (386 tests, 23 suites, 19 invariantes, **0 FALTA**; los 9 huecos cerrados).
+- **AF-07:** `DeployFullStack.s.sol` configura `maxBurnPerTx`/`maxForcedPerTx` y destino autorizado; `deploy.sh` añade smoke test de operatividad (`cast call` + cotejo con el artefacto).
+- **AF-08:** `CompleteDeploymentExample.s.sol` firma claims EIP-712 reales con `vm.sign` (simula en local sin revertir; verificado con `forge script`).
+- **AF-09:** `DeployComplianceAggregator.s.sol` corrige los "Next Steps" a la API real.
+- **AF-10:** `RUNBOOK_MIGRACION.md` (redeploy limpio D-019/RT-008).
+- **AF-11:** `SECURITY.md`, `.gitlab-ci.yml`, `README.md`, `entornos_globales.md` y `run_local_ci.sh` alineados con la CI en verde (`2934202154`, `2934241152`).
+- **AF-15:** `CLAIM_TYPEHASH` de D-020 con `nonce` (superado por D-050) y línea de D-016 corregida (`src/TokenCloneable.sol:311`).
+
+### 23.4 ABI y gas
+
+Sin cambios de ABI: los helpers nuevos son `private`/`internal` y no añaden selectores públicos; `sc/abis/`
+no requiere regeneración (`abi_diff.sh` → 15 ABIs sin deriva) y `CHANGELOG_ABIS.md` no cambia. El coste de
+gas de `mint`/`burn` varía por las comprobaciones nuevas; `.gas-snapshot` se regenera y
+`forge snapshot --check --tolerance 5` queda en verde.
+
+### 23.5 Verificaciones del cierre
+
+`forge build` 0 errores; `forge test` **386/386**; `forge fmt --check` limpio;
+`forge snapshot --check --tolerance 5` OK; los 5 gates (`check_no_bypass_flag.sh`, `check_docs.sh`,
+`abi_diff.sh`, `check_secrets.sh`, `check_coverage.sh`) y `run_local_ci.sh` en verde.
+
+### 23.6 Decisiones
+
+**D-075..D-082** en `requerimientos.md` (Bloque 6b) y en `estado_proyecto.md`.

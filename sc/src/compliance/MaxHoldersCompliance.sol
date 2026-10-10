@@ -124,6 +124,10 @@ contract MaxHoldersCompliance is ICompliance, ERC165, Ownable {
      * @dev Called after transfer to update holder count
      * @param from Sender address
      * @param to Recipient address
+     *
+     * AF-01: lectura defensiva. Si `tokenContract` no esta configurado o no responde, el callback
+     * **no revierte**: simplemente no actualiza el conteo (sin cambios) en vez de tumbar la
+     * transferencia con un `abi.decode` opaco.
      */
     function transferred(
         address from,
@@ -140,7 +144,7 @@ contract MaxHoldersCompliance is ICompliance, ERC165, Ownable {
         (bool successTo, bytes memory dataTo) =
             tokenContract.staticcall(abi.encodeWithSignature("balanceOf(address)", to));
 
-        if (successFrom && successTo) {
+        if (successFrom && successTo && dataFrom.length >= 32 && dataTo.length >= 32) {
             uint256 fromBalance = abi.decode(dataFrom, (uint256));
             uint256 toBalance = abi.decode(dataTo, (uint256));
 
@@ -189,7 +193,7 @@ contract MaxHoldersCompliance is ICompliance, ERC165, Ownable {
         (bool success, bytes memory data) =
             tokenContract.staticcall(abi.encodeWithSignature("balanceOf(address)", from));
 
-        if (success) {
+        if (success && data.length >= 32) {
             uint256 balance = abi.decode(data, (uint256));
 
             // If balance is now 0, remove as holder

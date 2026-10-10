@@ -181,6 +181,8 @@ contract TokenTest is Test {
     function test_AddComplianceModule() public {
         TokenCloneable newToken = TokenCloneable(tokenFactory.createToken("Test", "TST", 18, admin));
         MaxBalanceCompliance compliance = new MaxBalanceCompliance(admin, MAX_BALANCE);
+        // AF-01: el modulo de un solo token debe estar vinculado al token que lo da de alta.
+        compliance.setTokenContract(address(newToken));
 
         newToken.addComplianceModule(address(compliance));
 

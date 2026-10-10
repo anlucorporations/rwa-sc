@@ -139,6 +139,7 @@ contract ComplianceAggregatorTest is Test {
     function test_AddModule() public {
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
+        maxBalanceModule.setTokenContract(address(token1));
 
         _registerAggregatorOnToken(token1);
         _addModuleViaToken(token1, address(maxBalanceModule));
@@ -151,8 +152,11 @@ contract ComplianceAggregatorTest is Test {
     function test_AddMultipleModules() public {
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
+        maxBalanceModule.setTokenContract(address(token1));
         maxHoldersModule = new MaxHoldersCompliance(owner, MAX_HOLDERS);
+        maxHoldersModule.setTokenContract(address(token1));
         transferLockModule = new TransferLockCompliance(owner, LOCK_PERIOD);
+        transferLockModule.setTokenContract(address(token1));
 
         _registerAggregatorOnToken(token1);
         _addModuleViaToken(token1, address(maxBalanceModule));
@@ -172,7 +176,9 @@ contract ComplianceAggregatorTest is Test {
     function test_RemoveModule() public {
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
+        maxBalanceModule.setTokenContract(address(token1));
         maxHoldersModule = new MaxHoldersCompliance(owner, MAX_HOLDERS);
+        maxHoldersModule.setTokenContract(address(token1));
 
         _registerAggregatorOnToken(token1);
         _addModuleViaToken(token1, address(maxBalanceModule));
@@ -191,6 +197,7 @@ contract ComplianceAggregatorTest is Test {
 
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
+        maxBalanceModule.setTokenContract(address(token1));
         _registerAggregatorOnToken(token1);
         _addModuleViaToken(token1, address(maxBalanceModule));
         vm.stopPrank();
@@ -206,7 +213,9 @@ contract ComplianceAggregatorTest is Test {
     function test_MultipleTokens() public {
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
+        maxBalanceModule.setTokenContract(address(token1));
         MaxBalanceCompliance maxBalanceModule2 = new MaxBalanceCompliance(owner, MAX_BALANCE * 2);
+        maxBalanceModule2.setTokenContract(address(token2));
 
         _registerAggregatorOnToken(token1);
         _registerAggregatorOnToken(token2);
@@ -399,6 +408,7 @@ contract ComplianceAggregatorTest is Test {
     function test_RevertWhen_AddModuleTwice() public {
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
+        maxBalanceModule.setTokenContract(address(token1));
 
         _registerAggregatorOnToken(token1);
         _addModuleViaToken(token1, address(maxBalanceModule));
@@ -411,8 +421,12 @@ contract ComplianceAggregatorTest is Test {
     function test_RevertWhen_RemoveInactiveModule() public {
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
+        maxBalanceModule.setTokenContract(address(token1));
 
-        vm.expectRevert("Module not active");
+        // AF-13: el aggregator debe estar dado de alta para alcanzar la comprobacion del token.
+        _registerAggregatorOnToken(token1);
+
+        vm.expectRevert("Module not active for this token");
         _removeModuleViaToken(token1, address(maxBalanceModule));
         vm.stopPrank();
     }
@@ -446,7 +460,9 @@ contract ComplianceAggregatorTest is Test {
     function test_GetModuleAt() public {
         vm.startPrank(owner);
         maxBalanceModule = new MaxBalanceCompliance(owner, MAX_BALANCE);
+        maxBalanceModule.setTokenContract(address(token1));
         maxHoldersModule = new MaxHoldersCompliance(owner, MAX_HOLDERS);
+        maxHoldersModule.setTokenContract(address(token1));
 
         _registerAggregatorOnToken(token1);
         _addModuleViaToken(token1, address(maxBalanceModule));

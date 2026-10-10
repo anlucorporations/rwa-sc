@@ -335,9 +335,9 @@ El pipeline de GitLab vive en [`.gitlab-ci.yml`](.gitlab-ci.yml) y se ejecuta en
 Artefactos: `sc/ci-artifacts/test-count.txt` (conteo real, no escrito a mano) y `sc/lcov.info`.
 Sin secretos: el pipeline no despliega.
 
-**Estado:** listo y validado **en local**, pero **aún no ha corrido en remoto**: el proyecto no
-hace `push` sin orden explícita del usuario. El ensayo local equivalente (mismos comandos, mismo
-orden) es:
+**Estado:** el pipeline **ha corrido en remoto en verde** en la rama `rwa-sc-DSH-GCP`: IDs
+`2934202154` y `2934241152`, 7/7 jobs en `success`. El ensayo local equivalente (mismos comandos,
+mismo orden) es:
 
 ```bash
 sc/script/ci/run_local_ci.sh   # validate -> build -> fmt -> test -> coverage -> gas -> ci-checks

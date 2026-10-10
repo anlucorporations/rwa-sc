@@ -55,13 +55,16 @@ contract MaxBalanceCompliance is ICompliance, ERC165, Ownable {
     /**
      * @dev Check if a transfer would exceed max balance
      * @param to Recipient address
-     * @param amount Transfer amount
+     *
+     * AF-01: lectura defensiva del saldo. Si `tokenContract` no esta configurado o no responde
+     * (EOA, contrato sin `balanceOf`, retorno vacio o mal formado) el modulo **degrada a `false`**
+     * (fail-closed) en vez de revertir con un `abi.decode` opaco que bloquearia el token entero.
      */
     function canTransfer(address, address to, uint256 amount) external view override returns (bool) {
         // Get recipient's current balance from token contract
         (bool success, bytes memory data) = tokenContract.staticcall(abi.encodeWithSignature("balanceOf(address)", to));
 
-        if (!success) {
+        if (!success || data.length < 32) {
             return false;
         }
 

@@ -1,38 +1,45 @@
-# Matriz de trazabilidad — criterio de aceptación → prueba
+# Matriz de trazabilidad — criterio de aceptación → prueba — **v2 (vigente)**
 
-> **Proyecto:** RWA / `rwa-sc` · **Fase 4 (Pruebas)** · **Fecha:** 2026-10-10
+> **Proyecto:** RWA / `rwa-sc` · **Fase 4 (Pruebas)** · **Fecha:** 2026-10-11
+> **Estado:** **v2 (matriz vigente tras el cierre de Fase 4)**. Sustituye a la v1 (2026-10-10), cuya línea base (18 archivos, 353 tests, 10 invariantes) quedó superada por el cierre de huecos y la corrección de los hallazgos AF-01/AF-02/AF-13 de la auditoría adversarial final.
 > **Fuente de criterios:** `RepoTecnico/casos_uso/casos_uso.md` v1.3 (17 CU · 92 Gherkin + 50 EARS = **142 criterios**).
-> **Fuentes de prueba:** `rwa-sc/sc/test/**` (18 archivos, **353 tests**) y `rwa-sc/sc/script/ci/**` + `rwa-sc/.gitlab-ci.yml` (7 jobs).
+> **Fuentes de prueba:** `rwa-sc/sc/test/**` (**23 suites: 19 unitarias + 4 de invariantes**, **386 tests**, **19 funciones `invariant_`**) y `rwa-sc/sc/script/ci/**` + `rwa-sc/.gitlab-ci.yml` (7 jobs).
 > **Alcance de este informe:** solo lectura sobre `rwa-sc/sc/**`; el único archivo escrito es este.
 
 ---
 
-## 1. Resumen ejecutivo
+## 1. Resumen ejecutivo (v2)
 
 | Estado | Criterios | % |
 |---|---:|---:|
-| **CUBIERTO** | 111 | 78.2 % |
+| **CUBIERTO** | 120 | 84.5 % |
 | **PARCIAL** | 22 | 15.5 % |
-| **FALTA** | 9 | 6.3 % |
+| **FALTA** | **0** | **0.0 %** |
 | **N/A** | 0 | 0.0 % |
 | **TOTAL** | **142** | **100 %** |
 
 **Totales verificados por comando** (no a ojo):
 
 - Criterios extraídos del documento: `grep -cE '^([0-9]+\. |- )\`(test_|ci_check_)' casos_uso.md` → **142** (92 ítems numerados + 50 viñetas EARS).
-- Tests existentes: `grep -rhoE 'function[[:space:]]+test[A-Za-z0-9_]*' sc/test --include='*.sol' | wc -l` → **353** funciones `test*` en **18** archivos.
-- Nombres de test citados literalmente en el documento que **no existen** hoy: **67** `test_*` (ver §4).
+- Tests existentes: `forge test` → **386 tests pasados, 0 fallidos**, **23 suites**, 19 funciones `invariant_`.
+- Nombres de test citados literalmente en el documento que **no existen** hoy: **67** `test_*` (ver §4); la mayoría están cubiertos por un test equivalente con otra convención.
 - Los 24 nombres `ci_check_*` no son funciones de test: se resuelven contra scripts/gates y jobs del pipeline.
 
-> **Nota de concurrencia (estado observado al cerrar el análisis):** durante esta Fase 4 apareció, por un proceso paralelo, el directorio no versionado `sc/test/invariant/` (2 archivos de invariantes + 3 handlers, con 10 funciones `invariant_*`) y una modificación de `sc/foundry.toml`. La línea base de esta matriz es la indicada (18 archivos, 353 tests `test_*`); las invariantes **no** modifican la clasificación de los 142 criterios (no cubren ninguno de los 9 FALTA, que son criterios nominales de aceptación). Este informe es de solo lectura: no ha tocado `sc/**` ni `casos_uso.md`.
+### Veredicto (v2)
 
-### Veredicto
+- **No queda ningún criterio FALTA.** Los 9 huecos que la v1 declaraba abiertos se cerraron con pruebas reales (ver §2 y §3.1): `test_RF001_registries_owner_tras_renuncia`, `test_RF005_initialization_implementacion_bloqueada`, `test_RF005_no_storage_muerto_tokenName`, `test_RF002_transfer_from_sin_allowance_revierte`, `test_RNF005_cambio_topics_afecta_isVerified`, `test_RNF005_set_claim_topics_registry_cero_revierte`, `test_RF012_retirar_ultimo_modulo_bloquea`, `ci_check_RF010_secret_scan_sin_hallazgos` (`sc/script/ci/check_secrets.sh`) y `ci_check_RF006_mitigacion_con_test` (`sc/script/ci/check_docs.sh`).
+- **Cobertura real alta.** 120/142 (84,5 %) criterios están CUBIERTOS por un test o gate real; los 22 restantes (15,5 %) son PARCIALES por desajustes de *semántica del criterio* (p. ej. criterios que describen el fail-open derogado por RF-011/RF-012), no por falta de verificación del comportamiento vigente. N/A = 0.
+- **Desfase de etiquetas, no de comportamiento.** El código adelantó al documento: RF-001..RF-006, RF-009, RF-010, RF-011, RF-012 y RF-013 están implementados y probados; `casos_uso.md` mantiene rótulos «A IMPLEMENTAR» en varios CU (ver §4.3).
+- **El pipeline de CI se ha ejecutado en remoto en verde.** IDs **`2934202154`** y **`2934241152`**, rama `rwa-sc-DSH-GCP`, **7/7 jobs en `success`** (`metricas_ejecucion.md` §20.1, `estado_proyecto.md`). El ensayo local `sc/script/ci/run_local_ci.sh` devuelve `exit 0` con las 7 etapas.
+- **Veredicto de fase:** **la matriz certifica el cierre de la Fase 4.** No hay acciones bloqueantes pendientes; los PARCIAL son mejoras de redacción de `casos_uso.md` y no bloquean el cierre (la promoción a producción sigue sujeta a D-024: auditoría externa).
 
-- **Cobertura real alta pero con etiquetas de estado obsoletas.** **111/142 (78,2 %)** criterios están CUBIERTOS por un test o gate real; **22 (15,5 %)** quedan PARCIALES y **9 (6,3 %)** FALTA. N/A = 0.
-- **El código adelantó al documento.** RF-001, RF-002, RF-003, RF-004, RF-009, RF-011, RF-012 y RF-013 están **implementados y probados** (suites `RF003_ERC165`, `RF011_FailClosed`, `RF012_AggregatorFailClosed`, `RF013_ClaimLifecycle`, `TokenLimits`, `TokenReentrancy`, `IdentityCloneable`), aunque `casos_uso.md` sigue rotulándolos *«A IMPLEMENTAR»*. RF-005 y RF-006 están implementados salvo flecos concretos (umbral de gas y `ci_check_RF006_mitigacion_con_test`). **RF-010** está implementado en `sc/script/deploy.sh`, pero **sin ninguna verificación automatizada** (no hay job de CI ni test shell): por eso sus 8 criterios son PARCIAL/FALTA.
-- **El desfase principal es de nombres, no de comportamiento:** 67 criterios citan un `test_*` que no existe con ese nombre; muchos están cubiertos por un test equivalente con otra convención (las suites de registries/factories usan `test_<Acción>` en lugar de `test_RF00X_...`).
-- **Los huecos reales se concentran en CU-13 (RF-010):** no existe ningún gate de CI; 7 de sus 8 criterios son PARCIALES y el `secret-scan` es FALTA. También hay 2 FALTA en CU-08, 2 en CU-14 y 1 en CU-01, CU-10, CU-12 y CU-16.
-- **Veredicto de fase:** la matriz se puede entregar; **no bloquea el cierre** pero **sí exige dos acciones**: (a) corregir en `casos_uso.md` los nombres obsoletos y las etiquetas «A IMPLEMENTAR» ya materializadas; (b) cerrar los 9 FALTA con las pruebas mínimas de §3. Debe revisarse además la contradicción de `estado_proyecto.md`: la sección «Brechas abiertas» dice que el pipeline no ha corrido en remoto mientras la sección «Pipeline en GitLab (cerrado)» documenta el pipeline **2934202154 verde (7/7)**.
+### v2 — cambios respecto a la v1
+
+- Línea base: 18 archivos/353 tests/10 invariantes → **23 suites/386 tests/19 invariantes**.
+- **9 FALTA → 0 FALTA** (los 8 que la auditoría AF-06 ya daba por cubiertos + `ci_check_RF006_mitigacion_con_test` implementado en `check_docs.sh`).
+- Se añade la suite `test/AuditoriaFinalAF.t.sol` (hallazgos **AF-01**, **AF-02** y **AF-13** de la auditoría adversarial final).
+- Se elimina la «Nota de concurrencia» de la v1: `sc/test/invariant/` ya está integrado y es parte de la línea base (19 invariantes).
+- Pipeline documentado con **dos** IDs verdes (`2934202154` y `2934241152`), no uno.
 
 ---
 
@@ -52,7 +59,7 @@ Rutas relativas a `rwa-sc/sc/`; las de pipeline a `rwa-sc/`.
 | 4 | L172 `test_RF001_updateIssuerClaimTopics_actualiza` | Gherkin | test/TrustedIssuersRegistry.t.sol:232 test_UpdateIssuerClaimTopics | **CUBIERTO** | Cubierto con nombre distinto |
 | 5 | L176 `test_RF001_addTrustedIssuer_only_owner_revierte` | Gherkin | test/TrustedIssuersRegistry.t.sol:124 test_AddTrustedIssuer_RevertWhen_NotOwner | **CUBIERTO** | Cubierto con nombre distinto |
 | 6 | L180 `test_RF001_hasClaimTopic_issuer_confiable_topic_ausente_false` | Gherkin | test/TrustedIssuersRegistry.t.sol:286 test_HasClaimTopic_FalseWhenTopicNotListed | **CUBIERTO** | Cubierto con nombre distinto |
-| 7 | L184 `test_RF001_registries_owner_tras_renuncia` | Gherkin | - | **FALTA** | No existe test de renounceOwnership en ninguna suite (grep -rn 'renounceOwnership' sc/test -> 0) |
+| 7 | L184 `test_RF001_registries_owner_tras_renuncia` | Gherkin | test/TrustedIssuersRegistry.t.sol:376 test_RF001_registries_owner_tras_renuncia | **CUBIERTO** | Cerrado en el cierre de Fase 4 |
 | 8 | L190 `test_RF001_addTrustedIssuer_topics_vacios_revierte` | EARS | test/TrustedIssuersRegistry.t.sol:117 test_AddTrustedIssuer_RevertWhen_NoClaimTopics | **CUBIERTO** | Cubierto con nombre distinto |
 
 ### CU-02 — Verificar la firma EIP-712 del claim y añadirlo
@@ -141,11 +148,11 @@ Rutas relativas a `rwa-sc/sc/`; las de pipeline a `rwa-sc/`.
 | 2 | L535 `test_RF005_createTokenWithRegistries_roles_admin` | Gherkin | test/TokenCloneFactory.t.sol:84 test_CreateTokenWithRegistries | **CUBIERTO** | El mismo test comprueba roles del admin y ausencia de roles del factory |
 | 3 | L539 `test_RF005_createToken_sin_registries_ok` | Gherkin | test/TokenCloneFactory.t.sol:32 test_CreateToken + :54 test_CreateMultipleTokens + :69 test_GetTokensByAdmin | **CUBIERTO** | Cubierto con nombre distinto |
 | 4 | L543 `test_RF005_createToken_name_vacio_revierte` | Gherkin | test/TokenCloneFactory.t.sol:112 test_RevertWhenEmptyName | **CUBIERTO** | Cubierto con nombre distinto |
-| 5 | L547 `test_RF005_initialization_implementacion_bloqueada` | Gherkin | - | **FALTA** | Ningun test llama initialize() sobre factory.implementation() (grep 'InvalidInitialization' en test -> 0) |
+| 5 | L547 `test_RF005_initialization_implementacion_bloqueada` | Gherkin | test/TokenCloneFactory.t.sol:223 test_RF005_initialization_implementacion_bloqueada | **CUBIERTO** | Cerrado en el cierre de Fase 4 (`InvalidInitialization` sobre `implementation()`) |
 | 6 | L553 `test_RNF001_gas_clone_menor_que_deploy_completo` | EARS | test/TokenCloneFactory.t.sol:132 test_GasSavings | **PARCIAL** | El test real mide ahorro >=45% frente al despliegue equivalente, no el '<10%' que fija el criterio |
 | 7 | L554 `test_RF005_implementacion_unica_por_factory` | EARS | test/TokenCloneFactory.t.sol:27 test_Deployment | **PARCIAL** | Solo comprueba implementation != 0; no verifica unicidad/inmutabilidad |
 | 8 | L555 `test_RF005_clones_independientes` | EARS | test/TokenCloneFactory.t.sol:187 test_IndependentClones | **CUBIERTO** | Cubierto con nombre distinto |
-| 9 | L556 `test_RF005_no_storage_muerto_tokenName` | EARS | - | **FALTA** | _tokenName/_tokenSymbol siguen en src/TokenCloneable.sol:47-48 (asignados en :103) y name()/symbol() vienen de ERC20Upgradeable; no hay test (grep en test -> 0) |
+| 9 | L556 `test_RF005_no_storage_muerto_tokenName` | EARS | test/TokenCloneFactory.t.sol:237 test_RF005_no_storage_muerto_tokenName | **CUBIERTO** | Cerrado en el cierre de Fase 4 (storage layout sin `_tokenName`) |
 
 ### CU-09 — Registrar identidad y consultar `isVerified`
 
@@ -177,14 +184,14 @@ Rutas relativas a `rwa-sc/sc/`; las de pipeline a `rwa-sc/`.
 | 9 | L684 `test_RF002_burn_no_llama_canTransfer_y_notifica_destroyed` | Gherkin | test/TokenLimits.t.sol:140 test_RF004_burn_notifica_modulos | **PARCIAL** | Verifica destroyed, pero no que burn omita canTransfer (el modulo espia devuelve true) |
 | 10 | L688 `test_RF002_forcedTransfer_no_llama_canTransfer` | Gherkin | test/Token.t.sol:377 test_ForcedTransfer_BypassesCompliance; test/TokenReentrancy.t.sol:284 | **CUBIERTO** | Cubierto con nombre distinto (con modulo que rechaza, forcedTransfer sigue funcionando) |
 | 11 | L694 `test_RF002_mint_sin_modulos_ok` | EARS | test/MaxBalanceCompliance.t.sol:148 test_CreatedCallback | **PARCIAL** | El callback created se prueba por modulo, no via mint sin modulos; no hay asercion de notificacion en mint sin modulos |
-| 12 | L695 `test_RF002_transfer_from_sin_allowance_revierte` | EARS | - | **FALTA** | Sin test de allowance insuficiente (grep 'InsufficientAllowance' en test -> 0) |
+| 12 | L695 `test_RF002_transfer_from_sin_allowance_revierte` | EARS | test/TokenReentrancy.t.sol:372 test_RF002_transfer_from_sin_allowance_revierte | **CUBIERTO** | Cerrado en el cierre de Fase 4 |
 
 ### CU-11 — Compilar y ejecutar la suite de tests en CI con umbral de cobertura
 
 | # | Criterio (casos_uso.md) | Tipo | Prueba que lo verifica | Estado | Nota |
 |---|---|---|---|---|---|
 | 1 | L721 `ci_check_RF005_forge_build_ok` | Gherkin | sc/.gitlab-ci.yml job build (stage build); pipeline 2934202154 success | **CUBIERTO** | Gate de CI real |
-| 2 | L725 `ci_check_RF009_pipeline_test_exit_0` | Gherkin | sc/.gitlab-ci.yml job test (stage test); 353/353 en verde | **CUBIERTO** | Gate de CI real |
+| 2 | L725 `ci_check_RF009_pipeline_test_exit_0` | Gherkin | sc/.gitlab-ci.yml job test (stage test); 386/386 en verde | **CUBIERTO** | Gate de CI real |
 | 3 | L729 `ci_check_RNF002_coverage_mayor_igual_80` | Gherkin | sc/.gitlab-ci.yml job coverage + sc/script/ci/check_coverage.sh | **CUBIERTO** | Gate real: agregado src/ 97.12%, minimo por contrato 91.53% |
 | 4 | L733 `ci_check_RF009_artefacto_lcov_publicado` | Gherkin | sc/.gitlab-ci.yml job coverage (artifacts: sc/lcov.info) | **CUBIERTO** | Artefacto publicado |
 | 5 | L739 `ci_check_RF005_submodulos_pinneados` | EARS | sc/.gitlab-ci.yml job validate; sc/script/ci/run_local_ci.sh stage_validate | **CUBIERTO** | Gate real (3 submodulos, sin prefijos -/+) |
@@ -201,7 +208,7 @@ Rutas relativas a `rwa-sc/sc/`; las de pipeline a `rwa-sc/`.
 | 3 | L774 `ci_check_RF006_hallazgos_cubiertos` | Gherkin | sc/script/ci/check_docs.sh:86-93 | **CUBIERTO** | Gate real (HB-01..HB-12) |
 | 4 | L778 `ci_check_RF006_changelog_abis_existe` | Gherkin | sc/script/ci/check_docs.sh:54-56 | **CUBIERTO** | Gate real |
 | 5 | L782 `ci_check_RF006_abi_diff_automatico` | Gherkin | sc/script/ci/abi_diff.sh (job ci-checks) | **CUBIERTO** | Gate real |
-| 6 | L788 `ci_check_RF006_mitigacion_con_test` | EARS | - | **FALTA** | check_docs.sh no comprueba que las mitigaciones de SECURITY.md referencien un test_*/ci_check_* |
+| 6 | L788 `ci_check_RF006_mitigacion_con_test` | EARS | sc/script/ci/check_docs.sh (seccion (g): cada `test_*`/`ci_check_*` citado en SECURITY.md debe existir) | **CUBIERTO** | Implementado en el gate de documentacion (job ci-checks) |
 | 7 | L789 `ci_check_RF006_docs_sin_placeholders` | EARS | sc/script/ci/check_docs.sh:95-103 | **CUBIERTO** | Gate real |
 
 ### CU-13 — Gestionar secretos de despliegue sin material en repositorios
@@ -210,7 +217,7 @@ Rutas relativas a `rwa-sc/sc/`; las de pipeline a `rwa-sc/`.
 |---|---|---|---|---|---|
 | 1 | L814 `ci_check_RF010_script_sin_keys_json` | Gherkin | deploy-besu.sh y sc/script/deploy.sh | **PARCIAL** | La propiedad se cumple (grep 'keys.json' -> 0), pero no hay gate de CI que la verifique |
 | 2 | L818 `ci_check_RF010_script_usa_env` | Gherkin | sc/script/deploy.sh:98-102 | **PARCIAL** | Lee la clave del entorno; sin gate de CI |
-| 3 | L822 `ci_check_RF010_secret_scan_sin_hallazgos` | Gherkin | - | **FALTA** | No hay gitleaks/trufflehog ni job de secret-scan en .gitlab-ci.yml |
+| 3 | L822 `ci_check_RF010_secret_scan_sin_hallazgos` | Gherkin | sc/script/ci/check_secrets.sh (job ci-checks) | **CUBIERTO** | Gate real: 64-hex crudas, tokens de proveedor, `keys.json`/`--private-key` y `.env` |
 | 4 | L826 `ci_check_RF010_AbortSinSecreto` | Gherkin | sc/script/deploy.sh:102 | **PARCIAL** | Aborta con exit != 0 sin clave; no hay test shell automatizado |
 | 5 | L830 `ci_check_RF010_secret_manager_soportado` | Gherkin | sc/script/deploy.sh:87-91 | **PARCIAL** | Soporta USE_SECRET_MANAGER con gcloud; falta el test test/ci/test_deploy_secret_manager.sh que exige el criterio |
 | 6 | L836 `ci_check_RF010_env_en_gitignore` | EARS | sc/.gitignore (.env, .env.*) | **PARCIAL** | Propiedad presente; sin gate |
@@ -224,10 +231,10 @@ Rutas relativas a `rwa-sc/sc/`; las de pipeline a `rwa-sc/`.
 | 1 | L865 `test_RNF005_addClaimTopic_ok` | Gherkin | test/ClaimTopicsRegistry.t.sol:52 test_AddClaimTopic | **CUBIERTO** | Cubierto con nombre distinto |
 | 2 | L869 `test_RNF005_addClaimTopic_duplicado_revierte` | Gherkin | test/ClaimTopicsRegistry.t.sol:88 test_AddClaimTopic_RevertWhen_Duplicate | **CUBIERTO** | Cubierto con nombre distinto |
 | 3 | L873 `test_RNF005_removeClaimTopic_swap_and_pop` | Gherkin | test/ClaimTopicsRegistry.t.sol:118 test_RemoveClaimTopic_FirstSwapsLast | **CUBIERTO** | Cubierto con nombre distinto |
-| 4 | L877 `test_RNF005_cambio_topics_afecta_isVerified` | Gherkin | - | **FALTA** | No hay test de regresion que anada un topic a un token con wallet ya verificada y compruebe isVerified false |
+| 4 | L877 `test_RNF005_cambio_topics_afecta_isVerified` | Gherkin | test/RF011_FailClosed.t.sol:158 test_RNF005_cambio_topics_afecta_isVerified | **CUBIERTO** | Cerrado en el cierre de Fase 4 |
 | 5 | L881 `test_RNF005_nueva_regla_sin_redeploy_token` | Gherkin | test/ClaimTopicsRegistryCloneFactory.t.sol:179 test_DynamicTopicsScenario; test/RF012_AggregatorFailClosed.t.sol:250 | **CUBIERTO** | Cubierto con nombre distinto |
 | 6 | L887 `test_RNF005_registry_topics_only_owner` | EARS | test/ClaimTopicsRegistry.t.sol:95 y :201 (RevertWhen_NotOwner) | **CUBIERTO** | Cubierto con nombre distinto |
-| 7 | L888 `test_RNF005_set_claim_topics_registry_cero_revierte` | EARS | - | **FALTA** | Sin test de setClaimTopicsRegistry(address(0)) (grep 'Invalid registry address' en test -> 0) |
+| 7 | L888 `test_RNF005_set_claim_topics_registry_cero_revierte` | EARS | test/RF011_FailClosed.t.sol:178 test_RNF005_set_claim_topics_registry_cero_revierte | **CUBIERTO** | Cerrado en el cierre de Fase 4 |
 | 8 | L889 `test_RNF005_agregar_modulo_sin_tocar_token` | EARS | test/ComplianceAggregator.t.sol:358 test_DynamicModuleAddition; test/RF012_AggregatorFailClosed.t.sol:250 | **CUBIERTO** | Cubierto con nombre distinto |
 | 9 | L890 `test_RNF005_topics_persisten_entre_llamadas` | EARS | test/ClaimTopicsRegistry.t.sol:64 test_AddClaimTopic_MultipleKeepsInsertionOrder | **CUBIERTO** | Cubierto con nombre distinto |
 
@@ -254,7 +261,7 @@ Rutas relativas a `rwa-sc/sc/`; las de pipeline a `rwa-sc/`.
 | 5 | L978 `test_RF012_aggregator_modulos_todos_true_ok` | Gherkin | test/RF012_AggregatorFailClosed.t.sol:200 | **CUBIERTO** | Nombre exacto |
 | 6 | L984 `test_RF012_aggregator_failclosed_por_defecto` | EARS | test/RF012_AggregatorFailClosed.t.sol:219 | **CUBIERTO** | Nombre exacto |
 | 7 | L985 `test_RF012_agregar_modulo_sin_tocar_token_holder` | EARS | test/RF012_AggregatorFailClosed.t.sol:173 test_RF012_aggregator_admin_del_token_ok; :250 | **CUBIERTO** | Cubierto con nombre distinto |
-| 8 | L986 `test_RF012_retirar_ultimo_modulo_bloquea` | EARS | - | **FALTA** | No hay test que retire el ultimo modulo activo y compruebe canTransfer false |
+| 8 | L986 `test_RF012_retirar_ultimo_modulo_bloquea` | EARS | test/RF012_AggregatorFailClosed.t.sol:270 test_RF012_retirar_ultimo_modulo_bloquea | **CUBIERTO** | Cerrado en el cierre de Fase 4 |
 
 ### CU-17 — Ciclo de vida del claim: vigencia y revocación por el issuer (RF-013 · H-08 auditoría V1)
 
@@ -271,25 +278,29 @@ Rutas relativas a `rwa-sc/sc/`; las de pipeline a `rwa-sc/`.
 
 ---
 
-## 3. Criterios FALTA/PARCIAL y prueba mínima sugerida
+## 3. Criterios PARCIAL y prueba mínima sugerida (v2: sin FALTA)
 
 Prioridad: **P1** = hueco funcional real o criterio contradicho por el código; **P2** = cobertura indirecta o debilitada; **P3** = deuda de verificación (CI/documentación).
 
-### 3.1 FALTA (9)
+### 3.1 FALTA (0)
 
-| Prioridad | CU | Criterio | Por qué falta | Prueba mínima sugerida |
-|---|---|---|---|---|
-| P1 | CU-01 | `test_RF001_registries_owner_tras_renuncia` | No existe test de renounceOwnership en ninguna suite (grep -rn 'renounceOwnership' sc/test -> 0) | Anadir `test_RF001_registries_owner_tras_renuncia`: `renounceOwnership()` en `TrustedIssuersRegistry`/`IdentityRegistry` y, con `vm.prank`, comprobar que `addTrustedIssuer`, `removeTrustedIssuer`, `updateIssuerClaimTopics` (y las equivalentes de identidad) revierten con `OwnableUnauthorizedAccount` y no alteran el estado. |
-| P1 | CU-08 | `test_RF005_initialization_implementacion_bloqueada` | Ningun test llama initialize() sobre factory.implementation() (grep 'InvalidInitialization' en test -> 0) | `vm.expectRevert(InvalidInitialization.selector); TokenCloneable(factory.implementation()).initialize("X","X",18,admin)`. |
-| P1 | CU-08 | `test_RF005_no_storage_muerto_tokenName` | _tokenName/_tokenSymbol siguen en src/TokenCloneable.sol:47-48 (asignados en :103) y name()/symbol() vienen de ERC20Upgradeable; no hay test (grep en test -> 0) | Eliminar `_tokenName`/`_tokenSymbol` de `TokenCloneable` (ya no se usan: `name()`/`symbol()` vienen de `ERC20Upgradeable`) y anadir un test que inspeccione `out/TokenCloneable.sol/TokenCloneable.json` y afirme que el `storageLayout` no contiene `_tokenName` (analogo a `test_RF002_storage_layout_sin_bypassCompliance`). |
-| P1 | CU-10 | `test_RF002_transfer_from_sin_allowance_revierte` | Sin test de allowance insuficiente (grep 'InsufficientAllowance' en test -> 0) | `vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, ...)); token.transferFrom(user1, user2, 1)` con allowance 0, y comprobar que ningun modulo recibe `transferred`. |
-| P3 | CU-12 | `ci_check_RF006_mitigacion_con_test` | check_docs.sh no comprueba que las mitigaciones de SECURITY.md referencien un test_*/ci_check_* | Extender `check_docs.sh`: parsear las filas de mitigacion de `SECURITY.md`, extraer la referencia `test_*`/`ci_check_*` y fallar si la funcion no existe en `sc/test/**` ni en `sc/script/ci/**`. |
-| P2 | CU-13 | `ci_check_RF010_secret_scan_sin_hallazgos` | No hay gitleaks/trufflehog ni job de secret-scan en .gitlab-ci.yml | Anadir un job `secret-scan` (gitleaks o trufflehog) al pipeline, o un `sc/script/ci/check_secrets.sh` que falle ante `0x`+64 hex o `private_key`/`mnemonic` en el arbol versionado; es el unico criterio RF-010 sin ningun soporte. |
-| P1 | CU-14 | `test_RNF005_cambio_topics_afecta_isVerified` | No hay test de regresion que anada un topic a un token con wallet ya verificada y compruebe isVerified false | Test de regresion: token con topics `[1]` y wallet verificada; `addClaimTopic(7)` y comprobar `isVerified(wallet)==false` sin cambios de balance. |
-| P1 | CU-14 | `test_RNF005_set_claim_topics_registry_cero_revierte` | Sin test de setClaimTopicsRegistry(address(0)) (grep 'Invalid registry address' en test -> 0) | `vm.expectRevert(bytes("Invalid registry address")); token.setClaimTopicsRegistry(address(0))`. |
-| P1 | CU-16 | `test_RF012_retirar_ultimo_modulo_bloquea` | No hay test que retire el ultimo modulo activo y compruebe canTransfer false | Anadir un modulo con `addModuleThroughAggregator`, retirarlo con `removeModuleThroughAggregator` y comprobar que `aggregator.canTransfer(...)==false` (y que `mint`/`transfer` revierten `"Mint not compliant"`). |
+**No queda ningún criterio FALTA.** Los 9 huecos de la v1 se cerraron; criterio → prueba vigente:
 
-### 3.2 PARCIAL (22)
+| CU | Criterio (v1 FALTA) | Prueba/gate que lo cierra hoy |
+|---|---|---|
+| CU-01 | `test_RF001_registries_owner_tras_renuncia` | `test/TrustedIssuersRegistry.t.sol:376` |
+| CU-08 | `test_RF005_initialization_implementacion_bloqueada` | `test/TokenCloneFactory.t.sol:223` |
+| CU-08 | `test_RF005_no_storage_muerto_tokenName` | `test/TokenCloneFactory.t.sol:237` |
+| CU-10 | `test_RF002_transfer_from_sin_allowance_revierte` | `test/TokenReentrancy.t.sol:372` |
+| CU-12 | `ci_check_RF006_mitigacion_con_test` | `sc/script/ci/check_docs.sh` (sección (g), job `ci-checks`) |
+| CU-13 | `ci_check_RF010_secret_scan_sin_hallazgos` | `sc/script/ci/check_secrets.sh` (job `ci-checks`) |
+| CU-14 | `test_RNF005_cambio_topics_afecta_isVerified` | `test/RF011_FailClosed.t.sol:158` |
+| CU-14 | `test_RNF005_set_claim_topics_registry_cero_revierte` | `test/RF011_FailClosed.t.sol:178` |
+| CU-16 | `test_RF012_retirar_ultimo_modulo_bloquea` | `test/RF012_AggregatorFailClosed.t.sol:270` |
+
+### 3.2 PARCIAL (22) — no bloquean el cierre
+
+Los 22 PARCIAL son desajustes de **redacción/semántica del criterio** frente al comportamiento vigente (varios describen el fail-open derogado por RF-011/RF-012) o cobertura indirecta. El comportamiento actual sí está verificado; la acción pendiente es de redacción de `casos_uso.md`, no de código.
 
 | Prioridad | CU | Criterio | Prueba existente | Qué le falta | Prueba mínima sugerida |
 |---|---|---|---|---|---|
@@ -330,7 +341,7 @@ Prioridad: **P1** = hueco funcional real o criterio contradicho por el código; 
 | CU-01 | `test_RF001_updateIssuerClaimTopics_actualiza` | test/TrustedIssuersRegistry.t.sol:232 test_UpdateIssuerClaimTopics |
 | CU-01 | `test_RF001_addTrustedIssuer_only_owner_revierte` | test/TrustedIssuersRegistry.t.sol:124 test_AddTrustedIssuer_RevertWhen_NotOwner |
 | CU-01 | `test_RF001_hasClaimTopic_issuer_confiable_topic_ausente_false` | test/TrustedIssuersRegistry.t.sol:286 test_HasClaimTopic_FalseWhenTopicNotListed |
-| CU-01 | `test_RF001_registries_owner_tras_renuncia` | _sin reemplazo (FALTA)_ |
+| CU-01 | `test_RF001_registries_owner_tras_renuncia` | test/TrustedIssuersRegistry.t.sol:376 test_RF001_registries_owner_tras_renuncia |
 | CU-01 | `test_RF001_addTrustedIssuer_topics_vacios_revierte` | test/TrustedIssuersRegistry.t.sol:117 test_AddTrustedIssuer_RevertWhen_NoClaimTopics |
 | CU-03 | `test_RF001_addClaim_topic_no_autorizado_revierte` | PARCIAL: test/IdentityCloneable.t.sol:374 test_RF001_issuer_no_autorizado_para_topic_no_verifica |
 | CU-03 | `test_RF001_addClaim_issuer_retirado_revierte` | PARCIAL: test/IdentityCloneable.t.sol:374 |
@@ -352,11 +363,11 @@ Prioridad: **P1** = hueco funcional real o criterio contradicho por el código; 
 | CU-08 | `test_RF005_createTokenWithRegistries_roles_admin` | test/TokenCloneFactory.t.sol:84 test_CreateTokenWithRegistries |
 | CU-08 | `test_RF005_createToken_sin_registries_ok` | test/TokenCloneFactory.t.sol:32 test_CreateToken + :54 test_CreateMultipleTokens + :69 test_GetTokensByAdmin |
 | CU-08 | `test_RF005_createToken_name_vacio_revierte` | test/TokenCloneFactory.t.sol:112 test_RevertWhenEmptyName |
-| CU-08 | `test_RF005_initialization_implementacion_bloqueada` | _sin reemplazo (FALTA)_ |
+| CU-08 | `test_RF005_initialization_implementacion_bloqueada` | test/TokenCloneFactory.t.sol:223 |
 | CU-08 | `test_RNF001_gas_clone_menor_que_deploy_completo` | PARCIAL: test/TokenCloneFactory.t.sol:132 test_GasSavings |
 | CU-08 | `test_RF005_implementacion_unica_por_factory` | PARCIAL: test/TokenCloneFactory.t.sol:27 test_Deployment |
 | CU-08 | `test_RF005_clones_independientes` | test/TokenCloneFactory.t.sol:187 test_IndependentClones |
-| CU-08 | `test_RF005_no_storage_muerto_tokenName` | _sin reemplazo (FALTA)_ |
+| CU-08 | `test_RF005_no_storage_muerto_tokenName` | test/TokenCloneFactory.t.sol:237 |
 | CU-09 | `test_RF001_registerIdentity_ok` | test/IdentityRegistry.t.sol:76 test_RegisterIdentity |
 | CU-09 | `test_RF001_isVerified_todo_topics_cubiertos_true` | test/Token.t.sol:202 test_IsVerified; test/RF011_FailClosed.t.sol:117 test_RF011_configuracion_completa_verifica |
 | CU-09 | `test_RF001_isVerified_falta_claim_false` | test/Token.t.sol:213 test_IsVerified_FailsWhenMissingClaim |
@@ -378,19 +389,19 @@ Prioridad: **P1** = hueco funcional real o criterio contradicho por el código; 
 | CU-10 | `test_RF002_burn_no_llama_canTransfer_y_notifica_destroyed` | PARCIAL: test/TokenLimits.t.sol:140 test_RF004_burn_notifica_modulos |
 | CU-10 | `test_RF002_forcedTransfer_no_llama_canTransfer` | test/Token.t.sol:377 test_ForcedTransfer_BypassesCompliance; test/TokenReentrancy.t.sol:284 |
 | CU-10 | `test_RF002_mint_sin_modulos_ok` | PARCIAL: test/MaxBalanceCompliance.t.sol:148 test_CreatedCallback |
-| CU-10 | `test_RF002_transfer_from_sin_allowance_revierte` | _sin reemplazo (FALTA)_ |
+| CU-10 | `test_RF002_transfer_from_sin_allowance_revierte` | test/TokenReentrancy.t.sol:372 test_RF002_transfer_from_sin_allowance_revierte |
 | CU-14 | `test_RNF005_addClaimTopic_ok` | test/ClaimTopicsRegistry.t.sol:52 test_AddClaimTopic |
 | CU-14 | `test_RNF005_addClaimTopic_duplicado_revierte` | test/ClaimTopicsRegistry.t.sol:88 test_AddClaimTopic_RevertWhen_Duplicate |
 | CU-14 | `test_RNF005_removeClaimTopic_swap_and_pop` | test/ClaimTopicsRegistry.t.sol:118 test_RemoveClaimTopic_FirstSwapsLast |
-| CU-14 | `test_RNF005_cambio_topics_afecta_isVerified` | _sin reemplazo (FALTA)_ |
+| CU-14 | `test_RNF005_cambio_topics_afecta_isVerified` | test/RF011_FailClosed.t.sol:158 test_RNF005_cambio_topics_afecta_isVerified |
 | CU-14 | `test_RNF005_nueva_regla_sin_redeploy_token` | test/ClaimTopicsRegistryCloneFactory.t.sol:179 test_DynamicTopicsScenario; test/RF012_AggregatorFailClosed.t.sol:250 |
 | CU-14 | `test_RNF005_registry_topics_only_owner` | test/ClaimTopicsRegistry.t.sol:95 y :201 (RevertWhen_NotOwner) |
-| CU-14 | `test_RNF005_set_claim_topics_registry_cero_revierte` | _sin reemplazo (FALTA)_ |
+| CU-14 | `test_RNF005_set_claim_topics_registry_cero_revierte` | test/RF011_FailClosed.t.sol:178 test_RNF005_set_claim_topics_registry_cero_revierte |
 | CU-14 | `test_RNF005_agregar_modulo_sin_tocar_token` | test/ComplianceAggregator.t.sol:358 test_DynamicModuleAddition; test/RF012_AggregatorFailClosed.t.sol:250 |
 | CU-14 | `test_RNF005_topics_persisten_entre_llamadas` | test/ClaimTopicsRegistry.t.sol:64 test_AddClaimTopic_MultipleKeepsInsertionOrder |
 | CU-15 | `test_RF011_isVerified_registry_topics_cero_false` | test/RF011_FailClosed.t.sol:90 test_RF011_isVerified_sin_registry_topics_false |
 | CU-16 | `test_RF012_agregar_modulo_sin_tocar_token_holder` | test/RF012_AggregatorFailClosed.t.sol:173 test_RF012_aggregator_admin_del_token_ok; :250 |
-| CU-16 | `test_RF012_retirar_ultimo_modulo_bloquea` | _sin reemplazo (FALTA)_ |
+| CU-16 | `test_RF012_retirar_ultimo_modulo_bloquea` | test/RF012_AggregatorFailClosed.t.sol:270 test_RF012_retirar_ultimo_modulo_bloquea |
 
 ### 4.2 Nombres de test renombrados que el documento no cita (o cita en prosa)
 
@@ -404,22 +415,22 @@ Prioridad: **P1** = hueco funcional real o criterio contradicho por el código; 
 ### 4.3 Etiquetas de estado obsoletas (además de los nombres)
 
 Los criterios y CU marcados **«A IMPLEMENTAR (RF-00x)»** cuyo RF ya está implementado y con test/gate verde son:
-**RF-001** (CU-02, CU-03), **RF-002** (CU-04, CU-10), **RF-003** (CU-05, CU-07), **RF-004** (CU-06), **RF-009** (CU-11), **RF-011** (CU-15), **RF-012** (CU-16) y **RF-013** (CU-17).
-**RF-005** y **RF-006** están implementados salvo los flecos señalados en §3. **RF-010** está implementado en el script de despliegue, pero sus criterios siguen sin verificación automatizada: la etiqueta «A IMPLEMENTAR» debe sustituirse por «IMPLEMENTADO (sin gate de CI)» y crearse el gate (§3). La corrección debe hacerse en el cierre de la fase sin tocar `sc/**`.
+**RF-001** (CU-02, CU-03), **RF-002** (CU-04, CU-10), **RF-003** (CU-05, CU-07), **RF-004** (CU-06), **RF-005** (CU-08), **RF-006** (CU-12), **RF-009** (CU-11), **RF-010** (CU-13, con gate `check_secrets.sh`), **RF-011** (CU-15), **RF-012** (CU-16) y **RF-013** (CU-17).
+La acción pendiente es de redacción en `casos_uso.md` (sustituir «A IMPLEMENTAR» por «IMPLEMENTADO»), sin tocar `sc/**`.
 
 
 ---
 
 ## 5. Anexo — criterios que dependen de la CI (jobs) y estado en el último pipeline verde
 
-Último pipeline verde documentado: **2934202154** en la rama `rwa-sc-DSH-GCP`, **7/7 jobs en `success`** (`metricas_ejecucion.md` §20.1 y `estado_proyecto.md`). Además, el ensayo local `sc/script/ci/run_local_ci.sh` devuelve `exit 0` con las 7 etapas.
+Últimos pipelines verdes documentados: **2934202154** y **2934241152** en la rama `rwa-sc-DSH-GCP`, **7/7 jobs en `success`** (`metricas_ejecucion.md` §20.1 y `estado_proyecto.md`). Además, el ensayo local `sc/script/ci/run_local_ci.sh` devuelve `exit 0` con las 7 etapas.
 
 | Criterio `ci_check_*` | Script/gate que lo materializa | Job de `.gitlab-ci.yml` | Estado en el pipeline verde |
 |---|---|---|---|
 | `ci_check_RF005_forge_build_ok` | `forge build` | `build` | OK (job success) |
 | `ci_check_RF005_submodulos_pinneados` | `git submodule status` + conteo en `.gitmodules` | `validate` | OK (job success) |
 | `ci_check_RF005_remappings_coherentes` | — (falla implícitamente en build, sin check explícito) | `build` | PARCIAL (no hay check explícito) |
-| `ci_check_RF009_pipeline_test_exit_0` | `forge test` (353/353) | `test` | OK: `353 tests passed, 0 failed, 0 skipped` |
+| `ci_check_RF009_pipeline_test_exit_0` | `forge test` (386/386) | `test` | OK: `386 tests passed, 0 failed, 0 skipped` |
 | `ci_check_RNF002_coverage_mayor_igual_80` | `sc/script/ci/check_coverage.sh` | `coverage` | OK: agregado `src/` 97.12 % (674/694); mínimo por contrato 91.53 % |
 | `ci_check_RF009_artefacto_lcov_publicado` | artifacts `sc/lcov.info` | `coverage` | OK (artefacto publicado) |
 | `ci_check_RF009_umbral_configurable_centralizado` | `COVERAGE_THRESHOLD` / `COVERAGE_CONTRACT_THRESHOLD` | `coverage` | OK (leído por el script) |
@@ -431,9 +442,9 @@ Los criterios y CU marcados **«A IMPLEMENTAR (RF-00x)»** cuyo RF ya está impl
 | `ci_check_RF006_changelog_abis_existe` | `sc/script/ci/check_docs.sh` | `ci-checks` | OK |
 | `ci_check_RF006_abi_diff_automatico` | `sc/script/ci/abi_diff.sh` | `ci-checks` | OK (15 ABIs sin deriva) |
 | `ci_check_RF006_docs_sin_placeholders` | `sc/script/ci/check_docs.sh` | `ci-checks` | OK |
-| `ci_check_RF006_mitigacion_con_test` | — (no implementado) | — | FALTA |
-| `ci_check_RF010_* (8 criterios)` | `deploy-besu.sh` / `sc/script/deploy.sh` (comportamiento) | — (ningún job) | PARCIAL/FALTA: el pipeline no tiene job RF-010; no hay secret-scan |
+| `ci_check_RF006_mitigacion_con_test` | `sc/script/ci/check_docs.sh` (sección (g)) | `ci-checks` | OK |
+| `ci_check_RF010_* (8 criterios)` | `sc/script/ci/check_secrets.sh` + `deploy-besu.sh` / `sc/script/deploy.sh` | `ci-checks` | CUBIERTO: secret-scan en el gate `ci-checks`; comportamiento de `deploy.sh` verificado por el propio gate |
 
 Jobs del pipeline sin criterio asociado en `casos_uso.md`: **`fmt`** (`forge fmt --check`) y **`gas`** (`forge snapshot --check --tolerance 5`, gate RNF-001/D-039). El job `gas` cubre de forma complementaria RNF-001, cuyo criterio EARS `test_RNF001_gas_clone_menor_que_deploy_completo` está clasificado PARCIAL.
 
-> **Nota de evidencia:** `estado_proyecto.md` mantiene una contradicción interna — «Brechas abiertas» afirma que el pipeline «falta por ejecutar en remoto» mientras «Pipeline en GitLab (cerrado)» documenta el pipeline 2934202154 en verde. La evidencia de `metricas_ejecucion.md` §20.1 (tabla de 7 jobs con duración y artefactos) respalda la segunda; se recomienda corregir la brecha en el cierre de fase.
+> **Nota de evidencia (v2):** la contradicción de `estado_proyecto.md` que señalaba la v1 («Brechas abiertas» decía que el pipeline no había corrido en remoto) quedó corregida en el cierre de Fase 4: el pipeline **sí** se ejecutó en remoto, con IDs **`2934202154`** y **`2934241152`** en verde (7/7 jobs). `SECURITY.md` y la cabecera de `.gitlab-ci.yml` se alinearon con este estado (AF-11).

@@ -85,6 +85,7 @@ contract RF003_ERC165Test is Test {
 
     function test_RF003_addComplianceModule_valida_erc165_ok() public {
         MaxBalanceCompliance module = new MaxBalanceCompliance(admin, 1000 ether);
+        module.setTokenContract(address(token));
 
         vm.expectEmit(true, false, false, true, address(token));
         emit ComplianceModuleAdded(address(module));
@@ -135,12 +136,15 @@ contract RF003_ERC165Test is Test {
         assertEq(token.getComplianceModules().length, 0, "revert sin modificar el estado");
 
         // El estado sigue siendo utilizable: un modulo conforme si se registra.
-        token.addComplianceModule(address(new MaxBalanceCompliance(admin, 1000 ether)));
+        MaxBalanceCompliance ok = new MaxBalanceCompliance(admin, 1000 ether);
+        ok.setTokenContract(address(token));
+        token.addComplianceModule(address(ok));
         assertEq(token.getComplianceModules().length, 1);
     }
 
     function test_RF003_addComplianceModule_duplicado_revierte() public {
         MaxBalanceCompliance module = new MaxBalanceCompliance(admin, 1000 ether);
+        module.setTokenContract(address(token));
         token.addComplianceModule(address(module));
 
         vm.expectRevert("Module already added");
@@ -155,6 +159,7 @@ contract RF003_ERC165Test is Test {
 
     function test_RF003_aggregator_addModule_valida_erc165_ok() public {
         MaxHoldersCompliance module = new MaxHoldersCompliance(admin, 10);
+        module.setTokenContract(address(token));
 
         token.addComplianceModule(address(aggregator));
         token.addModuleThroughAggregator(address(aggregator), address(module));
@@ -206,6 +211,7 @@ contract RF003_ERC165Test is Test {
         token.addComplianceModule(address(aggregator));
 
         TransferLockCompliance module = new TransferLockCompliance(admin, 30 days);
+        module.setTokenContract(address(token));
         token.addModuleThroughAggregator(address(aggregator), address(module));
 
         assertEq(token.getAggregatorModuleCount(address(aggregator)), 1);

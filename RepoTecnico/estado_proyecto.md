@@ -2,7 +2,7 @@
 
 > **Proyecto:** Mejora y estabilización de la plataforma RWA (Real World Assets, inspirada en ERC-3643)
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
-> **Versión:** v2.3 · Fase 4 (Pruebas) cerrada — invariantes, matriz de criterios y cierre de los 7 huecos
+> **Versión:** v2.4 · Fase 4 (Pruebas) cerrada — invariantes, matriz v2 (0 FALTA) y corrección de la auditoría adversarial final (AF-01..AF-15)
 
 ## Fases
 
@@ -11,7 +11,7 @@
 | 1 | Concepción | ✅ COMPLETADO | Artefactos creados, repos y GCP definidos, entrevista de 3 bloques |
 | 2 | Auditoría | ✅ COMPLETADO (por confirmar) | Auditoría sin issues críticos + CU auditados + gráficos + documento técnico auditado |
 | 3 | Desarrollo | ✅ COMPLETADO — Ciclos 1, 1b, 2, 3, 4, 5, 6, 7, 8, 8b, 8c, 9, 10 y **11** ✅ | Plan vertical aprobado, ciclos completados y probados |
-| 4 | Pruebas | ✅ COMPLETADO — **368/368 tests en verde** (22 suites, 19 funciones `invariant_*`), cobertura `src/` **97,11 % líneas** (mínimo por contrato 91,53 %), matriz de **142 criterios** y **7 huecos cerrados**; pipeline 7/7 en verde | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
+| 4 | Pruebas | ✅ COMPLETADO — **386/386 tests en verde** (23 suites, 19 funciones `invariant_*`), cobertura `src/` **97,05 % líneas** (690/711; mínimo por contrato 91,53 %), matriz **v2** de **142 criterios** con **0 FALTA**; auditoría adversarial final **AF-01..AF-15** cerrada (AF-01/AF-02/AF-06/AF-07/AF-08/AF-09/AF-10/AF-11/AF-13/AF-15 corregidos; AF-03/AF-04/AF-05/AF-12/AF-14 diferidos, D-082); pipeline 7/7 en verde (`2934202154`, `2934241152`) | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
 | 5 | Manuales | ⬜ Por cerrar | Manuales generados y confirmación final |
 
 ## Hitos de la Fase 2 (completados)
@@ -172,6 +172,15 @@
 - [x] **Alineación documental (`casos_uso.md` v1.4):** 0 rótulos pendientes en los RF materializados,
   0 nombres de test obsoletos y los dos criterios derogados (fail-open) reescritos a fail-closed.
   Cobertura `src/` **97,11 %** (672/692) y mínimo **91,53 %**. Decisión **D-074**.
+- [x] **Auditoría adversarial final (AF-01..AF-15) y cierre:** se corrigen **AF-01** (vinculación del módulo
+  al token + lectura defensiva en los 3 módulos), **AF-02** (`mint`/`burn` `whenNotPaused`, `mint` rechaza
+  cuentas congeladas, `forcedTransfer` operativo en pausa), **AF-06** (matriz v2 con **0 FALTA**),
+  **AF-07** (`DeployFullStack` operable + smoke test en `deploy.sh`), **AF-08/AF-09** (scripts de ejemplo y
+  aggregator), **AF-10** (`RUNBOOK_MIGRACION.md`), **AF-11/AF-15** (deriva documental y `CLAIM_TYPEHASH` de
+  D-020) y **AF-13** (simetría de `removeModuleThroughAggregator`). Quedan diferidos AF-03/AF-04/AF-05/AF-12/
+  AF-14 (D-082). `forge test` → **386/386** (23 suites, 19 invariantes). Decisiones **D-075..D-082**.
+  Suite nueva `test/AuditoriaFinalAF.t.sol` (18 pruebas). Pipeline en verde: `2934202154` y `2934241152`.
+- [x] **Documentación de operación:** `RUNBOOK_MIGRACION.md` (redeploy limpio D-019/RT-008) creado.
 
 ## Acuerdos y decisiones
 
@@ -209,7 +218,7 @@
 | D-059 | **`SECURITY.md` como documento vivo**: refleja el estado de los 34 hallazgos V1 (corregido/ciclo o backlog) y los riesgos residuales; cada mitigación cita al menos un `test_*` o un `ci_check_*` |
 | D-060 | **Control de deriva de ABIs**: la línea base vive en `sc/abis/<Contrato>.json`; `sc/script/ci/abi_diff.sh` falla ante cualquier deriva no declarada en `CHANGELOG_ABIS.md`, que debe actualizarse junto con la línea base |
 | D-061 | **Gate de documentación**: `sc/script/ci/check_docs.sh` falla ante referencias rotas, falta de `SECURITY.md`/`CHANGELOG_ABIS.md`, afirmaciones prohibidas sin matizar, HB-01..HB-12 sin cubrir o placeholders (`RepoTecnico/` queda fuera del escaneo por ser registro de auditoría) |
-| D-062 | **Pipeline de CI (RF-009)**: `.gitlab-ci.yml` en la raíz con 7 etapas (`validate`, `build`, `fmt`, `test`, `coverage`, `gas`, `ci-checks`), imagen fijada `ghcr.io/foundry-rs/foundry:v1.8.3`, `rules` en MR y `rwa-sc-DSH-GCP`, sin secretos; el pipeline **no se ejecuta en remoto hasta que haya `push` + runner** |
+| D-062 | **Pipeline de CI (RF-009)**: `.gitlab-ci.yml` en la raíz con 7 etapas (`validate`, `build`, `fmt`, `test`, `coverage`, `gas`, `ci-checks`), imagen fijada `ghcr.io/foundry-rs/foundry:v1.8.3`, `rules` en MR y `rwa-sc-DSH-GCP`, sin secretos; **ejecutado en remoto en verde** (pipelines `2934202154` y `2934241152`, 7/7 jobs) |
 | D-063 | **Gate de cobertura por contrato (D-042)**: `check_coverage.sh` exige el **agregado de líneas de `src/` ≥ umbral** (D-017, sin interfaces) **y el mínimo por contrato de líneas ≥ umbral**; las ramas se reportan pero no bloquean (hay contratos por debajo del 80 % de ramas por diseño). Umbral en una única variable `COVERAGE_THRESHOLD` (+ `COVERAGE_CONTRACT_THRESHOLD`) |
 | D-064 | **Conteo real como artefacto**: el job `test` publica `sc/ci-artifacts/test-count.txt` generado con `forge test --list \| grep -cE '^    test'` más el resumen de la ejecución; **prohibido escribir el número a mano** en el pipeline o en los documentos |
 | D-065 | **`jq` en el runner**: la imagen oficial de Foundry es Ubuntu **no-root** y no incluye `jq` (que `abi_diff.sh` exige); el job `ci-checks` lo instala si el runner permite root o si el ejecutor es **shell**, y si no hay que usar una imagen propia `FROM ghcr.io/foundry-rs/foundry:v1.8.3` con `jq` |
@@ -218,6 +227,14 @@
 | D-072 | **Mitigación con test (RF-006):** `check_docs.sh` exige que cada `test_*` citado en `SECURITY.md` exista en `sc/test/**` y cada `ci_check_*` exista como gate en `sc/script/ci/**` (o `.gitlab-ci.yml`); los prefijos terminados en `_` se aceptan si existe al menos un miembro de la familia |
 | D-073 | **Cierre de huecos (Fase 4):** se añaden las 7 pruebas que cierran los FALTA de la matriz y se regeneran `.gas-snapshot`; la ABI no cambia (el storage no es ABI) y `sc/abis/` no requiere actualización |
 | D-074 | **Alineación documental:** `casos_uso.md` v1.4 sustituye los rótulos «pendiente» por «IMPLEMENTADO (Ciclo N)», reemplaza los 67 nombres de test obsoletos por los reales de la matriz y reescribe los 2 criterios derogados (fail-open) a fail-closed |
+| D-075 | **AF-01 (ALTA):** `addComplianceModule` y `aggregator.addModule` exigen que un módulo de un solo token esté vinculado al token (`tokenContract() == token`); el aggregator (sin `tokenContract()`) queda exento; los 3 módulos usan lectura defensiva (`success && data.length >= 32`) y degradan a `false`/sin cambios en vez de revertir |
+| D-076 | **AF-02:** `mint`/`burn` son `whenNotPaused`; `mint` rechaza destinos congelados; `forcedTransfer` sigue operativo en pausa como recuperación de emergencia (destino whitelisted y verificado) |
+| D-077 | **AF-13:** `removeModuleThroughAggregator` exige aggregator registrado y módulo activo para este token antes de delegar (simetría con el alta) |
+| D-078 | **AF-07:** `DeployFullStack` configura `maxBurnPerTx`/`maxForcedPerTx`/destino autorizado; `deploy.sh` ejecuta un smoke test de operatividad con `cast call` y falla si el token no es operable |
+| D-079 | **AF-08/AF-09:** `CompleteDeploymentExample.s.sol` firma claims EIP-712 reales con `vm.sign` (no revierte al simular); `DeployComplianceAggregator.s.sol` corrige los "Next Steps" a la API real (sin `configureToken()`) |
+| D-080 | **AF-10:** se crea `rwa-sc/RUNBOOK_MIGRACION.md` (redeploy limpio D-019/RT-008: orden, configuración obligatoria, verificación con `cast`, consumidores y rollback) |
+| D-081 | **AF-06/AF-11/AF-15:** matriz `matriz_criterios.md` v2 (386 tests, 23 suites, 19 invariantes, 0 FALTA); `SECURITY.md`/`.gitlab-ci.yml`/`README.md`/`entornos_globales.md`/`run_local_ci.sh` alineados con la CI en verde; `CLAIM_TYPEHASH` de D-020 con `nonce` y línea de D-016 corregida |
+| D-082 | **Diferidos (D-024):** AF-03 (`_uri` en el digest), AF-04 (D-027/front-running de `createIdentityWithClaim`), AF-05 (fail-closed del array de módulos del token), AF-12 (`removeClaim`/nonce) y AF-14 (`.md` en el gate de secretos) quedan fuera de este cierre por impacto en consumidores off-chain o rediseño pendiente; se reevalúan antes de producción |
 
 ## Plan de la Fase 3 (orden aprobado)
 

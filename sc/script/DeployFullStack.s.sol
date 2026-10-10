@@ -57,6 +57,12 @@ contract DeployFullStack is Script {
         uint256 maxBalance = vm.envOr("MAX_BALANCE", uint256(1_000_000 ether));
         address demoIssuer = vm.envOr("ISSUER_ADDRESS", deployer);
 
+        // AF-07: el despliegue canonico deja el token OPERABLE (no solo desplegado). Los topes de
+        // `burn`/`forcedTransfer` y el destino autorizado de recuperacion se configuran aqui; el
+        // `deploy.sh` los verifica con `cast call` (smoke test) antes de declarar "verde".
+        uint256 maxBurnPerTx = vm.envOr("MAX_BURN_PER_TX", maxBalance);
+        uint256 maxForcedPerTx = vm.envOr("MAX_FORCED_PER_TX", maxBalance);
+
         uint256[] memory topics = new uint256[](1);
         topics[0] = 1; // KYC
 
@@ -108,13 +114,21 @@ contract DeployFullStack is Script {
         tokenContract.addComplianceModule(d.aggregator);
         tokenContract.addModuleThroughAggregator(d.aggregator, d.complianceModule);
 
+        // AF-07: configuracion obligatoria para que el token sea operable tras el despliegue.
+        // (La identidad de ejemplo no tiene claims: `isVerified` es fail-closed, por lo que la
+        // emision real requiere registrar una identidad con claim; el smoke test de `deploy.sh`
+        // comprueba al menos topes, whitelist y registro del modulo.)
+        tokenContract.setMaxBurnPerTx(maxBurnPerTx);
+        tokenContract.setMaxForcedPerTx(maxForcedPerTx);
+        tokenContract.setAuthorizedDestination(deployer, true);
+
         // 10. Identidad de ejemplo, creada por la factory y registrada en el IdentityRegistry
         d.identity = IdentityCloneFactory(d.identityFactory).createIdentity(deployer);
         IdentityRegistry(d.identityRegistry).registerIdentity(deployer, d.identity);
 
         vm.stopBroadcast();
 
-        _persistArtifact(d, deployer, maxBalance);
+        _persistArtifact(d, deployer, maxBalance, maxBurnPerTx, maxForcedPerTx);
 
         console.log("=== Despliegue completo ===");
         console.log("IdentityRegistry:", d.identityRegistry);
@@ -127,11 +141,20 @@ contract DeployFullStack is Script {
         console.log("Token:", d.token);
         console.log("Compliance module (MaxBalance):", d.complianceModule);
         console.log("Identity:", d.identity);
+        console.log("maxBurnPerTx:", maxBurnPerTx);
+        console.log("maxForcedPerTx:", maxForcedPerTx);
+        console.log("Destino autorizado (forcedTransfer):", deployer);
     }
 
     /// @dev Escribe el artefacto JSON trazable (sin secretos) en `DEPLOYMENT_JSON` o, por defecto,
     /// en `deployments/<chainId>-<block>.json`. El directorio debe existir (lo crea `deploy.sh`).
-    function _persistArtifact(Deployment memory d, address deployer, uint256 maxBalance) internal {
+    function _persistArtifact(
+        Deployment memory d,
+        address deployer,
+        uint256 maxBalance,
+        uint256 maxBurnPerTx,
+        uint256 maxForcedPerTx
+    ) internal {
         TokenCloneable tokenContract = TokenCloneable(d.token);
 
         string memory contracts = "contracts";
@@ -159,6 +182,11 @@ contract DeployFullStack is Script {
         vm.serializeAddress(token, "claimTopicsRegistry", address(tokenContract.claimTopicsRegistry()));
         vm.serializeAddress(token, "complianceAggregator", d.aggregator);
         vm.serializeUint(token, "complianceModuleCount", ComplianceAggregator(d.aggregator).getModuleCount(d.token));
+        // AF-07: los topes se serializan como string para que `jq` los devuelva exactos
+        // (independientemente de la version/precision numerica de jq) y `deploy.sh` los compare.
+        vm.serializeString(token, "maxBurnPerTx", vm.toString(maxBurnPerTx));
+        vm.serializeString(token, "maxForcedPerTx", vm.toString(maxForcedPerTx));
+        vm.serializeAddress(token, "authorizedDestination", deployer);
         string memory tokenJson = vm.serializeAddress(token, "complianceModule", d.complianceModule);
 
         string memory root = "deployment";

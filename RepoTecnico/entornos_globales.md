@@ -231,13 +231,14 @@ sc/script/ci/run_local_ci.sh        # exit 0 = pipeline local en verde
 El script recorre `validate → build → fmt → test → coverage+gate → gas → ci-checks`, imprime un resumen por
 etapa y devuelve exit 0/1. Los umbrales se leen de `COVERAGE_THRESHOLD` / `COVERAGE_CONTRACT_THRESHOLD`.
 
-### 13.4 Estado real: aún no ha corrido en remoto
+### 13.4 Estado real: el pipeline ha corrido en remoto en verde
 
-- **No se ha hecho `push`** (regla del proyecto: solo con orden explícita del usuario; `/push`).
-  El repositorio remoto (`https://gitlab.com/anlucorporations/rwa-sc.git`) sigue con la cabeza antigua
-  `2a4a683` (solo `README.md`); todo el árbol, incluido este pipeline, es **local** (H-04/RF-005).
-- Para que el pipeline corra en GitLab hace falta: **(1)** `push` de `rwa-sc-DSH-GCP`; **(2)** un **runner**
-  registrado para el proyecto (docker o shell).
+- **Pipelines en remoto en verde**: `2934202154` y `2934241152` (rama `rwa-sc-DSH-GCP`), con **7/7 jobs en
+  `success`** (AF-11, cierre de Fase 4). La brecha original ("sin CI ejecutada") quedó cerrada.
+- El repositorio remoto (`https://gitlab.com/anlucorporations/rwa-sc.git`) recibe los `push` autorizados
+  explícitamente por el usuario; `run_local_ci.sh` reproduce el mismo pipeline en local.
+- Requisitos ya satisfechos para que el pipeline corra en GitLab: **(1)** `push` de `rwa-sc-DSH-GCP`;
+  **(2)** un **runner** registrado para el proyecto (docker o shell).
 - Nota de entorno del runner: la imagen oficial de Foundry es **Ubuntu no-root y no incluye `jq`**, que
   `abi_diff.sh` necesita. El job `ci-checks` lo instala si el runner permite root (`user = "root"` en el
   `config.toml` del ejecutor docker) o si el ejecutor es **shell** (donde ya están `forge` y `jq`, según la

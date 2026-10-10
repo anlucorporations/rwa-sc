@@ -117,7 +117,7 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   salvo los ya cubiertos por RF-001..RF-010/RNF-001..RNF-006) pasa al **backlog de la sección 8**.
 - **D-015 (suites muertas):** los tests se adaptan al **patrón de producción factory + clon + `initialize`**
   (no se crean contratos harness nuevos), afectando a `test/Token.t.sol` y `test/ComplianceAggregator.t.sol`.
-- **D-016 (mint):** se **MANTIENE** el chequeo de compliance en `mint()` (`src/TokenCloneable.sol:180-182`);
+- **D-016 (mint):** se **MANTIENE** el chequeo de compliance en `mint()` (`src/TokenCloneable.sol:311`, bucle `canTransfer(address(0), to, amount)`);
   queda **cerrada la decisión abierta D-012** con la alternativa **A (compliant siempre)**.
 - **D-017 (cobertura):** la métrica **RNF-002** de cobertura ≥ 80% se calcula sobre `src/` **excluyendo las
   interfaces** (`src/ICompliance.sol`, `src/IClaimTopicsRegistry.sol`) y **excluyendo `test/`**.
@@ -130,8 +130,9 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   se exige **runbook de migración** documentado (coherente con D-009 / RT-008).
 - **D-020 (P2 · cierra DT-01):** firma del claim con dominio EIP-712
   `{name: "RWA-Identity", version: "1", chainId, verifyingContract: <clon de identidad>}` y
-  `CLAIM_TYPEHASH = keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt)")`.
-  **`expiresAt` va dentro del digest**: renovar la vigencia exige nueva firma del issuer (RF-001 + RF-013).
+  `CLAIM_TYPEHASH = keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce)")`
+  (el `nonce` lo añade D-050 en el Ciclo 8c; **el typehash vigente incluye `nonce`**).
+  **`expiresAt` y `nonce` van dentro del digest**: renovar la vigencia exige nueva firma del issuer y una firma anterior a una revocación no sirve (anti-replay) (RF-001 + RF-013).
 - **D-021 (P3 · cierra DF3-03):** gobernanza = **roles separados** (admin en multisig, `AGENT_ROLE` operativo
   con los límites de RF-004, `COMPLIANCE_ROLE` independiente) + **multisig 2-de-3** + **timelock** para
   acciones sensibles + **custodio de claves designado** con rotación (mitiga H-06 y cubre el criterio B-4).
@@ -448,6 +449,54 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   derogados que describían el comportamiento fail-open (`isVerified` sin topics y `canTransfer` sin módulos) a
   su forma fail-closed vigente (RF-011/RF-012). El encabezado remite a la matriz de criterios.
 
+### Bloque 6b — Cierre de la Fase 4: corrección de la auditoría adversarial final (AF-01..AF-15)
+
+- **D-075 (AF-01 · módulo de compliance mal configurado):** `TokenCloneable.addComplianceModule` y
+  `ComplianceAggregator.addModule` exigen, además de ERC-165, que un módulo de un solo token esté **vinculado
+  al token destinatario**: `staticcall` a `tokenContract()` y exigencia de que devuelva `address(this)` (o el
+  `token` del alta). Los módulos multi-token que **no** exponen `tokenContract()` (el `ComplianceAggregator`)
+  quedan exentos. Además, `MaxBalanceCompliance.canTransfer`, `MaxHoldersCompliance.transferred` y
+  `MaxHoldersCompliance.destroyed` sustituyen el `abi.decode` directo por lectura defensiva
+  (`success && data.length >= 32`), degradando a `false`/sin cambios en vez de revertir con un `Panic` opaco.
+  Cierra AF-01 (ALTA). Pruebas: `test/AuditoriaFinalAF.t.sol` (`test_AF01_*`), `test/MaxBalanceCompliance.t.sol`,
+  `test/MaxHoldersCompliance.t.sol`.
+- **D-076 (AF-02 · pausa y congelación en operaciones privilegiadas):** `mint` y `burn` pasan a exigir
+  `whenNotPaused`; `mint` además rechaza destinos congelados (`require(!frozen[to])`). `forcedTransfer`
+  **sigue operativo durante la pausa** como mecanismo de recuperación de emergencia (siempre con `AGENT_ROLE`,
+  destino whitelisted y verificado), documentado en su NatSpec. Cierra AF-02 (MEDIA). Pruebas:
+  `test/AuditoriaFinalAF.t.sol` (`test_AF02_*`).
+- **D-077 (AF-13 · simetría del alta y la retirada por aggregator):** `removeModuleThroughAggregator` comprueba
+  que el aggregator sea módulo registrado del token y que el módulo esté **activo para este token** antes de
+  delegar la retirada, con mensajes explícitos. Cierra AF-13 (BAJA). Pruebas:
+  `test/AuditoriaFinalAF.t.sol` (`test_AF13_*`) y `test/ComplianceAggregator.t.sol`.
+- **D-078 (AF-07 · despliegue operable y smoke test):** `DeployFullStack.s.sol` configura
+  `setMaxBurnPerTx`/`setMaxForcedPerTx` y autoriza el destino de la transferencia forzada; `deploy.sh` añade un
+  **smoke test de operatividad** (`cast call` de topes, whitelist, módulo vinculado y registro de identidad)
+  cotejando el artefacto con el estado on-chain, de modo que "verde" implica token **operable**, no solo
+  desplegado. Cierra AF-07 (MEDIA).
+- **D-079 (AF-08/AF-09 · scripts de ejemplo y aggregator):** `CompleteDeploymentExample.s.sol` usa firmas
+  EIP-712 reales (`vm.sign` con la clave de issuer de prueba) en lugar de `hex""`, de modo que compila y se
+  simula en local sin revertir; `DeployComplianceAggregator.s.sol` corrige los "Next Steps" para reflejar la
+  API real (`addComplianceModule` + `addModuleThroughAggregator` + `removeModuleThroughAggregator`), eliminando
+  la llamada inexistente `configureToken()`. Cierra AF-08 y AF-09 (MEDIA).
+- **D-080 (AF-10 · runbook de migración, cierra D-019):** se crea `rwa-sc/RUNBOOK_MIGRACION.md` con el
+  procedimiento de **redeploy limpio**: precondiciones, orden de despliegue, configuración obligatoria
+  (registries, topes, whitelist, topics, issuers, vinculación de módulos), verificación con `cast`,
+  actualización de consumidores y plan de rollback. Cierra AF-10 (MEDIA) y materializa el runbook exigido por
+  D-019/RT-008.
+- **D-081 (AF-06/AF-11/AF-15 · evidencia y deriva documental a cero):** se regenera
+  `RepoTecnico/pruebas/matriz_criterios.md` como **v2 (vigente)**: 386 tests, 23 suites, 19 invariantes,
+  **0 FALTA** (los 9 huecos cerrados); `SECURITY.md`, `.gitlab-ci.yml`, `README.md`, `entornos_globales.md` y
+  `run_local_ci.sh` se alinean con el estado real de la CI (pipelines `2934202154` y `2934241152`, 7/7);
+  se corrige el `CLAIM_TYPEHASH` de D-020 (incluye `nonce`, superado por D-050) y la referencia de línea de
+  D-016. Cierra AF-06, AF-11 y AF-15 (MEDIA/BAJA).
+- **D-082 (alcance del cierre · hallazgos diferidos):** quedan **fuera** de este cierre, por decisión propia y
+  registro en backlog, los hallazgos **AF-03** (`_uri` fuera del digest EIP-712), **AF-04** (front-running de
+  `createIdentityWithClaim`, ligado a D-027), **AF-05** (fail-closed del array de módulos del token), **AF-12**
+  (`removeClaim`/nonce) y **AF-14** (`.md` en el gate de secretos). Ninguno es CRÍTICO; AF-03/AF-05 son
+  cambios de comportamiento con impacto en consumidores off-chain y AF-04 depende de rediseñar el alta de
+  identidad. Se reevalúan antes de producción (D-024).
+
 ## 7. Mapa RF → casos de uso (Fase 2)
 
 Ver `casos_uso/casos_uso.md` (**v1.4, 17 casos de uso**, 92 criterios Gherkin + 50 EARS = 142), auditado,
@@ -458,8 +507,8 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
   (`ComplianceAggregator` fail-closed y administración por token) → **CU-16**; RF-013 (vigencia y revocación de
   claims) → **CU-17**. Los tres están implementados y con etiqueta `IMPLEMENTADO (Ciclo N)` en los casos de uso.
 - Sin cobertura por alcance (D-003): RF-007, RF-008, RNF-006.
-- Datos reales de la suite (Fase 4, estado actual): **368 tests, 368 pasan, 0 fallan**, 22 suites (19 funciones
-  `invariant_*`); cobertura `src/` 97,11 % de líneas (mínimo por contrato 91,53 % de líneas; D-017/D-042), con
+- Datos reales de la suite (Fase 4, estado actual): **386 tests, 386 pasan, 0 fallan**, 23 suites (19 funciones
+  `invariant_*`); cobertura `src/` 97,05 % de líneas (690/711; mínimo por contrato 91,53 % de líneas; D-017/D-042), con
   el gate `check_coverage.sh` en el pipeline. Ver `metricas_ejecucion.md` §21 y §22.
   (Histórico de la auditoría V1, 2026-10-03: 151 declarados, 93 pasan, 5 fallan, 53 no arrancan, coverage 42,86 %.)
 

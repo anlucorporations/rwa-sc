@@ -267,7 +267,7 @@ Estos son los puntos que la arquitectura objetivo debe corregir, con evidencia d
 | Documentación | **Implementado (Ciclo 10):** referencias a archivos/contratos inexistentes corregidas, cifras sustituidas por las medidas, **`SECURITY.md`**, **`CHANGELOG_ABIS.md`** + línea base `sc/abis/` y gates `sc/script/ci/abi_diff.sh` y `check_docs.sh` | RF-006 | HB-07, H-15, H-16, H-23, H-33 |
 | CI / secretos | **Implementado (Ciclos 9 y 11):** `sc/script/deploy.sh` lee `RPC_URL`/`CHAIN_ID` y la clave de entorno/Secret Manager GCP (`DS_`), valida `cast chain-id` antes del broadcast y firma con keystore cifrado efímero (`--keystore`+`--password-file`, sin `--private-key`); `deploy-besu.sh` pasa a wrapper. **`.gitlab-ci.yml` (Ciclo 11)** materializa los gates en 7 etapas y sin secretos | RF-010, RF-009 | HB-12, HB-10, H-28, H-04 |
 | `TokenCloneable` — storage | Eliminar `_tokenName`/`_tokenSymbol` (HB-06); el *layout* puede moverse por D-009/RT-008 | RF-002/RF-005 | HB-06 |
-| Ciclo de vida del contrato | **Sin proxy actualizable:** se mantiene **EIP-1167** y el ciclo de vida es **redeploy limpio con runbook de migración documentado** (D-019), amparado en D-009/RT-008 | RF-005 | H-07 (auditoría V1); backlog R-6 |
+| Ciclo de vida del contrato | **Sin proxy actualizable:** se mantiene **EIP-1167** y el ciclo de vida es **redeploy limpio con runbook de migración documentado** (D-019), amparado en D-009/RT-008. Runbook operativo: [`../RUNBOOK_MIGRACION.md`](../RUNBOOK_MIGRACION.md) | RF-005 | H-07 (auditoría V1); backlog R-6 |
 
 ### 3.2 Diagrama de la arquitectura objetivo
 

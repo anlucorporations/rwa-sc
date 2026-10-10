@@ -20,6 +20,8 @@
 #       `ci_check_*` que no existe como gate en `sc/script/ci/**` (o en
 #       `.gitlab-ci.yml`). Los prefijos terminados en `_` (p. ej. `test_RF004_*`)
 #       se aceptan si existe al menos un miembro de esa familia.
+#   (h) si `.gitlab-ci.yml` existe, `SECURITY.md` no puede declarar la CI de RF-009
+#       pendiente ni decir que "aun no existe" (AF-11: coherencia con la CI en verde).
 #
 # Alcance: los documentos "raíz" de `rwa-sc/` (los que publica el proyecto).
 # `RepoTecnico/` queda fuera porque es el registro de auditoría y de requisitos,
@@ -146,6 +148,15 @@ if [ -s "SECURITY.md" ]; then
                 ;;
         esac
     done
+fi
+
+# --- (h) coherencia del estado de la CI (AF-11) -------------------------------
+# Si el pipeline existe, SECURITY.md no puede afirmar que RF-009 sigue pendiente
+# ni que el pipeline "aún no existe": contradice el estado real (pipelines verdes).
+if [ -f ".gitlab-ci.yml" ] && [ -s "SECURITY.md" ]; then
+    if grep -qiE 'RF-009.*sigue pendiente|sigue pendiente.*RF-009|pipeline de CI (a[uú]n )?no existe|a[uú]n no ha corrido en remoto' "SECURITY.md"; then
+        err "SECURITY.md contradice el estado real de la CI (AF-11): .gitlab-ci.yml existe y corre en verde"
+    fi
 fi
 
 if [ "${fail}" -ne 0 ]; then
