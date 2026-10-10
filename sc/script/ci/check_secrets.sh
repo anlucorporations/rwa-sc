@@ -57,6 +57,10 @@ for f in "${FILES[@]}"; do
     [[ -f "${ROOT}/${f}" ]] || continue
     all_files+=("${f}")
     if [[ "${f}" =~ ${SCRIPT_RE} ]]; then
+        # Un gate que DOCUMENTA los patrones prohibidos no debe escanearse a si mismo:
+        # sus comentarios citan `keys.json` y `--private-key` y generaban un falso
+        # positivo (detectado por el Lead al re-verificar el gate).
+        [[ "${f}" == "sc/script/ci/check_secrets.sh" ]] && continue
         script_files+=("${f}")
     fi
 done
