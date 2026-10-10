@@ -139,7 +139,8 @@ Todos los contratos fijan el pragma `^0.8.20` (RT-007). La columna **Evidencia**
 
 | Componente (no es contrato de `src/`) | Qué es hoy | Evidencia |
 |---|---|---|
-| `rwa-sc/deploy-besu.sh` | Script *end-to-end* **parcial** del deploy a Besu: lee la clave de `~/.foundry/keys.json`, decide el éxito por `grep` de logs y **no** despliega `IdentityRegistry`, `TrustedIssuersRegistry` ni ningún token (H-24, H-31) | `deploy-besu.sh:14,37` |
+| `rwa-sc/sc/script/deploy.sh` + `DeployFullStack.s.sol` | **Script canónico end-to-end (Ciclo 9 / RF-010):** despliega registries + 3 factories + aggregator + token de ejemplo + módulo de compliance; lee la clave de entorno/Secret Manager, valida `cast chain-id` antes del broadcast, firma con keystore efímero, verifica con `cast code`/`cast call` y persiste `sc/deployments/<chainId>-<timestamp>.json` | `sc/script/deploy.sh`; `sc/script/DeployFullStack.s.sol` |
+| `rwa-sc/deploy-besu.sh` | **Wrapper de compatibilidad** (Ciclo 9) hacia `sc/script/deploy.sh` con RPC por defecto de Besu; ya **no** lee archivos de claves ni decide el éxito por `grep` (H-24, H-28, H-31 cerrados en el Ciclo 9) | `deploy-besu.sh:1-45` |
 | `CompleteDeploymentExample.s.sol` | Script Forge de ejemplo de despliegue completo | `rwa-sc/sc/script/CompleteDeploymentExample.s.sol` |
 | `CreateTokenWithCloneFactory.s.sol` | Crea un token por `TokenCloneFactory` | `rwa-sc/sc/script/CreateTokenWithCloneFactory.s.sol` |
 | `DeployTokenCloneFactory.s.sol` | Despliega la factory de tokens | `rwa-sc/sc/script/DeployTokenCloneFactory.s.sol` |
@@ -148,8 +149,9 @@ Todos los contratos fijan el pragma `^0.8.20` (RT-007). La columna **Evidencia**
 | `DeployComplianceAggregator.s.sol` | Despliega el aggregator de compliance | `rwa-sc/sc/script/DeployComplianceAggregator.s.sol` |
 | **CI** | **No existe**: ni `.github/` ni `.gitlab-ci.yml`; el pipeline es el objetivo de RF-009 (§6.5) | `entornos_globales.md:101` |
 
-Los 6 `.s.sol` y `deploy-besu.sh` suman **7 artefactos de despliegue**; ninguno persiste un JSON de
-direcciones/ABIs, que es el objetivo M-14/M-15 (H-21, H-29).
+Los 6 `.s.sol` históricos, el nuevo `DeployFullStack.s.sol`, `deploy.sh` y el wrapper `deploy-besu.sh`
+componen la capa de despliegue. Desde el **Ciclo 9**, `DeployFullStack.s.sol` sí persiste un JSON de
+direcciones/ABIs/bloque (M-14/M-15, H-21/H-24/H-29 cerrados).
 
 ### 2.2 Diagrama de componentes (as-is)
 
@@ -263,7 +265,7 @@ Estos son los puntos que la arquitectura objetivo debe corregir, con evidencia d
 | Gobernanza / custodia de claves | **Roles separados:** `DEFAULT_ADMIN_ROLE` en **multisig 2-de-3**, `AGENT_ROLE` en cuenta operativa con los límites de RF-004, `COMPLIANCE_ROLE` en cuenta propia; **timelock** para acciones sensibles; **custodio de claves designado con rotación** (D-021) | RF-002, RF-004, RF-010 | H-06, H-25, H-27 (auditoría V1); backlog R-7 |
 | Repositorio / toolchain | Compilación reproducible: submódulos `forge-std`, OZ v5.5.0 y OZ-upgradeable v5.5.0 correctos, `forge build` y `forge test` al **100 %**, `solc`/optimizer/`evm_version` fijados | RF-005 | HB-05, HB-11, H-04 (auditoría V1) |
 | Documentación | Referencias rotas corregidas, README actualizado, **`SECURITY.md`** y **CHANGELOG de ABIs** | RF-006 | HB-07, H-15, H-16 |
-| CI / secretos | `deploy-besu.sh` lee `PRIVATE_KEY` de entorno/Secret Manager GCP (`DS_`), nunca de `~/.foundry/keys.json`; `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` | RF-010, RF-009 | HB-12, HB-10, H-28, H-04 |
+| CI / secretos | **Implementado (Ciclo 9):** `sc/script/deploy.sh` lee `RPC_URL`/`CHAIN_ID` y la clave de entorno/Secret Manager GCP (`DS_`), valida `cast chain-id` antes del broadcast y firma con keystore cifrado efímero (`--keystore`+`--password-file`, sin `--private-key`); `deploy-besu.sh` pasa a wrapper. `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` sigue en RF-009 | RF-010, RF-009 | HB-12, HB-10, H-28, H-04 |
 | `TokenCloneable` — storage | Eliminar `_tokenName`/`_tokenSymbol` (HB-06); el *layout* puede moverse por D-009/RT-008 | RF-002/RF-005 | HB-06 |
 | Ciclo de vida del contrato | **Sin proxy actualizable:** se mantiene **EIP-1167** y el ciclo de vida es **redeploy limpio con runbook de migración documentado** (D-019), amparado en D-009/RT-008 | RF-005 | H-07 (auditoría V1); backlog R-6 |
 
@@ -513,7 +515,7 @@ actor↔CU de `diagramas_casos_uso.md:461-497`; cualquier celda dudosa se ha reb
 | RF-007 | *(ninguno — zona web)* | — | PAUSADO (D-003) |
 | RF-008 | *(ninguno — zona web)* | — | PAUSADO (D-003) |
 | RF-009 | `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` | CU-11 | A IMPLEMENTAR |
-| RF-010 | `deploy-besu.sh`, `.gitignore` | CU-13 | A IMPLEMENTAR |
+| RF-010 | `sc/script/deploy.sh`, `sc/script/DeployFullStack.s.sol`, `sc/deployments/`, `deploy-besu.sh` | CU-13 | **IMPLEMENTADO** (Ciclo 9) |
 | RF-011 | `TokenCloneable.isVerified` | CU-15 | **IMPLEMENTADO** (Ciclo 6) |
 | RF-012 | `ComplianceAggregator.canTransfer` + `onlyToken` (con D-023) | CU-16 | **IMPLEMENTADO** (Ciclo 7) |
 | RF-013 | `IdentityCloneable` / struct `Claim` (con D-020 y D-045..D-047) | CU-17 | **IMPLEMENTADO** (Ciclo 8) |
@@ -521,7 +523,7 @@ actor↔CU de `diagramas_casos_uso.md:461-497`; cualquier celda dudosa se ha reb
 Anclajes de código de este documento (verificados con grep/read): RF-001 `IdentityCloneable.sol:63-98`;
 RF-002 `TokenCloneable.sol:47,212,218`; RF-003 `ICompliance.sol:16`; RF-004 `TokenCloneable.sol:192-201`;
 RF-005 `metricas_ejecucion.md:39-49`; RF-006 `requerimientos.md:59`; RF-007/RF-008 `requerimientos.md:60-61`;
-RF-009 `entornos_globales.md:101`; RF-010 `deploy-besu.sh:14,37`; RF-011 `TokenCloneable.sol:245-247`;
+RF-009 `entornos_globales.md:101`; RF-010 `sc/script/deploy.sh:1-370`, `sc/script/DeployFullStack.s.sol:1-215` y `sc/deployments/31337-20261010T162639Z.json`; RF-011 `TokenCloneable.sol:245-247`;
 RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:45,79,219,278` (`revoked`, `ClaimRevoked`, `revokeClaim`, `hasValidClaim`), `TokenCloneable.sol:343,398` y `IdentityRegistry.sol:95` (HB-14).
 
 **No funcionales (RNF-001..RNF-006)** — resumen; fuente: `casos_uso.md:1075-1084`:
@@ -531,7 +533,7 @@ RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:4
 | RNF-001 | Gas EIP-1167 medido y comparado de forma equivalente; `.gas-snapshot` versionado | CU-08 | **IMPLEMENTADO** (medido; gate de CI en RF-009) | `metricas_ejecucion.md:50-61`; `casos_uso.md:1079` |
 | RNF-002 | `forge coverage` ≥ 80 % sobre `src/` excluyendo interfaces y `test/` (D-017) | CU-11 | **IMPLEMENTADO** (96,43 % en src/; gate de CI en RF-009) | `requerimientos.md:117-118`; `casos_uso.md:1080` |
 | RNF-003 | 100 % de tests en CI antes de cada merge | CU-11 | **PARCIAL** (320/320 en local; CI en RF-009) | `casos_uso.md:1081` |
-| RNF-004 | Ningún secreto en repo/scripts (Secret Manager GCP `DS_`, `.env` ignorado) | CU-13 | **A IMPLEMENTAR** | `casos_uso.md:1082`; `entornos_globales.md:35` |
+| RNF-004 | Ningún secreto en repo/scripts (Secret Manager GCP `DS_`, `.env` ignorado) | CU-13 | **IMPLEMENTADO** (Ciclo 9) | `sc/script/deploy.sh:1-370`; `casos_uso.md:1082`; `entornos_globales.md:35` |
 | RNF-005 | Reglas de compliance extensibles sin tocar el token (módulos + aggregator) | CU-07, CU-14 | **PARCIALMENTE IMPLEMENTADO** | `ComplianceAggregator.sol:61-135`; `casos_uso.md:1083` |
 | RNF-006 | *(docker compose de las apps web)* | — | **NO APLICA (D-003)** | `requerimientos.md:77`; `casos_uso.md:1084` |
 
@@ -550,7 +552,7 @@ RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:4
 | HB-09 | *(zona web)* | Fuera de alcance (D-003) |
 | HB-10 | RF-009 | Cubierto por el plan |
 | HB-11 | RF-005 | Cubierto por el plan |
-| HB-12 | RF-010 | Cubierto por el plan |
+| HB-12 | RF-010 | **IMPLEMENTADO** (Ciclo 9): sin material de claves en scripts ni en el repo |
 | H-01 (auditoría V1) | RF-001 | A IMPLEMENTAR |
 | H-05 (auditoría V1) | RF-011 | **IMPLEMENTADO** (Ciclo 6) |
 | H-08 (auditoría V1) | RF-013 | **IMPLEMENTADO** (Ciclo 8) |
@@ -580,7 +582,7 @@ RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:4
 |---|---|---|---|
 | Anvil local | `http://localhost:8545` | **31337** | Desarrollo y tests |
 | Besu CodeCrypto | `https://besu1.proyectos.codecrypto.academy` | **pendiente de confirmar** | **Cadena destino (D-008)**; H-26 pide validar el `chainId` antes de cualquier broadcast |
-| Anvil GCP | `$RPC_URL` (gcp-env) | 31337 | Preview (si se aprueba) |
+| Anvil GCP | `$RPC_URL` (gcp-env) | **31337** | **Despliegue canónico verificado (Ciclo 9)**; Besu CodeCrypto queda como alternativa documentada |
 
 Fuente: `entornos_globales.md:38-44`. Las direcciones desplegadas en Anvil que figuran en
 `entornos_globales.md:66-74` son un *snapshot* 2026-09/10 y **no** son fuente de verdad (pendiente RF-008,
@@ -594,8 +596,11 @@ zona web).
   `DS_RELAYER_PRIVATE_KEY`, `DS_PINATA_JWT`) más `DATABASE_URL`, `ADMIN_PRIVATE_KEY`,
   `RELAYER_PRIVATE_KEY`.
 - Identidad de mínimos privilegios: `GCP_SA=ds-dev source gcp-env.sh`.
-- **Ningún secreto en el repositorio (RNF-004).** Hoy `deploy-besu.sh:14,37` lee la clave de
-  `~/.foundry/keys.json`; RF-010 debe eliminarlo.
+- **Ningún secreto en el repositorio (RNF-004) — implementado en el Ciclo 9.** `sc/script/deploy.sh`
+  lee la clave de variables de entorno (`DS_DEPLOYER_PRIVATE_KEY`/`DEPLOYER_PRIVATE_KEY`/`DS_PRIVATE_KEY`/
+  `ADMIN_PRIVATE_KEY`, o `USE_SECRET_MANAGER=1` con `gcloud`) y firma con un keystore cifrado **efímero**
+  (`--keystore` + `--password-file`, modo 600, borrado por `trap`); la clave nunca viaja por `argv` y no se
+  lee ningún archivo de claves en disco. `deploy-besu.sh` es ahora un wrapper de compatibilidad.
 
 ### 6.4 Rama de trabajo
 
@@ -638,12 +643,44 @@ flowchart LR
     E -->|"fallo"| I
 ```
 
-### 6.6 Artefactos de despliegue
+### 6.6 Artefactos de despliegue (implementado, Ciclo 9 / RF-010)
 
-Hoy el deploy es parcial (H-24: `deploy-besu.sh` no despliega `IdentityRegistry`, `TrustedIssuersRegistry`
-ni ningún token) y decide el éxito por `grep` de logs (H-31). La arquitectura objetivo exige un script
-canónico end-to-end (registries + token + módulos de compliance) con verificación post-deploy vía
-`cast call`/`cast code` y persistencia de un JSON con direcciones, ABIs, `chainId` y bloque (H-21/M-14/M-15).
+El despliegue canónico vive en `sc/script/deploy.sh` (orquestación, secretos y verificación) y en
+`sc/script/DeployFullStack.s.sol` (Solidity). Cubre el deploy end-to-end que H-24 señalaba incompleto y
+sustituye la decisión de éxito por `grep` de logs (H-31) por verificación on-chain:
+
+| Paso | Qué hace |
+|---|---|
+| 1 | Valida `RPC_URL` y `cast chain-id` == `CHAIN_ID` **antes** de cualquier broadcast (D-040) |
+| 2 | Construye un keystore cifrado efímero (Python `eth_keyfile`, clave por entorno, modo 600, borrado por `trap`) y firma con `--keystore` + `--password-file` (sin `--private-key`) |
+| 3 | `forge build` + `forge script script/DeployFullStack.s.sol:DeployFullStack --broadcast` |
+| 4 | Verifica `cast code != 0x` en cada dirección (10/10) y `cast call` de `name()`, `identityRegistry()`, `trustedIssuersRegistry()`, `claimTopicsRegistry()`, `aggregator.getModuleCount() == 1`, `isModuleActiveForToken == true` y `module.tokenContract() == token` |
+| 5 | Persiste `sc/deployments/<chainId>-<timestamp>.json` (versionado, **no** en `.gitignore`) y anexa los ABIs relevantes (`forge inspect … abi --json`) |
+
+Pila desplegada por `DeployFullStack.s.sol`: `IdentityRegistry`, `TrustedIssuersRegistry`, las tres
+factories (`TokenCloneFactory`, `IdentityCloneFactory`, `ClaimTopicsRegistryCloneFactory`),
+`ComplianceAggregator`, un `ClaimTopicsRegistry` de ejemplo (vía factory), un **token** de ejemplo creado
+por `createTokenWithRegistries`, un `MaxBalanceCompliance` dado de alta **por la ruta del token**
+(`addComplianceModule` + `addModuleThroughAggregator`) y una identidad de ejemplo registrada.
+
+**Despliegue real verificado en el Anvil de GCP (chain-id 31337, bloque 517; artefacto
+`sc/deployments/31337-20261010T162639Z.json`):**
+
+| Contrato | Dirección |
+|---|---|
+| IdentityRegistry | `0xF5b81Fe0B6F378f9E6A3fb6A6cD1921FCeA11799` |
+| TrustedIssuersRegistry | `0x67baFF31318638F497f4c4894Cd73918563942c8` |
+| TokenCloneFactory | `0x6533158b042775e2FdFeF3cA1a782EFDbB8EB9b1` |
+| IdentityCloneFactory | `0x73C68f1f41e4890D06Ba3e71b9E9DfA555f1fb46` |
+| ClaimTopicsRegistryCloneFactory | `0xD2D5e508C82EFc205cAFA4Ad969a4395Babce026` |
+| ComplianceAggregator | `0x2b639Cc84e1Ad3aA92D4Ee7d2755A6ABEf300D72` |
+| ClaimTopicsRegistry | `0xafAC6756b04A92C5C4a68cE3882b99531995eBBA` |
+| Token (RWA Demo Token / RWAD) | `0x382F74873b3798BEca33Cf69623d0CF35dE0f369` |
+| MaxBalanceCompliance | `0xB468647B04bF657C9ee2de65252037d781eABafD` |
+
+El JSON es trazable (no está en `.gitignore`) y no contiene secretos (0 cadenas de 64 hex y 0 menciones a
+material sensible). **Besu** se ejecuta con el mismo script cambiando `RPC_URL`/`CHAIN_ID`; el wrapper
+`deploy-besu.sh` mantiene el nombre histórico y su RPC por defecto.
 
 ---
 
@@ -758,7 +795,7 @@ como **D-019..D-024** (mismo texto que en `requerimientos.md:122-139`, donde se 
 | **DF3-05** | **Tratamiento de los tests muertos por D-015** | **ABIERTA** | Opciones: adaptar `Token.t.sol` y `ComplianceAggregator.t.sol` al patrón producción factory + clon + `initialize` (D-015), o mantener harness de test. Sin decidirlo, RF-005/RNF-003 no son alcanzables. Afecta a 55 funciones / 53 tests sin arrancar (§7.1) | D-015 (`requerimientos.md:113-114`); `metricas_ejecucion.md:39-49` |
 | **DF3-06** | **Umbral de gas operativo de RNF-001** | **ABIERTA** | Fijar baseline, tolerancia y el artefacto `.gas-snapshot`; los 3 tests de ahorro actuales están rotos (underflow). RNF-001 exige 94-98 % sin método ni tolerancia | RNF-001; B-7; H-03 (auditoría V1); `metricas_ejecucion.md:50-61` |
 | **DF3-07** | **Política de vigencia del claim (`expiresAt`)** | **ABIERTA** | Quién fija la vigencia (issuer vs admin), unidad, valor por defecto y proceso de renovación; D-020 fija que **`expiresAt` va firmado** y que renovar exige nueva firma del issuer, pero no la política de valores | D-020; RF-013; CU-17 (`casos_uso.md:990-1036`) |
-| **DF3-08** | **Confirmación del `chainId` de Besu CodeCrypto y parametrización del RPC** | **ABIERTA** | El `chainId` aparece como "pendiente confirmar" y el RPC está hardcodeado en `deploy-besu.sh:13`. Validar antes de cualquier broadcast | `entornos_globales.md:43`; H-26 (auditoría V1); backlog M-17 |
+| **DF3-08** | **Confirmación del `chainId` de Besu CodeCrypto y parametrización del RPC** | **RESUELTA para GCP (D-040); Besu pendiente** | El Ciclo 9 desplegó y verificó contra el **Anvil de GCP** (chain-id **31337** validado con `cast chain-id` antes del broadcast) y parametrizó `RPC_URL`/`CHAIN_ID`; Besu CodeCrypto queda como alternativa y su `chainId` sigue sin confirmar (el wrapper lo autodetecta) | `sc/script/deploy.sh`; `entornos_globales.md` §4/§12; H-26 (auditoría V1) |
 | **DF3-09** | **Semántica de `maxBurnPerTx`/`maxForcedPerTx` y rol que administra la whitelist** | **ABIERTA** | Confirmar que el límite es por operación (no acumulado), que `0` desactiva la operación y qué rol (admin/compliance) administra destinos y topes | RF-004; CU-06 (`casos_uso.md:408-440`) |
 | **DF3-10** | **Destino de datos off-chain** | **ABIERTA — fuera de alcance por D-003** | MongoDB local (BD `rwa`, D-002) vs migración a GCP (Atlas / Cloud SQL PostgreSQL). **No es la decisión Q6** (esa era Besu + GitLab, D-008); `base_datos.sql` es un borrador no ejecutable y no se crea ninguna tabla hasta la decisión | D-002 (`estado_proyecto.md:33`); D-003; `base_datos.sql:9-10,128-141`; `requerimientos.md:102` |
 
@@ -841,9 +878,9 @@ como **D-019..D-024** (mismo texto que en `requerimientos.md:122-139`, donde se 
 - Tests: `rwa-sc/sc/test/` — 8 suites (`Token.t.sol`, `ComplianceAggregator.t.sol`,
   `TokenCloneFactory.t.sol`, `IdentityCloneFactory.t.sol`, `ClaimTopicsRegistryCloneFactory.t.sol`,
   `MaxBalanceCompliance.t.sol`, `MaxHoldersCompliance.t.sol`, `TransferLockCompliance.t.sol`).
-- Scripts: `rwa-sc/sc/script/` — 6 `.s.sol` (`CompleteDeploymentExample`, `CreateTokenWithCloneFactory`,
+- Scripts: `rwa-sc/sc/script/` — 7 `.s.sol` (`CompleteDeploymentExample`, `CreateTokenWithCloneFactory`,
   `DeployClaimTopicsRegistryCloneFactory`, `DeployComplianceAggregator`, `DeployIdentityCloneFactory`,
-  `DeployTokenCloneFactory`) y `rwa-sc/deploy-besu.sh`.
+  `DeployTokenCloneFactory`, `DeployFullStack`), `deploy.sh` y el wrapper `rwa-sc/deploy-besu.sh`.
 
 ---
 

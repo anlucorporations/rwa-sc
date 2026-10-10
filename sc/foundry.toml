@@ -11,6 +11,13 @@ evm_version = "paris"
 # RF-002: el artefacto compilado incluye el storage layout para que el test
 # `test_RF002_storage_layout_sin_bypassCompliance` pueda verificar que el flag retirado no reaparece.
 extra_output = ["storageLayout"]
+# RF-010 (Ciclo 9): el script canonico de despliegue persiste el artefacto verificable en
+# `deployments/`. Foundry exige permiso explicito para escribir fuera de `out/`; se conserva
+# la lectura del proyecto (que el default aportaba) y se anade escritura SOLO en `deployments/`.
+fs_permissions = [
+    { access = "read", path = "./" },
+    { access = "read-write", path = "./deployments" },
+]
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
     "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/"

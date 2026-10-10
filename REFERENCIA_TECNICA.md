@@ -862,7 +862,7 @@ Cuenta 0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 Cuenta 1: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8
 Cuenta 2: 0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC
 
-Private Key 0: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+Private Key 0: (redactada por RF-010: clave de desarrollo publica de Anvil; se inyecta por entorno)
 ```
 
 ---

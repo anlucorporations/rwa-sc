@@ -48,7 +48,7 @@
   **0** en `createToken`. Decisiones **D-029..D-032**.
 - [x] **Documentación versionada:** `RepoTecnico/` se movió dentro del repo (`rwa-sc/RepoTecnico/`, commit
   `fb38e4f`), por lo que los ciclos siguientes versionan código **y** documentación. Decisión del usuario.
-- [ ] Ciclo 9 (RF-010) → Ciclo 10 (RF-006) → Ciclo 11 (RF-009). (Los Ciclos 3 a 8c y el 8b estan cerrados.)
+- [ ] Ciclo 10 (RF-006) → Ciclo 11 (RF-009). (Los Ciclos 3 a 9 y el 8b estan cerrados.)
 
 - [x] **Ciclo 1b — RF-005 · Cobertura ≥ 80 % por contrato en los registries** (commit local `a92cf1d`):
   3 suites nuevas (92 tests: IdentityRegistry 34, TrustedIssuersRegistry 33, ClaimTopicsRegistry 25);
@@ -101,6 +101,18 @@
   de firma tras revocación sin borrar ni debilitar ninguno. **353/353 tests**, `src/` 97,11 % líneas /
   86,13 % ramas, `IdentityCloneable` 100 % líneas. Decisiones **D-050..D-052**; cambio crítico de firma
   off-chain documentado en `CHANGELOG_ABIS.md` (impacto en `rwa-web`).
+- [x] **Ciclo 9 — RF-010 · secretos fuera de los scripts y despliegue verificable** (commit local, sin push):
+  `sc/script/deploy.sh` lee `RPC_URL`/`CHAIN_ID` y la clave **solo de variables de entorno** (o Secret Manager
+  con `USE_SECRET_MANAGER=1`), valida la red con `cast chain-id` **antes** del broadcast y firma con un
+  **keystore cifrado efímero** (`--keystore`+`--password-file`, modo 600, borrado al terminar) creado con
+  `eth_keyfile` sin pasar la clave por `argv`. Script canónico `sc/script/DeployFullStack.s.sol`: despliega
+  registries + 3 factories + aggregator + token de ejemplo (con su claim topics registry) + un módulo de
+  compliance dado de alta **por la ruta del token** + una identidad registrada; persiste el artefacto
+  `sc/deployments/31337-20261010T162639Z.json` (`chainId`, bloque, direcciones, ABIs y `deployer`), versionado
+  y sin secretos. Verificación post-deploy on-chain con `cast code` (10/10) y `cast call` (`name()`, registries,
+  `getModuleCount` = 1), **no** con `grep`. Despliegue real contra el **Anvil de GCP** (chain-id 31337, bloque
+  517) verificado; Besu queda como alternativa vía el wrapper `deploy-besu.sh`. **353/353 tests sin regresión**.
+  Cierra **HB-12, H-24, H-28, H-31** y el criterio **C-9**. Decisiones **D-054..D-057**.
 
 ### Corrección de cifras tras el Ciclo 1
 
@@ -182,8 +194,8 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 
 ## Próximo paso
 
-Confirmación del usuario para iniciar el **Ciclo 3 (RF-002)**: retirada del flag `bypassCompliance` y
-protección anti-reentrancia (`ReentrancyGuardUpgradeable`) en `TokenCloneable` y `ComplianceAggregator`.
+Confirmación del usuario para iniciar el **Ciclo 10 (RF-006)**: documentación alineada con el código
+(`SECURITY.md`, `CHANGELOG_ABIS.md`, referencias rotas) y cierre de HB-07/H-15/H-16/H-33.
 - [x] **Ciclo 8b — Revisión del toolchain** (decisión **D-053**, sin cambios de código): se **mantiene
   `solc 0.8.20`** y el **digest EIP-712 propio** (binding de `chainId`/`verifyingContract`/`nonce` cubierto
   por tests, con `ECDSA` de OpenZeppelin). `EIP712Upgradeable` de OZ 5.5.0 exige `^0.8.24`; la subida del

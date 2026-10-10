@@ -330,3 +330,40 @@ incrementa en cada `revokeClaim`).
 
 Acción requerida: `forge build` en `rwa-sc/sc/`, copiar las ABIs de `sc/out/`, exponer `claimNonce` en el
 cliente y actualizar el mensaje EIP-712 antes de firmar cualquier claim.
+
+---
+
+## Ciclo 9 — RF-010: artefacto de despliegue verificado (sin cambios de ABI)
+
+El Ciclo 9 **no modifica ningún contrato de `src/`**: no hay cambios de firma, de selector ni de número de
+salidas. Lo relevante para consumidores es el **artefacto de despliegue versionado** que produce el script
+canónico `sc/script/deploy.sh` + `sc/script/DeployFullStack.s.sol`:
+
+- Ruta: `sc/deployments/<chainId>-<timestamp>.json` (versionado; **no** está en `.gitignore`).
+- Contenido: `chainId`, `block`, `timestamp`, `deployer`, `contracts` (direcciones), `token` (dirección,
+  `name`/`symbol`/`decimals` y registries configurados), `compliance` (módulo y `maxBalance`),
+  `verifiedContracts` y `abis` con los **ABIs relevantes** ya extraídos
+  (`IdentityRegistry`, `TrustedIssuersRegistry`, `TokenCloneFactory`, `IdentityCloneFactory`,
+  `ClaimTopicsRegistryCloneFactory`, `ComplianceAggregator`, `ClaimTopicsRegistryCloneable`,
+  `TokenCloneable`, `IdentityCloneable`, `MaxBalanceCompliance`).
+- No contiene secretos (0 cadenas de 64 hex y 0 menciones a material sensible; comprobado por el script).
+
+### Despliegue de referencia (Anvil de GCP, chain-id 31337, bloque 517)
+
+| Contrato | Dirección |
+|---|---|
+| IdentityRegistry | `0xF5b81Fe0B6F378f9E6A3fb6A6cD1921FCeA11799` |
+| TrustedIssuersRegistry | `0x67baFF31318638F497f4c4894Cd73918563942c8` |
+| TokenCloneFactory | `0x6533158b042775e2FdFeF3cA1a782EFDbB8EB9b1` |
+| IdentityCloneFactory | `0x73C68f1f41e4890D06Ba3e71b9E9DfA555f1fb46` |
+| ClaimTopicsRegistryCloneFactory | `0xD2D5e508C82EFc205cAFA4Ad969a4395Babce026` |
+| ComplianceAggregator | `0x2b639Cc84e1Ad3aA92D4Ee7d2755A6ABEf300D72` |
+| ClaimTopicsRegistry | `0xafAC6756b04A92C5C4a68cE3882b99531995eBBA` |
+| Token (`RWA Demo Token` / `RWAD`) | `0x382F74873b3798BEca33Cf69623d0CF35dE0f369` |
+| MaxBalanceCompliance | `0xB468647B04bF657C9ee2de65252037d781eABafD` |
+
+### Impacto en `rwa-web` (D-003: fuera de alcance, requiere trabajo posterior)
+
+- Para apuntar las apps a un despliegue concreto, leer direcciones y ABIs del propio artefacto JSON en vez de
+  hardcodear las ABIs estáticas: las firmas son las mismas del Ciclo 8c, así que no hay migración de tipos,
+  solo actualización de direcciones.

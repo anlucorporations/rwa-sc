@@ -964,3 +964,68 @@ ejecutable**:
 - Decisiones nuevas: **D-050..D-052** en `requerimientos.md` (Bloque 6).
 - `documento_tecnico.md`: fila `IdentityCloneable`/RF-013 y diccionario de datos (fila `nonce`) actualizados;
   D-020 corregida con el `nonce`.
+
+## 17. Ciclo 9 — RF-010: secretos fuera de los scripts y despliegue verificable
+
+**Objetivo:** eliminar el material de claves de los scripts (H-28/HB-12), desplegar la pila completa
+end-to-end (H-24) y verificar el resultado on-chain en lugar de por `grep` de logs (H-31), contra el **Anvil
+de GCP** (D-040).
+
+**Código nuevo (no toca `src/`):** `sc/script/DeployFullStack.s.sol` (script canónico Solidity),
+`sc/script/deploy.sh` (orquestación, secretos y verificación), `deploy-besu.sh` (wrapper de compatibilidad),
+`sc/foundry.toml` (`fs_permissions` de escritura limitada a `./deployments`) y
+`sc/deployments/31337-20261010T162639Z.json` (artefacto versionable).
+
+### 17.1 Tests — sin regresión
+
+| Métrica | Antes (Ciclo 8c) | Después (Ciclo 9) |
+|---|---|---|
+| Tests | 353 | **353** |
+| Fallos | 0 | **0** |
+| `src/` | 97,11 % líneas / 86,13 % ramas | **sin cambios** (el ciclo no toca `src/`) |
+
+Comandos: `forge build` (0 errores) y `forge test` → `353 tests passed, 0 failed, 0 skipped (353 total)`.
+
+### 17.2 Despliegue real (Anvil de GCP, chain-id 31337, bloque 517)
+
+Contratos desplegados y verificados con `cast code` (10/10) y `cast call`:
+
+| Contrato | Dirección |
+|---|---|
+| IdentityRegistry | `0xF5b81Fe0B6F378f9E6A3fb6A6cD1921FCeA11799` |
+| TrustedIssuersRegistry | `0x67baFF31318638F497f4c4894Cd73918563942c8` |
+| TokenCloneFactory | `0x6533158b042775e2FdFeF3cA1a782EFDbB8EB9b1` |
+| IdentityCloneFactory | `0x73C68f1f41e4890D06Ba3e71b9E9DfA555f1fb46` |
+| ClaimTopicsRegistryCloneFactory | `0xD2D5e508C82EFc205cAFA4Ad969a4395Babce026` |
+| ComplianceAggregator | `0x2b639Cc84e1Ad3aA92D4Ee7d2755A6ABEf300D72` |
+| ClaimTopicsRegistry | `0xafAC6756b04A92C5C4a68cE3882b99531995eBBA` |
+| Token (`RWA Demo Token` / `RWAD`) | `0x382F74873b3798BEca33Cf69623d0CF35dE0f369` |
+| MaxBalanceCompliance (módulo del token) | `0xB468647B04bF657C9ee2de65252037d781eABafD` |
+| Identity (clon de ejemplo registrado) | `0x47d480c84C1223D914D99872a2738bDE05F191e5` |
+
+| Verificación | Resultado |
+|---|---|
+| `cast chain-id --rpc-url "$RPC_URL"` | `31337` (coincide con `CHAIN_ID`) |
+| Aborto con `CHAIN_ID=999` | exit 1: `CHAIN_ID declarado (999) != chain-id real de la red (31337)`, sin artefacto ni tx |
+| `cast code` != `0x` | **10/10** contratos con bytecode |
+| `token.name()` | `RWA Demo Token` |
+| `token.symbol()` | `RWAD` |
+| `token.identityRegistry()` | `0xF5b81Fe0B6F378f9E6A3fb6A6cD1921FCeA11799` (== registry) |
+| `token.trustedIssuersRegistry()` | `0x67baFF31318638F497f4c4894Cd73918563942c8` (== registry) |
+| `token.claimTopicsRegistry()` | `0xafAC6756b04A92C5C4a68cE3882b99531995eBBA` (== registry) |
+| `aggregator.getModuleCount(token)` | `1` |
+| `aggregator.isModuleActiveForToken(token, modulo)` | `true` |
+| `module.tokenContract()` | `0x382F74873b3798BEca33Cf69623d0CF35dE0f369` (== token) |
+| Clave en `ps` (argv) | **NO** (firma por `--keystore` + `--password-file`) |
+| Clave / `keys.json` en scripts | **0** coincidencias |
+| Clave en `rwa-sc` | **0** coincidencias (redactada la clave por defecto de Anvil en `REFERENCIA_TECNICA.md`) |
+| `git status --short` | limpio tras el commit local |
+
+### 17.3 ABI y documentación
+
+- **Sin cambios de ABI de `src/`**: el Ciclo 9 no modifica ningún contrato. `CHANGELOG_ABIS.md` registra el
+  artefacto de despliegue (direcciones + ABIs) como referencia para consumidores.
+- Decisiones nuevas: **D-054..D-057** en `requerimientos.md` (Bloque 6).
+- `documento_tecnico.md`: fila `RF-010` → **IMPLEMENTADO (Ciclo 9)**, `HB-12`/`RNF-004` implementados y §6.6
+  reescrita con el procedimiento y las direcciones; `entornos_globales.md` §7.2/§12; `estado_proyecto.md`
+  (hito del Ciclo 9).

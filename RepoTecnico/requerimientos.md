@@ -330,6 +330,32 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   **Tarea registrada para el ciclo del área web:** subir `solc` (≥ 0.8.24/0.8.26, con `evm_version` explícito
   para Besu) y adoptar `EIP712Upgradeable`, que además expone `eip712Domain()` (EIP-5267) para que los clientes
   construyan el digest sin hardcodear el dominio; se re-baselinizará `.gas-snapshot` en ese momento.
+- **D-054 (Ciclo 9 · firma con mínima exposición de la clave):** el despliegue firma con
+  `forge script --keystore <keystore_cifrado_efimero> --password-file <fichero>`; el keystore v3 se construye
+  con `eth_keyfile` (Python) leyendo la clave de una **variable de entorno del proceso hijo** (nunca por
+  `argv`) y el fichero resultante queda en modo **600** dentro de un directorio temporal **700**, borrado por
+  `trap` al terminar. Se descarta `--private-key` (expondría la clave en `argv`/`ps`) y el `--account` de
+  Foundry (persistiría el keystore en `~/.foundry/keystores`, incompatible con "solo efímero"). Comprobado:
+  la clave no aparece en `ps` durante `forge script`.
+- **D-055 (Ciclo 9 · validación de red y fuentes de clave):** `sc/script/deploy.sh` exige `RPC_URL` y, si se
+  declara `CHAIN_ID`, **aborta antes del broadcast** cuando `cast chain-id` no coincide (D-040/H-26); sin
+  `CHAIN_ID` adopta el real de la red. Fuentes de clave, en orden: `DS_DEPLOYER_PRIVATE_KEY` →
+  `DEPLOYER_PRIVATE_KEY` → `DS_PRIVATE_KEY` → `DS_ADMIN_PRIVATE_KEY` → `ADMIN_PRIVATE_KEY` → `PRIVATE_KEY`,
+  con override `DEPLOYER_KEY_VAR` y soporte de `USE_SECRET_MANAGER=1` (gcloud, secreto `DS_PRIVATE_KEY` o
+  `DS_DEPLOYER_SECRET`). Nunca se lee ningún archivo de claves en disco.
+- **D-056 (Ciclo 9 · verificación post-deploy y artefacto JSON):** el éxito no se decide con `grep` de logs
+  (H-31) sino por el **código de salida** de `forge script` y por **verificación on-chain**: `cast code != 0x`
+  en cada dirección y `cast call` de `name()`, `identityRegistry()`, `trustedIssuersRegistry()`,
+  `claimTopicsRegistry()`, `aggregator.getModuleCount() == 1`, `isModuleActiveForToken == true` y
+  `module.tokenContract() == token`. Se persiste `sc/deployments/<chainId>-<timestamp>.json` con `chainId`,
+  bloque, `timestamp`, `deployer`, direcciones (`contracts`), `token`, `compliance`, `paths`, `verifiedContracts`
+  y los **ABIs relevantes** (`forge inspect … abi --json`). El JSON es **trazable** (no se añade a `.gitignore`)
+  y se comprueba que no contiene material sensible.
+- **D-057 (Ciclo 9 · manejo de errores y wrapper Besu):** `deploy.sh` **no** usa `set -e` (H-31): cada paso
+  comprueba su propio resultado y aborta con un mensaje claro que nunca incluye la clave. El antiguo
+  `deploy-besu.sh` se conserva como **wrapper de compatibilidad** hacia `sc/script/deploy.sh` (RPC de Besu por
+  defecto y autodetección de `chain-id`), sin leer archivos de claves; el destino canónico es el Anvil de GCP
+  (D-040). La clave privada por defecto de Anvil que figuraba en `REFERENCIA_TECNICA.md` se **redacta**.
 
 ## 7. Mapa RF → casos de uso (Fase 2)
 
