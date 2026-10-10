@@ -1161,3 +1161,38 @@ propia con `jq`. Detalle en `entornos_globales.md` §13.
 - `documento_tecnico.md`: `RF-009` → **IMPLEMENTADO (Ciclo 11)**; `RNF-001/RNF-002/RNF-003` con gate en CI;
   cierra **B-3** y **B-5**.
 - `estado_proyecto.md`: hito del Ciclo 11 y **cierre de la Fase 3** (ciclos 1, 1b, 2..11, 8b y 8c).
+
+## 20. Ciclo 11 (ajuste) — primera ejecución real del pipeline en GitLab
+
+Tras el `push` autorizado de `rwa-sc-DSH-GCP` (commit `e748978`), GitLab lanzó el
+**pipeline 2934157857** y el job `validate` **falló**. Diagnóstico con el log del runner
+(`/-/jobs/<id>/raw`, accesible sin token por ser proyecto público):
+
+```
+$ set -euo pipefail
+fatal: detected dubious ownership in repository at '/builds/anlucorporations/rwa-sc'
+ERROR: Job failed: exit code 128
+```
+
+**Causa raíz:** la imagen oficial de Foundry corre como usuario **no-root** (`foundry`, uid 1000)
+sobre un checkout propiedad de otro UID, así que `git` aborta antes de ejecutar el script.
+El resto de jobs quedaron `skipped`.
+
+**Correcciones aplicadas (Ciclo 11-ajuste):**
+
+1. `default.before_script` ejecuta `git config --global --add safe.directory "$CI_PROJECT_DIR"` en
+   todos los jobs (arregla el fallo real y previene el mismo problema en `forge` y en los gates).
+2. `abi_diff.sh` deja de depender de **`jq`**: la imagen es `ubuntu:22.04` + `git` (verificado en el
+   `Dockerfile` de la release v1.8.3) y **no trae `jq` ni `python3`**. La línea base pasa a ser la
+   salida **cruda y determinista** de `forge inspect <C> abi --json` (misma versión de forge y solc),
+   y se compara con `diff`/`comm`/`grep`; se añaden `sc/abis/<C>.methods` para el detalle por firma.
+   Con `jq`, el gate habría fallado en el runner no-root (no puede `apt-get install`).
+3. Se elimina el `before_script` que intentaba instalar `jq` en `ci-checks` (ya no hace falta).
+4. **Gate reforzado:** ante deriva de ABI, además de exigir el contrato y cada firma en
+   `CHANGELOG_ABIS.md`, se exige que **`CHANGELOG_ABIS.md` se modifique en el mismo cambio**
+   (commits desde la base + árbol de trabajo), de modo que una mención histórica del contrato
+   no deje pasar una deriva nueva. Probado en positivo (sin deriva → exit 0) y en negativo
+   (nueva función pública sin tocar el changelog → exit 1 con doble diagnóstico).
+5. Documentación de la imagen y del comando de diagnóstico del pipeline.
+
+Tras las correcciones, `run_local_ci.sh` sigue en verde (7/7 etapas) y el YAML valida.

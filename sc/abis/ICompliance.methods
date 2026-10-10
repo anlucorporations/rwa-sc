@@ -1,0 +1,5 @@
+canTransfer(address,address,uint256)
+created(address,uint256)
+destroyed(address,uint256)
+supportsInterface(bytes4)
+transferred(address,address,uint256)

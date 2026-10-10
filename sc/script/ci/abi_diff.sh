@@ -3,24 +3,24 @@
 # RF-006 (Ciclo 10) — control de deriva de ABIs. Concreta el check de CU-12
 # `ci_check_RF006_abi_diff_automatico`.
 #
-# Compara la ABI actual de cada contrato de `src/` (obtenida con
-# `forge inspect <Contrato> abi --json`) contra la línea base versionada en
-# `sc/abis/<Contrato>.json`. Si detecta diferencias:
-#   - exige que el contrato afectado esté declarado en `CHANGELOG_ABIS.md`
-#     (a nivel de contrato y de cada selector nuevo/modificado/eliminado);
-#   - si algo no está declarado, falla con exit 1 y lista los selectores del diff.
+# Compara la ABI actual de cada contrato de `src/` (`forge inspect <C> abi --json`)
+# contra la línea base versionada en `sc/abis/<C>.json`. Si hay diferencias:
+#   - exige que el contrato esté declarado en `CHANGELOG_ABIS.md`;
+#   - y que cada firma cambiada (o su selector) esté declarada también.
+#
+# SIN DEPENDENCIAS EXTERNAS: solo `forge`, `diff`, `comm`, `grep`, `sort` y `sed`.
+# (La imagen oficial de Foundry es `ubuntu:22.04` + `git`: NO trae `jq` ni `python3`;
+#  por eso la línea base se guarda como la salida cruda de `forge inspect`, que es
+#  determinista con el compilador y la versión de forge fijados — v1.8.3 / solc 0.8.20.)
 #
 # Uso:
 #   script/ci/abi_diff.sh            # verifica (exit 0 = sin deriva no declarada)
-#   script/ci/abi_diff.sh --update   # regenera la línea base (requiere entrada en
-#                                    # CHANGELOG_ABIS.md para el cambio)
+#   script/ci/abi_diff.sh --update   # regenera la línea base
 #
 # Procedimiento para actualizar la línea base:
 #   1. Cambiar el contrato en `src/`.
-#   2. Añadir la sección correspondiente en `CHANGELOG_ABIS.md` (contrato + firma
-#      anterior/nueva + selector + impacto).
-#   3. Ejecutar `script/ci/abi_diff.sh --update` y commitear `sc/abis/*.json`
-#      junto con la entrada del changelog.
+#   2. Añadir la sección en `CHANGELOG_ABIS.md` (contrato + firma anterior/nueva + selector + impacto).
+#   3. `script/ci/abi_diff.sh --update` y commitear `sc/abis/` junto a la entrada del changelog.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,10 +39,6 @@ if ! command -v forge >/dev/null 2>&1; then
     echo "FAIL: 'forge' no está disponible en el PATH" >&2
     exit 2
 fi
-if ! command -v jq >/dev/null 2>&1; then
-    echo "FAIL: 'jq' no está disponible en el PATH" >&2
-    exit 2
-fi
 
 # Lista canónica de contratos: todo `.sol` de `src/` (nombre de archivo = contrato).
 mapfile -t CONTRACTS < <(find src -name '*.sol' -printf '%f\n' | sed 's/\.sol$//' | sort)
@@ -52,26 +48,27 @@ if [ "${#CONTRACTS[@]}" -eq 0 ]; then
     exit 2
 fi
 
-# Normaliza una ABI: claves ordenadas y entradas ordenadas de forma estable.
-canon_abi() {
-    jq -S 'sort_by([.type, (.name // ""), ((.inputs // []) | map(.type) | join(","))])' "$1"
+# ABI cruda y determinista del contrato.
+abi_raw() {
+    forge inspect "$1" abi --json
 }
 
-# Firmas de función de una ABI (una por línea).
+# Firmas de función (una por línea, ordenadas). Se obtienen de la tabla de
+# `forge inspect <C> methods`, que es texto plano y no requiere JSON parser.
 fn_signatures() {
-    jq -r '.[] | select(.type == "function") | "\(.name)(\(.inputs | map(.type) | join(",")))"' "$1" | sort -u
-}
-
-abi_of() {
-    mktemp
+    forge inspect "$1" methods 2>/dev/null \
+        | awk -F'|' 'NF >= 3 { gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2 }' \
+        | grep -E '^[A-Za-z_][A-Za-z0-9_]*\(' \
+        | sort -u
 }
 
 if [ "${MODE}" = "--update" ]; then
     mkdir -p "${ABI_DIR}"
     for c in "${CONTRACTS[@]}"; do
-        forge inspect "${c}" abi --json | jq -S 'sort_by([.type, (.name // ""), ((.inputs // []) | map(.type) | join(","))])' > "${ABI_DIR}/${c}.json"
+        abi_raw "${c}" > "${ABI_DIR}/${c}.json"
+        fn_signatures "${c}" > "${ABI_DIR}/${c}.methods"
     done
-    echo "OK: línea base de ABIs regenerada en sc/abis/ (${#CONTRACTS[@]} contratos)."
+    echo "OK: línea base de ABIs regenerada en sc/abis/ (${#CONTRACTS[@]} contratos: .json + .methods)."
     echo "RECUERDA: añade la entrada correspondiente en CHANGELOG_ABIS.md y commitea ambos."
     exit 0
 fi
@@ -88,6 +85,20 @@ fi
 drift=0
 declare -a failures=()
 
+# Base git para exigir que el changelog se actualice EN EL MISMO CAMBIO que la ABI.
+# En CI: SHA base del MR o el commit anterior del push. En local: HEAD~1 si existe.
+git_base=""
+if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
+    if [ -n "${CI_MERGE_REQUEST_DIFF_BASE_SHA:-}" ] && git rev-parse -q --verify "${CI_MERGE_REQUEST_DIFF_BASE_SHA}" >/dev/null 2>&1; then
+        git_base="${CI_MERGE_REQUEST_DIFF_BASE_SHA}"
+    elif [ -n "${CI_COMMIT_BEFORE_SHA:-}" ] && [ "${CI_COMMIT_BEFORE_SHA}" != "0000000000000000000000000000000000000000" ] \
+        && git rev-parse -q --verify "${CI_COMMIT_BEFORE_SHA}" >/dev/null 2>&1; then
+        git_base="${CI_COMMIT_BEFORE_SHA}"
+    elif git rev-parse -q --verify HEAD~1 >/dev/null 2>&1; then
+        git_base="HEAD~1"
+    fi
+fi
+
 for c in "${CONTRACTS[@]}"; do
     baseline="${ABI_DIR}/${c}.json"
     if [ ! -f "${baseline}" ]; then
@@ -97,41 +108,57 @@ for c in "${CONTRACTS[@]}"; do
         continue
     fi
 
-    tmp="$(abi_of)"
-    forge inspect "${c}" abi --json | jq -S 'sort_by([.type, (.name // ""), ((.inputs // []) | map(.type) | join(","))])' > "${tmp}"
+    current="$(mktemp)"
+    abi_raw "${c}" > "${current}"
 
-    if diff -q <(canon_abi "${baseline}") "${tmp}" >/dev/null; then
-        rm -f "${tmp}"
+    if diff -q "${baseline}" "${current}" >/dev/null; then
+        rm -f "${current}"
         continue
     fi
 
     drift=1
     echo "DERIVA: la ABI de '${c}' difiere de sc/abis/${c}.json"
-    diff -u <(canon_abi "${baseline}") "${tmp}" | sed 's/^/    /' || true
+    diff -u "${baseline}" "${current}" | sed 's/^/    /' | head -40 || true
 
-    # Declaración en el changelog: contrato + selectores nuevos/modificados/eliminados.
+    # Declaración en el changelog: el contrato debe aparecer y, si hay base git,
+    # CHANGELOG_ABIS.md debe venir actualizado en este mismo cambio (evita que una
+    # deriva pase "de prestado" por una mención histórica del contrato).
     if ! grep -qF "${c}" "${CHANGELOG}"; then
         failures+=("${c}: el contrato no aparece en CHANGELOG_ABIS.md")
-        rm -f "${tmp}"
+        rm -f "${current}"
         continue
     fi
 
-    old_sigs="$(fn_signatures "${baseline}")"
-    new_sigs="$(fn_signatures "${tmp}")"
-    changed_sigs="$(comm -3 <(printf '%s\n' "${old_sigs}") <(printf '%s\n' "${new_sigs}") | tr -d '\t' | sed '/^$/d' || true)"
-
-    if [ -z "${changed_sigs}" ]; then
-        echo "    (solo cambian salidas/eventos; contrato declarado en CHANGELOG_ABIS.md)"
-    else
-        while IFS= read -r sig; do
-            [ -z "${sig}" ] && continue
-            selector="$(cast sig "${sig}")"
-            if ! grep -qF "${selector}" "${CHANGELOG}" && ! grep -qF "${sig}" "${CHANGELOG}"; then
-                failures+=("${c}: selector/firma '${sig}' (${selector}) no declarado en CHANGELOG_ABIS.md")
-            fi
-        done <<< "${changed_sigs}"
+    if [ -n "${git_base}" ]; then
+        # Cambios del conjunto (commits desde la base + árbol de trabajo, para que el gate
+        # también sirva antes de commitear en local).
+        changed_files="$( { git diff --name-only "${git_base}" HEAD 2>/dev/null || true; \
+                            git status --porcelain 2>/dev/null | awk '{print $2}' || true; } | sort -u )"
+        if ! printf '%s\n' "${changed_files}" | grep -q 'CHANGELOG_ABIS.md'; then
+            failures+=("${c}: hay deriva de ABI pero CHANGELOG_ABIS.md no se actualiza en este cambio")
+        fi
     fi
-    rm -f "${tmp}"
+
+    # Comparación a nivel de firma (solo si existe la línea base .methods).
+    if [ -f "${ABI_DIR}/${c}.methods" ]; then
+        current_methods="$(mktemp)"
+        fn_signatures "${c}" > "${current_methods}"
+        changed_sigs="$(comm -3 "${ABI_DIR}/${c}.methods" "${current_methods}" | tr -d '\t' | sed '/^$/d' || true)"
+
+        if [ -z "${changed_sigs}" ]; then
+            echo "    (solo cambian salidas/eventos; contrato declarado en CHANGELOG_ABIS.md)"
+        else
+            while IFS= read -r sig; do
+                [ -z "${sig}" ] && continue
+                selector="$(cast sig "${sig}")"
+                if ! grep -qF "${selector}" "${CHANGELOG}" && ! grep -qF "${sig}" "${CHANGELOG}"; then
+                    failures+=("${c}: firma '${sig}' (${selector}) no declarada en CHANGELOG_ABIS.md")
+                fi
+            done <<< "${changed_sigs}"
+        fi
+        rm -f "${current_methods}"
+    fi
+    rm -f "${current}"
 done
 
 if [ "${#failures[@]}" -gt 0 ]; then

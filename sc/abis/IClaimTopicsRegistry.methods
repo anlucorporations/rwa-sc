@@ -1,0 +1,3 @@
+claimTopicExists(uint256)
+getClaimTopics()
+getClaimTopicsCount()

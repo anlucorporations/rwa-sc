@@ -1,0 +1,8 @@
+addClaimTopic(uint256)
+claimTopicExists(uint256)
+getClaimTopics()
+getClaimTopicsCount()
+owner()
+removeClaimTopic(uint256)
+renounceOwnership()
+transferOwnership(address)
