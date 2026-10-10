@@ -1,0 +1,147 @@
+-- =============================================================================
+-- base_datos.sql — Script de creación de BD para la plataforma RWA
+-- Versión: 0.2 · 2026-10-03 (borrador, pendiente de decisión Q6 de entrevista)
+-- =============================================================================
+-- Changelog:
+--   v0.1 (2026-10-03): Artefacto inicial. La BD actual del proyecto es
+--     MONGODB (BD "rwa", colecciones claim_requests / tokens / GridFS
+--     claim_documents). Este script es la transcripción PostgreSQL en caso
+--     de migración a GCP Cloud SQL. No se ejecuta hasta que el usuario
+--     apruebe la migración (requerimientos.md §6 Q6).
+--   v0.2 (2026-10-03): Coherencia con diccionario_datos.md v1.1 y
+--     diagrama_er.md v1.1.
+--       - Se transcriben FIELMENTE las colecciones reales de MongoDB
+--         (fuente: rwa-web/web-identity/types/claim-request.ts,
+--          web-token/types/token.ts, web-identity/types/issuer.ts y las
+--          rutas de GridFS). Se corrigen nombres: requesterAddress,
+--          issuerAddress, claimTopic, documentFileId, tokenAddress,
+--          requiredClaims, complianceAddress, adminAddress.
+--       - Se añade la colección `issuers`, antes no documentada.
+--       - Se documenta el bucket GridFS `claim_documents` con metadata.
+--       - Catálogo canónico de claim topics: 1=KYC, 7=Accreditation,
+--         9=Jurisdiction (H-13). Reservados: 5=Environmental, 6=Sanctions.
+--       - La sección PostgreSQL SIGUE PENDIENTE y NO se inventa: no se crea
+--         ninguna tabla hasta la decisión Q6.
+--       - Trazabilidad: INFORME_OPTIMIZACION_V1.md (H-13, H-14, H-08, H-11,
+--         H-20) y requerimientos.md.
+-- Convenciones (solo si se aprueba PostgreSQL): snake_case · tablas en
+--   plural · PK id · FK <tabla_singular>_id.
+-- Sin secretos: host/usuario/clave por variables de entorno (ver
+--   entornos_globales.md).
+-- =============================================================================
+
+-- =============================================================================
+-- SECCIÓN 1 — TRANSCRIPCIÓN DE LA BD ACTIVA (MongoDB, base `rwa`)
+-- =============================================================================
+-- Esta sección es DOCUMENTAL (comentarios): la BD real es MongoDB y su
+-- esquema no se aplica desde este archivo. Los nombres de campo son exactos.
+
+-- -----------------------------------------------------------------------------
+-- Colección: claim_requests
+-- Fuente: rwa-web/web-identity/types/claim-request.ts:5-26
+--         (idéntico en rwa-web/web-registry-trusted/types/claim-request.ts)
+--         Escritura: web-identity/app/api/claim-requests/route.ts
+--         Actualización: web-registry-trusted/app/api/update-request/route.ts
+-- -----------------------------------------------------------------------------
+--   _id                  ObjectId   PK
+--   requesterAddress     string     wallet solicitante
+--   issuerAddress        string     emisor destinatario (minúsculas)
+--   claimTopic           string     topic del claim (string, no int)
+--   message              string?    mensaje del solicitante
+--   documentFileId       string?    referencia GridFS del documento
+--   documentName         string?    nombre del documento
+--   documentContentType  string?    MIME del documento
+--   documentSize         number?    bytes del documento
+--   status               string     pending | approved | rejected
+--   signedMessage        string     mensaje firmado por el solicitante
+--   signature            string     firma criptográfica del solicitante
+--   createdAt            ISODate
+--   updatedAt            ISODate
+--   reviewedAt           ISODate?   revisión por el issuer
+--   reviewNote           string?    nota del issuer
+--   issuerSignedMessage  string?    mensaje firmado por el issuer
+--   issuerSignature      string?    firma criptográfica del issuer
+-- Nota: no hay índice único compuesto declarado en el código
+--       (`createIndex` no aparece en rwa-web).
+
+-- -----------------------------------------------------------------------------
+-- Colección: tokens
+-- Fuente: rwa-web/web-token/types/token.ts:5-24
+-- -----------------------------------------------------------------------------
+--   _id                 ObjectId  PK
+--   name                string
+--   symbol              string
+--   decimals            number
+--   tokenAddress        string    dirección on-chain del token
+--   adminAddress        string    admin del token
+--   complianceAddress   string?   módulo principal (compatibilidad)
+--   complianceModules   string[]? todos los módulos
+--   requiredClaims      number[]  topics exigidos
+--   price               number?   precio por token en ETH
+--   createdAt           ISODate
+--   updatedAt           ISODate
+--   transactionHash     string?   hash del deploy
+--   blockNumber         number?   bloque del deploy
+--   totalSupply         string?
+--   description         string?
+
+-- -----------------------------------------------------------------------------
+-- Colección: issuers  (documentada a partir de v0.2; existía sin documentar)
+-- Fuente: rwa-web/web-identity/types/issuer.ts:5-10
+--         rwa-web/web-registry-trusted/app/api/issuers/route.ts:28-55
+-- -----------------------------------------------------------------------------
+--   _id        ObjectId  PK
+--   address    string    dirección del emisor (minúsculas; búsqueda por address)
+--   name       string    nombre del emisor
+--   createdAt  ISODate
+--   updatedAt  ISODate
+
+-- -----------------------------------------------------------------------------
+-- GridFS: bucket `claim_documents`
+-- Colecciones físicas: claim_documents.files / claim_documents.chunks
+-- Fuente: rwa-web/web-identity/app/api/upload/route.ts:62-80
+--         rwa-web/web-identity/app/api/download/[fileId]/route.ts:42
+-- -----------------------------------------------------------------------------
+--   _id                    ObjectId   PK (referenciado por claim_requests.documentFileId)
+--   filename               string     nombre del subido
+--   length                 number     bytes
+--   chunkSize              number     tamaño de chunk (GridFS)
+--   uploadDate             ISODate    fecha de subida (GridFS)
+--   metadata.originalName  string     nombre original
+--   metadata.contentType   string     MIME (dentro de metadata, NO en la raíz)
+--   metadata.size          number     bytes
+--   metadata.uploadedAt    ISODate    fecha de subida (aplicación)
+
+-- =============================================================================
+-- SECCIÓN 2 — CATÁLOGO CANÓNICO DE CLAIM TOPICS (oficial, H-13)
+-- =============================================================================
+--   1 = KYC            (oficial, implementado)   rwa-web/README.md:325
+--   7 = Accreditation  (oficial, implementado)   rwa-web/README.md:326
+--   9 = Jurisdiction   (oficial, implementado)   rwa-web/README.md:327
+--   5 = Environmental  (RESERVADO / backlog, H-10 — NO implementado)
+--   6 = Sanctions      (RESERVADO / backlog, H-10 — NO implementado)
+-- Deprecados (no usar): 1/2/3/4 (ARQUITECTURA_FINAL.md:65) y
+--   1/2/3/9/10 (REFERENCIA_TECNICA.md:823-833), donde 9 se definía como
+--   "Sanctions Check"; el valor 9 queda oficialmente como "Jurisdiction".
+
+-- =============================================================================
+-- SECCIÓN 3 — (PENDIENTE) Migración MongoDB -> PostgreSQL
+-- =============================================================================
+-- NO IMPLEMENTADA A PROPÓSITO. Se redactará solo tras la decisión Q6
+-- (requerimientos.md §6: destino GCP Atlas vs Cloud SQL PostgreSQL).
+-- La transcripción campo a campo de las colecciones está en la Sección 1 de
+-- este archivo y en diccionario_datos.md §2.
+-- Cuando se apruebe, esta sección contendrá:
+--   1. Extensiones (pgcrypto)
+--   2. Enum: claim_request_status (pending, approved, rejected)
+--   3. Tablas: issuers, claim_requests, tokens,
+--      claim_documents (metadatos; blobs quedan en storage)
+--   4. Índices sobre FK y búsquedas frecuentes
+--   5. Semillas: catálogo canónico de claim topics (1, 7, 9)
+-- No se crea ninguna tabla en este borrador para no inventar el esquema.
+
+DO $$
+BEGIN
+    RAISE NOTICE 'RWA: base_datos.sql v0.2 en estado BORRADOR — BD activa es MongoDB (ver diccionario_datos.md v1.1). Seccion PostgreSQL PENDIENTE de la decision Q6 (GCP: Atlas vs Cloud SQL). Catalogo canonico de topics: 1=KYC, 7=Accreditation, 9=Jurisdiction.';
+END
+$$;

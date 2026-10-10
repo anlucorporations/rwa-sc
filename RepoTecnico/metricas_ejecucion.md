@@ -1,0 +1,492 @@
+# 📊 Métricas reales de ejecución — rwa-sc
+
+> Anexo de la Fase 2 (Auditoría). Datos obtenidos ejecutando la suite, no leídos de los docs.
+> Fecha: 2026-10-03 · Ejecutado por el Lead del proyecto.
+> Entorno: Forge v1.8.3 (`/home/dsh/.foundry/bin/forge`, fuera del PATH), OZ 5.5.0, forge-std 1.12.0,
+> dependencias clonadas en `rwa-sc/sc/lib/` (gitignored) para poder compilar.
+> **Numeración de hallazgos:** `HB-01..HB-12` = análisis base del Lead (`requerimientos.md` §2); `H-01..H-34` =
+> auditoría V1 (`INFORME_OPTIMIZACION_V1.md`). Toda cita de la auditoría se marca como «(auditoría V1)».
+
+## 1. Corrección del entorno (dato previo erróneo)
+
+| Dato previo | Realidad verificada |
+|---|---|
+| "Forge/Anvil no instalados" | **Sí están**: `/home/dsh/.foundry/bin/forge` v1.8.3 (solo faltaba en el PATH) |
+| "No se puede compilar ni ejecutar tests" | **Sí se puede**: con `lib/` clonado, `forge build` y `forge test` corren |
+
+`HB-05` (análisis base: build roto) queda **parcialmente corregido**: el bloqueo real es la ausencia de `sc/lib/`, no la toolchain.
+
+## 2. Compilación
+
+```
+forge build   →  OK (sin errores de compilación)
+```
+Advertencias del linter de Forge (no bloqueantes): `block.timestamp` leído antes de `vm.warp`
+en `test/TransferLockCompliance.t.sol:230` y `:239`.
+
+## 3. Suite de tests
+
+| Métrica | Valor real | Declarado en los docs |
+|---|---|---|
+| Tests declarados | **151** | "139 tests" (START_HERE.md) |
+| Tests ejecutados/contados | **98** | — |
+| Pasados | **93** | "100% passing" (START_HERE.md) |
+| Fallidos | **5** | — |
+| Tests que nunca se ejecutan | **53** (suites `Token.t.sol` 30 y `ComplianceAggregator.t.sol` 25 no arrancan) | — |
+
+Comando: `forge test` → `Ran 8 test suites ... 93 tests passed, 5 failed, 0 skipped (98 total tests)`.
+
+### 3.1 Fallas `InvalidInitialization()` (bloqueantes) — 2 suites, 53 tests muertos
+
+- `test/Token.t.sol` → `setUp()` revierte: **`InvalidInitialization()`**
+- `test/ComplianceAggregator.t.sol` → `setUp()` revierte: **`InvalidInitialization()`**
+
+Causa raíz (evidencia en código):
+- `test/Token.t.sol` hace `token = new TokenCloneable(); token.initialize(...)`, pero
+  `src/TokenCloneable.sol:50-52` tiene `constructor() { _disableInitializers(); }` → `initialize` revierte.
+- Lo mismo con `identity1 = new IdentityCloneable(); identity1.initialize(admin)`
+  (`src/IdentityCloneable.sol:42-44` apaga los inicializadores).
+- Los tests esperan las versiones "no-upgradeable para testing" que `ARQUITECTURA_FINAL.md` declara. De esas, **solo existe** `src/ClaimTopicsRegistry.sol` (usada por `test/Token.t.sol`); **`Token.sol` e `Identity.sol` NO existen** (HB-07 análisis base / H-15 auditoría V1). Por eso los tests instancian los contratos cloneables directamente, y sus constructores apagan los inicializadores.
+
+### 3.2 Fallas de "ahorro de gas" (tests inválidos) — 3 suites
+
+| Test | Resultado | Números reales |
+|---|---|---|
+| `TokenCloneFactory.t.sol:test_GasSavings` | `panic: arithmetic underflow (0x11)` | clone: **387.469** gas · "directo": **5.974** gas |
+| `IdentityCloneFactory.t.sol:testGasSavings` | `panic: arithmetic underflow (0x11)` | clone: **214.623** gas · "full": **3.318** gas |
+| `ClaimTopicsRegistryCloneFactory.t.sol:test_GasSavings` | assertion "Clone should save at least 50% gas" | — |
+
+Causa raíz: el test compara **crear un clon inicializado** (clone + `initialize` + callbacks) contra
+**desplegar la implementación pelada** (`new TokenCloneable()`, cuyo constructor solo apaga inicializadores).
+La comparación no es equivalente: mide 5.974 gas de un contrato vacío contra 387.469 gas de un clon funcional.
+Los ahorros del 94–98% que afirman `ARQUITECTURA_FINAL.md` y `START_HERE.md` **no están validados por ningún test**.
+
+## 4. Cobertura real vs objetivo
+
+Comando: `forge coverage --report summary`
+
+| Métrica | Real | Objetivo (`RNF-002`) |
+|---|---|---|
+| Líneas | **42,86%** (339/791) | ≥ 80% |
+| Sentencias | **38,25%** (288/753) | ≥ 80% |
+| Ramas | **35,68%** (66/185) | ≥ 80% |
+| Funciones | **55,70%** (83/149) | ≥ 80% |
+
+Por contrato: `ComplianceAggregator.sol` **1,56%** (su suite no arranca) · `TransferLockCompliance.sol` 81,08% ·
+`MaxHoldersCompliance.sol` 87,04% · `MaxBalanceCompliance.sol` 94,44%.
+Los contratos principales (`TokenCloneable`, `IdentityCloneable`, registros, factories) quedan sin cobertura
+porque sus suites revierten en `setUp`.
+
+## 5. Consecuencias para el plan de la Fase 3
+
+1. `RF-005` adquiere un alcance mayor de lo previsto: no basta con clonar `lib/`; hay que **arreglar las suites
+   que no arrancan** (decidir: crear las versiones no-upgradeable de testing, o inicializar clones reales en los tests).
+2. `RF-002` (gas/EIP-1167): los tests de ahorro deben reescribirse con una comparación equivalente
+   (clon inicializado vs despliegue completo + `initialize`).
+3. `RNF-002` (coverage ≥ 80%) exige **duplicar** la cobertura actual: los contratos núcleo están en ~0%.
+4. Los docs que afirman "139 tests 100% passing" y "coverage >80%" deben corregirse (`RF-006`).
+
+## 6. Reproducibilidad
+
+```bash
+export PATH="$HOME/.foundry/bin:$PATH"
+cd /home/dsh/workspace/RWA/rwa-sc/sc
+# dependencias (gitignored):
+git clone --depth 1 --branch v1.12.0 https://github.com/foundry-rs/forge-std lib/forge-std
+git clone --depth 1 --branch v5.5.0  https://github.com/OpenZeppelin/openzeppelin-contracts lib/openzeppelin-contracts
+git clone --depth 1 --branch v5.5.0  https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable lib/openzeppelin-contracts-upgradeable
+forge build
+forge test
+forge coverage --report summary
+```
+
+---
+
+## 7. Ciclo 1 (RF-005) — resultados tras el ciclo
+
+> Fecha: 2026-10-10 · Rama `rwa-sc-DSH-GCP` · Commit local `RF-005` (sin push).
+> Toolchain fijado en `sc/foundry.toml`: `solc_version = "0.8.20"`, `optimizer = true`,
+> `optimizer_runs = 200`, `evm_version = "paris"`. Forge v1.8.3, OZ 5.5.0, forge-std 1.12.0.
+
+### 7.1 Suite de tests — antes / después
+
+| Métrica | Antes (2026-10-03) | Después (2026-10-10) |
+|---|---|---|
+| Tests declarados (`forge test --list`) | 151 | **151** |
+| Tests ejecutados/contados | 98 | **151** |
+| Pasados | 93 | **151** |
+| Fallidos | 5 | **0** |
+| Nunca ejecutados (suites que revertían en `setUp`) | 53 | **0** |
+| Suites que revierten en `setUp` | 2 (`Token`, `ComplianceAggregator`) | **0** |
+| Tests de ahorro de gas inválidos | 3 | **0** |
+
+Comando: `forge test` → `Ran 8 test suites ... 151 tests passed, 0 failed, 0 skipped (151 total tests)`.
+
+### 7.2 Cobertura — antes / después
+
+Comando: `forge coverage --report summary`.
+
+| Métrica | Antes (total) | Después (total) | Después (`src/` sólo) |
+|---|---|---|---|
+| Líneas | **42,86 %** (339/791) | **67,50 %** (565/837) | **86,33 %** (518/600) |
+| Sentencias | 38,25 % (288/753) | 65,95 % (521/790) | 86,56 % (483/558) |
+| Ramas | 35,68 % (66/185) | 62,76 % (123/196) | 65,19 % (118/181) |
+| Funciones | 55,70 % (83/149) | 79,38 % (127/160) | 86,36 % (114/132) |
+
+> El total de Forge incluye `script/` (0 %) y `test/benchmarks/` (nuevos en este ciclo),
+> por lo que baja el porcentaje agregado. Sobre el código de producción (`src/`), las
+> líneas pasan de 42,86 % a **86,33 %**, por encima del objetivo RNF-002 (≥ 80 %).
+
+### 7.3 Ahorro de gas medido (comparación equivalente)
+
+Los 3 tests de ahorro se reescribieron contra una **línea base no-upgradeable equivalente**
+(`sc/test/benchmarks/`), midiendo con el opcode `CREATE` en assembly porque `forge` reescribe
+`new Contrato()` de `src/` a `vm.deployCode` (gas no medible). Cifras del test:
+
+| Operación | Clon (factory) | Despliegue completo | Ahorro |
+|---|---|---|---|
+| `TokenCloneFactory.createToken` | 381.570 | 859.098 | 477.528 (**55 %**) |
+| `IdentityCloneFactory.createIdentity` | 212.307 | 530.753 | 318.446 (**59 %**) |
+| `IdentityCloneFactory.createIdentityWithClaim` | 440.694 | 812.509 | 371.815 (**45 %**) |
+| `ClaimTopicsRegistryCloneFactory.createRegistry` | 210.149 | 451.038 | 240.889 (**53 %**) |
+
+Las cifras publicadas antes (39 %, 88–98 %, 90,2 %, 96,5 %) **no estaban medidas** y quedan
+sustituidas por estas. Baseline por test versionado en `sc/.gas-snapshot` (RNF-001).
+
+### 7.4 Reproducibilidad (B-5)
+
+- Un único `.gitmodules` en `rwa-sc/`, con los 3 submódulos (`sc/lib/*`) pinneados por revisión
+  en `sc/foundry.lock`:
+  `forge-std` v1.12.0 (`7117c90`), `openzeppelin-contracts` v5.5.0 (`fcbae53`),
+  `openzeppelin-contracts-upgradeable` v5.5.0 (`aa677e9`).
+- `git submodule status` → 3 entradas sin prefijo `-`/`+`.
+- Bootstrap documentado en `rwa-sc/README.md`: `git clone --recurse-submodules` + `forge build` + `forge test`.
+
+---
+
+## 8. Ciclo 1b — refuerzo de cobertura de los registries
+
+> Fecha: 2026-10-10 · Rama `rwa-sc-DSH-GCP` (commit local, sin push).
+> Objetivo: cerrar el gate de RNF-002 **por contrato** (decisión D-017) sobre
+> `IdentityRegistry`, `TrustedIssuersRegistry` y `ClaimTopicsRegistry`.
+
+### 8.1 Tests — antes / después
+
+| Métrica | Antes (Ciclo 1) | Después (Ciclo 1b) |
+|---|---|---|
+| Tests ejecutados/pasados | **151 / 151** | **243 / 243** |
+| Fallidos | 0 | **0** |
+| Suites | 8 | **11** |
+| Suites que revierten en `setUp` | 0 | **0** |
+
+Comando: `forge test` → `Ran 11 test suites ... 243 tests passed, 0 failed, 0 skipped (243 total tests)`.
+Las tres suites nuevas (`test/IdentityRegistry.t.sol` 34, `test/TrustedIssuersRegistry.t.sol` 33,
+`test/ClaimTopicsRegistry.t.sol` 25) suman **92 tests** y no duplican lo ya cubierto desde
+`Token.t.sol` / `ComplianceAggregator.t.sol`.
+
+### 8.2 Cobertura por contrato objetivo (líneas / funciones)
+
+Comando: `forge coverage --report summary`.
+
+| Contrato | Líneas antes | Líneas después | Funciones antes | Funciones después |
+|---|---|---|---|---|
+| `src/IdentityRegistry.sol` | **37,14 %** (13/35) | **100,00 %** (35/35) | 50,00 % (4/8) | **100,00 %** (8/8) |
+| `src/TrustedIssuersRegistry.sol` | **38,46 %** (15/39) | **100,00 %** (39/39) | 33,33 % (3/9) | **100,00 %** (9/9) |
+| `src/ClaimTopicsRegistry.sol` | **45,45 %** (10/22) | **100,00 %** (22/22) | 50,00 % (3/6) | **100,00 %** (6/6) |
+
+Los tres superan el umbral de RNF-002 (≥ 80 %) también en sentencias y ramas:
+
+| Contrato | Sentencias después | Ramas después |
+|---|---|---|
+| `src/IdentityRegistry.sol` | 100,00 % (29/29) | 100,00 % (17/17) |
+| `src/TrustedIssuersRegistry.sol` | 100,00 % (34/34) | 100,00 % (15/15) |
+| `src/ClaimTopicsRegistry.sol` | 100,00 % (20/20) | 100,00 % (6/6) |
+
+### 8.3 Cobertura agregada de `src/` (D-017: sin `ICompliance.sol` ni `IClaimTopicsRegistry.sol`)
+
+| Métrica | Antes (Ciclo 1) | Después (Ciclo 1b) |
+|---|---|---|
+| Líneas | 86,33 % (518/600) | **96,00 %** (576/600) |
+| Sentencias | 86,56 % (483/558) | **95,70 %** (534/558) |
+| Ramas | 65,19 % (118/181) | **81,77 %** (148/181) |
+| Funciones | 86,36 % (114/132) | **96,21 %** (127/132) |
+
+> El total que imprime Forge (`74,43 %` líneas) incluye `script/` (0 %) y `test/benchmarks/`,
+> fuera del alcance de RNF-002. Sobre `src/` el agregado queda en 96,00 % de líneas.
+
+### 8.4 Verificaciones del ciclo
+
+| Verificación | Resultado |
+|---|---|
+| `forge build` | 0 errores |
+| `forge test` | 243/243, 0 fallos |
+| `forge coverage --report summary` | 3 registries al 100 % (≥ 80 %) |
+| `forge fmt --check` | limpio |
+| `forge snapshot` + `forge snapshot --check` | regenerado (`.gas-snapshot`, 242 entradas) y OK |
+| `git status --short` | sólo `sc/test/*.t.sol` nuevos y `sc/.gas-snapshot`; **ningún archivo de `sc/src/`** |
+
+### 8.5 Hallazgos (no corregidos: prohibido tocar `src/` en este ciclo)
+
+1. `src/IdentityRegistry.sol:38` y `:56` — no se verifica que `_identity` sea un contrato:
+   puede registrarse una EOA o un contrato sin la interfaz esperada (fallará al usarse).
+2. `src/IdentityRegistry.sol:73-79` — `removeIdentity` localiza la entrada en
+   `registeredAddresses` por búsqueda lineal y no comprueba que realmente exista; si el
+   array y el mapping `registered` se desincronizaran, emitiría el evento sin borrar la
+   entrada (hueco fantasma). Hoy es inalcanzable porque `registered` es la única puerta.
+3. `src/ClaimTopicsRegistry.sol:29-35` — `addClaimTopic` no rechaza el topic `0`
+   (documentado con `test_AddClaimTopic_AcceptsZeroValue`).
+4. Los borrados con swap-and-pop (`IdentityRegistry`, `TrustedIssuersRegistry`,
+   `ClaimTopicsRegistry`) son O(n) y **alteran el orden** de los arrays; en registries
+   grandes el bucle podría agotar el gas del bloque.
+
+---
+
+## 9. Ciclo 2 — RF-001 · Verificación criptográfica del claim con EIP-712
+
+> Fecha: 2026-10-10 · Rama `rwa-sc-DSH-GCP` (commit local, sin push).
+> Objetivo: cerrar H-01 (crítica, claims auto-forjados) exigiendo firma EIP-712 del `issuer`
+> en `IdentityCloneable.addClaim`, con `expiresAt` firmado (D-020), política de reintento D-018
+> y alcance de autorización D-025.
+
+### 9.1 Tests — antes / después
+
+| Métrica | Antes (Ciclo 1b) | Después (Ciclo 2) |
+|---|---|---|
+| Tests ejecutados/pasados | **243 / 243** | **264 / 264** |
+| Fallidos | 0 | **0** |
+| Suites | 11 | **12** |
+| Suites que revierten en `setUp` | 0 | **0** |
+| Tests `test_RF001_*` nuevos | 0 | **21** (`test/IdentityCloneable.t.sol`) |
+
+Comando: `forge test` → `Ran 12 test suites ... 264 tests passed, 0 failed, 0 skipped (264 total tests)`.
+La suite nueva no sustituye ninguna prueba existente: las 243 anteriores se conservan y solo se
+adaptaron a la nueva firma de `addClaim`/`createIdentityWithClaim` (conservando su intención).
+
+### 9.2 Cobertura — antes / después (`src/`, D-017)
+
+Comando: `forge coverage --report summary`. Valores medidos sobre `src/` (interfaces excluidas
+automáticamente por Forge al no tener código ejecutable):
+
+| Métrica | Antes (Ciclo 1b) | Después (Ciclo 2) |
+|---|---|---|
+| Líneas | 96,00 % (576/600) | **96,08 %** (589/613) |
+| Sentencias | 95,70 % (534/558) | **95,99 %** (550/573) |
+| Ramas | 81,77 % (148/181) | **82,72 %** (158/191) |
+| Funciones | 96,21 % (127/132) | **96,27 %** (129/134) |
+
+`IdentityCloneable` (el contrato modificado) se mantiene alto:
+
+| Métrica | Antes | Después |
+|---|---|---|
+| Líneas | 100,00 % (33/33) | **100,00 %** (46/46) |
+| Sentencias | 96,43 % (27/28) | **97,67 %** (42/43) |
+| Ramas | 100,00 % (3/3) | **100,00 %** (13/13) |
+| Funciones | 100,00 % (7/7) | **100,00 %** (9/9) |
+
+Ninguna métrica de `src/` baja. El total que imprime Forge (75,03 % líneas) incluye `script/` (0 %)
+y `test/`, fuera del alcance de RNF-002 (D-017).
+
+### 9.3 Diseño aplicado
+
+- **Dominio EIP-712 (D-020):** `{name: "RWA-Identity", version: "1", chainId, verifyingContract: address(this)}`;
+  en clones EIP-1167 `verifyingContract` es la **dirección del clon**. El `chainId` se lee en cada
+  llamada, de modo que la firma deja de valer en otra cadena.
+- **`CLAIM_TYPEHASH`:** `keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt)")`.
+- **Validaciones en `addClaim`:** `scheme == 1`, `signature.length == 65`, `issuer != address(0)`,
+  `dataHash == keccak256(data)` (implícito en el digest), `recovered == issuer` y
+  `walletOwner` firmado `== owner()` (anti-replay entre titulares). `expiresAt` queda **firmado y
+  almacenado**; su enforcement es del Ciclo 8/RF-013.
+- **Recuperación:** `ECDSA.tryRecover` de OpenZeppelin 5.5.0 (rechaza `s` alto y `v ∉ {27,28}`); los
+  fallos se mapean a los literales de RF-001 sin debilitar la comprobación. Hay un test específico de
+  firma maleable (`test_RF001_addClaim_firma_maleable_s_alto_revierte`).
+- **EIP-712 sin `EIP712Upgradeable` (D-026):** OpenZeppelin v5.5.0 declara `pragma solidity ^0.8.24`
+  en `EIP712Upgradeable.sol`, incompatible con el `solc_version = 0.8.20` fijado por RF-005/RT-007.
+  Se reproduce el mismo digest (`\x19\x01 || domainSeparator || structHash`) con los typehashes de la
+  EIP y se documenta en NatSpec; `ECDSA` sí se usa de OpenZeppelin.
+- **Reintento (D-018):** un claim existente para el mismo `(topic, issuer)` se **sobrescribe solo con
+  firma válida**; el issuer no se duplica en `topicIssuers`.
+- **Alcance (D-025):** `addClaim` **no** comprueba la autorización del issuer para el topic; lo impone
+  `TokenCloneable.isVerified` contra el `TrustedIssuersRegistry` del token. Cubierto por
+  `test_RF001_issuer_no_autorizado_para_topic_no_verifica` y documentado en NatSpec.
+- **`createIdentityWithClaim` (D-027):** propaga `expiresAt`; como el clon se inicializa con la factory
+  como owner temporal, en esa ruta el `walletOwner` firmado es la factory y el anti-replay entre
+  identidades lo aporta `verifyingContract`.
+
+### 9.4 ABI y documentación
+
+- Cambios de ABI (firma, struct, evento y selectores) en
+  [`../rwa-sc/CHANGELOG_ABIS.md`](../rwa-sc/CHANGELOG_ABIS.md), con el impacto en `rwa-web`.
+- Decisiones nuevas registradas: **D-026, D-027 y D-028** (`requerimientos.md`, Bloque 6).
+
+### 9.5 Verificaciones del ciclo
+
+| Verificación | Resultado |
+|---|---|
+| `forge build` | 0 errores (solo warnings del linter preexistentes) |
+| `forge test` | 264/264, 0 fallos, 0 suites revertidas en `setUp` |
+| PoC H-01 invertido | `test_RF001_addClaim_firma_vacia_revierte`; PoC aislado con `test_H01_claim_forjado_firma_vacia_revierte` |
+| `forge coverage --report summary` | `src/` 96,08 % líneas; `IdentityCloneable` 100 % líneas |
+| `forge fmt --check` | limpio |
+| `forge snapshot` + `forge snapshot --check` | regenerado (`.gas-snapshot`) y OK |
+| `git status --short` | limpio tras el commit (solo árbol `rwa-sc/`) |
+
+### 9.6 Evidencia del PoC invertido
+
+`RepoTecnico/evidencias/PoC_H01_H05.t.sol` se actualizó: el caso de H-01 ahora **revierte** con
+firma vacía y el caso positivo exige firma EIP-712; H-05 sigue reproduciéndose (pendiente de RF-011).
+Salida real en `RepoTecnico/evidencias/salida_poc.txt`:
+
+```
+[PASS] test_H01_claim_forjado_firma_vacia_revierte
+[PASS] test_H01_claim_con_firma_valida_aceptado
+[PASS] test_H05_isVerified_fail_open
+```
+
+
+## 10. Ciclo 3 — RF-002 · Retirada del flag de bypass y anti-reentrancia
+
+> Fecha: 2026-10-10 · Rama `rwa-sc-DSH-GCP` (commit local, sin push).
+> Objetivo: cerrar H-18 (callbacks externos sin `ReentrancyGuard`) y H-03 eliminando el flag mutable
+> `bypassCompliance`, sustituyéndolo por la ruta interna explícita `_forcedUpdate` y protegiendo con
+> `nonReentrant` el token y el `ComplianceAggregator`. Alcance: **sin** whitelist ni topes (RF-004/Ciclo 5).
+
+### 10.1 Tests — antes / después
+
+| Métrica | Antes (Ciclo 2) | Después (Ciclo 3) |
+|---|---|---|
+| Tests ejecutados/pasados | **264 / 264** | **281 / 281** |
+| Fallidos | 0 | **0** |
+| Suites | 12 | **13** (`+ test/TokenReentrancy.t.sol`) |
+| Suites que revierten en `setUp` | 0 | **0** |
+| Tests `test_RF002_*` nuevos | 0 | **17** |
+
+Comando: `forge test` → `Ran 13 test suites ... 281 tests passed, 0 failed, 0 skipped (281 total tests)`.
+No se debilitó ni borró ningún test: los 264 anteriores se conservan íntegros, sin `vm.skip`, sin
+aserciones comentadas y sin casos eliminados.
+
+### 10.2 Cobertura — antes / después (`src/`, D-017)
+
+Comando: `forge coverage --report summary`. Valores medidos sobre `src/` (mismas 13 filas; las
+interfaces no tienen código ejecutable):
+
+| Métrica | Antes (Ciclo 2) | Después (Ciclo 3) |
+|---|---|---|
+| Líneas | 96,08 % (589/613) | **96,28 %** (595/618) |
+| Sentencias | 95,99 % (550/573) | **95,99 %** (550/573) |
+| Ramas | 82,72 % (158/191) | **82,90 %** (160/193) |
+| Funciones | 96,27 % (129/134) | **97,08 %** (133/137) |
+
+Contratos modificados:
+
+| Contrato | Líneas antes → después | Ramas antes → después | Funciones antes → después |
+|---|---|---|---|
+| `TokenCloneable` | 97,08 % (133/137) → **97,18 %** (138/142) | 66,67 % (34/51) → **67,92 %** (36/53) | 100 % → **100 %** (28/28) |
+| `ComplianceAggregator` | 93,75 % (60/64) → **95,31 %** (61/64) | 100 % (16/16) → **100 %** (16/16) | 93,33 % (14/15) → **100 %** (15/15) |
+
+**Ninguna métrica de `src/` baja.** El total que imprime Forge incluye `script/` y `test/` (fuera del
+alcance de RNF-002, D-017).
+
+### 10.3 Diseño aplicado (dónde vive el guard)
+
+- **Flag eliminado:** `bool private bypassCompliance` (`:47`) **desaparece** del storage
+  (`forge inspect TokenCloneable storage-layout --json` → `identityRegistry`, `trustedIssuersRegistry`,
+  `claimTopicsRegistry`, `complianceModules`, `_tokenName`, `_tokenSymbol`, `_tokenDecimals`, `frozen`).
+- **Ruta explícita:** `_forcedUpdate(from,to,amount)` ejecuta `super._update(...)` directamente (salta
+  la comprobación de compliance y la notificación del override) y **no escribe ningún flag**. Solo la
+  invoca `forcedTransfer`, que sigue siendo `onlyRole(AGENT_ROLE)` y notifica `transferred` una vez.
+  Un `transfer()` reentrante durante esa notificación pasa por el `nonReentrant` del token y **no**
+  existe ninguna ventana de bypass.
+- **Guard (`ReentrancyGuard` stateless, D-029):** se aplica en **`transfer`, `transferFrom`, `mint`,
+  `burn` y `forcedTransfer`**, no en `_update`. Razón (D-030): un guard en `_update` solo cubriría el
+  callback `transferred`; los bucles `created` de `mint`, `destroyed` de `burn` y `transferred` de
+  `forcedTransfer` ocurren **después** de `_update` y quedarían sin guardar; además, poner el guard en
+  `_update` y en `mint`/`burn` haría saltar el revert por guard anidado. Guardar los puntos de entrada
+  cubre todas las rutas sin anidamiento. `canTransfer` es `view` y no necesita guard.
+- **Aggregator:** `addModule`, `removeModule`, `transferred`, `created` y `destroyed` son
+  `nonReentrant` (guard propio, namespace distinto del token). `canTransfer` sigue `view`.
+- **Semántica intacta:** `forcedTransfer` no consulta `canTransfer`; `mint` sigue exigiendo compliance
+  y `burn` no la consulta (D-016). Los límites/whitelist llegan en RF-004.
+
+### 10.4 Gas — antes / después
+
+Medición directa (test `test_RF002_gas_transfer_estandar`, `-vv`) sobre el mismo setup:
+
+| Operación | Antes (Ciclo 2) | Después (Ciclo 3) | Δ |
+|---|---|---|---|
+| `createToken` (clon EIP-1167 + `initialize`) | 381.570 | **381.570** | **0** (guard stateless, sin init) |
+| `TokenBenchmark` (despliegue completo + init) | 859.098 | **882.257** | +23.159 |
+| Transferencia estándar (guard frío) | 169.656 | **172.730** | +3.074 (+1,81 %) |
+| Transferencia estándar (guard caliente) | 130.959 | **134.033** | +3.074 (+2,35 %) |
+| `test_ForcedTransfer` | 475.749 | **497.736** | +21.987 |
+| `test_Mint` | 258.090 | **280.444** | +22.354 |
+| `test_Transfer_Success` (mint + transfer) | 528.232 | **550.860** | +22.628 |
+
+El sobrecoste por transferencia es de **~3.074 gas** cuando el guard ya está en `NOT_ENTERED` (lo
+normal tras el primer `mint`); la primera operación guarded de un token paga una única escritura fría.
+`createToken` no cambia: el guard no añade init ni código al clon. El ahorro del benchmark pasa de
+55,58 % a **56,75 %** (umbrales `>=45 %` y `>300k` intactos, D-032). `.gas-snapshot` regenerado
+(17 entradas nuevas de `TokenReentrancyTest`, resto de deltas de gas por el guard).
+
+### 10.5 Lint (`forge lint`)
+
+| Regla | Antes (evidencia Ciclo 1) | Después (Ciclo 3) |
+|---|---|---|
+| `reentrancy-events` | 19 | **19** |
+| `calls-loop` | 14 | **14** |
+| `reentrancy-no-eth` | 5 | **4** |
+| `non-reentrant-not-first` | 0 | **0** (se corrigió el orden de modificadores) |
+
+`reentrancy-events` y `calls-loop` son preexistentes y estructurales (llamadas externas a los módulos
+dentro de bucles); reducirlos exige un rediseño *pull* fuera del alcance de RF-002.
+
+### 10.6 Gate de CI
+
+`script/ci/check_no_bypass_flag.sh` (criterio `ci_check_RF002_no_bypassCompliance_storage`) inspecciona
+`forge inspect TokenCloneable storage-layout --json` y **falla con exit 1** si aparece
+`bypassCompliance`. Probado en ambos sentidos: con el flag inyectado temporalmente devuelve exit 1 y
+lista la etiqueta; restaurado el código, imprime
+`OK: TokenCloneable no expone 'bypassCompliance' en su storage layout` (exit 0). El test
+`test_RF002_storage_layout_sin_bypassCompliance` añade la verificación en Solidity sobre el artefacto
+compilado (`extra_output = ["storageLayout"]` en `foundry.toml`).
+
+### 10.7 Evidencia de reentrancia (invertida respecto a H-18)
+
+`test/TokenReentrancy.t.sol` usa `MaliciousComplianceModule`, que desde
+`transferred`/`created`/`destroyed` reentra en el token (o en el aggregator) propagando el revert. Los
+7 tests de reentrancia revierten con `ReentrancyGuardReentrantCall`
+(`0x3ee5aeb5`):
+
+```
+[PASS] test_RF002_reentrancy_transfer_revierte
+[PASS] test_RF002_reentrancy_transferFrom_revierte
+[PASS] test_RF002_reentrancy_mint_revierte
+[PASS] test_RF002_reentrancy_burn_revierte
+[PASS] test_RF002_reentrancy_forcedTransfer_revierte
+[PASS] test_RF002_reentrancy_aggregator_transferred_revierte
+[PASS] test_RF002_reentrancy_aggregator_created_revierte
+```
+
+### 10.8 Verificaciones del ciclo
+
+| Verificación | Resultado |
+|---|---|
+| `forge build` | 0 errores |
+| `forge test` | 281/281, 0 fallos, 0 suites revertidas en `setUp` |
+| `forge inspect TokenCloneable storage-layout` | sin `bypassCompliance` (8 campos) |
+| `script/ci/check_no_bypass_flag.sh` | OK (exit 0); falla (exit 1) con el flag inyectado |
+| Reentrancia | 7 tests revierten con `ReentrancyGuardReentrantCall` |
+| `forge coverage --report summary` | `src/` 96,28 % líneas, 82,90 % ramas (sin bajar) |
+| `forge fmt --check` | limpio |
+| `forge snapshot` + `forge snapshot --check` | regenerado (`.gas-snapshot`) y OK |
+| `git status --short` | limpio tras el commit local |
+
+### 10.9 Decisiones y documentación
+
+- Decisiones nuevas: **D-029** (guard stateless), **D-030** (ubicación del `nonReentrant`),
+  **D-031** (`_forcedUpdate`, `from != address(0)`, gate y `extra_output`) y **D-032** (benchmark
+  equivalente con guard) en `requerimientos.md` (Bloque 6).
+- Fila de `TokenCloneable` en `documento_tecnico.md` §2.1 actualizada: patrón sin `bypassCompliance` y
+  con `ReentrancyGuard`.
+
+
+

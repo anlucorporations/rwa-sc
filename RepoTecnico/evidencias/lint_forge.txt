@@ -1,0 +1,435 @@
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+   ╭▸ src/IdentityCloneFactory.sol:56:9
+   │
+56 │         emit IdentityCreated(identity, owner);
+   │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+    ╭▸ src/IdentityCloneFactory.sol:100:9
+    │
+100 │         emit IdentityCreated(identity, owner);
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[unused-return]: return value of an external call is not used
+   ╭▸ src/IdentityCloneFactory.sol:91:9
+   │
+91 │         identityContract.addClaim(topic, scheme, issuer, signature, data, uri);
+   │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/unused-return
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+   ╭▸ src/TokenCloneable.sol:95:9
+   │
+95 │         emit IdentityRegistrySet(registry);
+   │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+    ╭▸ src/TokenCloneable.sol:104:9
+    │
+104 │         emit TrustedIssuersRegistrySet(registry);
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+    ╭▸ src/TokenCloneable.sol:113:9
+    │
+113 │         emit ClaimTopicsRegistrySet(registry);
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+    ╭▸ src/TokenCloneable.sol:122:9
+    │
+122 │         emit ComplianceModuleAdded(module);
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+    ╭▸ src/TokenCloneable.sol:133:9
+    │
+133 │         emit ComplianceModuleRemoved(module);
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+    ╭▸ src/TokenCloneable.sol:141:9
+    │
+141 │         emit Frozen(account);
+    │         ━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+    ╭▸ src/TokenCloneable.sol:149:9
+    │
+149 │         emit Unfrozen(account);
+    │         ━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/TokenCloneable.sol:181:21
+    │
+181 │             require(complianceModules[i].canTransfer(address(0), to, amount), "Mint not compliant");
+    │                     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/TokenCloneable.sol:188:13
+    │
+188 │             complianceModules[i].created(to, amount);
+    │             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[require-revert-in-loop]: `require` or `revert` inside a loop
+    ╭▸ src/TokenCloneable.sol:181:13
+    │
+181 │             require(complianceModules[i].canTransfer(address(0), to, amount), "Mint not compliant");
+    │             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/require-revert-in-loop
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/TokenCloneable.sol:200:13
+    │
+200 │             complianceModules[i].destroyed(from, amount);
+    │             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[reentrancy-no-eth]: external call can be reentered before `bypassCompliance` is updated
+    ╭▸ src/TokenCloneable.sol:326:17
+    │
+326 │                 complianceModules[i].transferred(from, to, amount);
+    │                 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-no-eth
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/TokenCloneable.sol:222:13
+    │
+222 │             complianceModules[i].transferred(from, to, amount);
+    │             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/TokenCloneable.sol:256:49
+    │
+256 │               (bool success, bytes memory data) = identityAddress.staticcall(
+    │ ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+257 │ ┃                 abi.encodeWithSignature("getClaimIssuersForTopic(uint256)", requiredTopics[i])
+258 │ ┃             );
+    │ ┗━━━━━━━━━━━━━┛
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/TokenCloneable.sol:267:29
+    │
+267 │                         if (trustedIssuersRegistry.hasClaimTopic(claimIssuers[j], requiredTopics[i])) {
+    │                             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/TokenCloneable.sol:304:18
+    │
+304 │             if (!complianceModules[i].canTransfer(from, to, amount)) {
+    │                  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/TokenCloneable.sol:326:17
+    │
+326 │                 complianceModules[i].transferred(from, to, amount);
+    │                 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+   ╭▸ src/ClaimTopicsRegistryCloneable.sol:41:9
+   │
+41 │         emit ClaimTopicAdded(_claimTopic);
+   │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+   ╭▸ src/ClaimTopicsRegistryCloneable.sol:59:9
+   │
+59 │         emit ClaimTopicRemoved(_claimTopic);
+   │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+   ╭▸ src/ClaimTopicsRegistryCloneFactory.sol:59:9
+   │
+59 │         emit RegistryCreated(registry, owner);
+   │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-no-eth]: external call can be reentered before `tokenRegistry` is updated
+   ╭▸ src/ClaimTopicsRegistryCloneFactory.sol:82:9
+   │
+82 │         ClaimTopicsRegistryCloneable(registry).initialize(owner);
+   │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/reentrancy-no-eth
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+   ╭▸ src/ClaimTopicsRegistryCloneFactory.sol:89:9
+   │
+89 │         emit RegistryCreatedForToken(registry, token, owner);
+   │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/ClaimTopicsRegistryCloneFactory.sol:115:13
+    │
+115 │             registryContract.addClaimTopic(initialTopics[i]);
+    │             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+    ╭▸ src/ClaimTopicsRegistryCloneFactory.sol:125:9
+    │
+125 │         emit RegistryCreated(registry, owner);
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-no-eth]: external call can be reentered before `tokenRegistry` is updated
+    ╭▸ src/ClaimTopicsRegistryCloneFactory.sol:151:9
+    │
+151 │         registryContract.initialize(address(this));
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-no-eth
+
+warning[reentrancy-no-eth]: external call can be reentered before `tokenRegistry` is updated
+    ╭▸ src/ClaimTopicsRegistryCloneFactory.sol:155:13
+    │
+155 │             registryContract.addClaimTopic(initialTopics[i]);
+    │             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-no-eth
+
+warning[reentrancy-no-eth]: external call can be reentered before `tokenRegistry` is updated
+    ╭▸ src/ClaimTopicsRegistryCloneFactory.sol:159:9
+    │
+159 │         registryContract.transferOwnership(owner);
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-no-eth
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/ClaimTopicsRegistryCloneFactory.sol:155:13
+    │
+155 │             registryContract.addClaimTopic(initialTopics[i]);
+    │             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+    ╭▸ src/ClaimTopicsRegistryCloneFactory.sol:166:9
+    │
+166 │         emit RegistryCreatedForToken(registry, token, owner);
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[empty-block]: empty function body
+   ╭▸ src/compliance/MaxBalanceCompliance.sol:68:86
+   │
+68 │       function transferred(address from, address to, uint256 amount) external override {
+   │ ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+69 │ ┃         // No state changes needed
+70 │ ┃     }
+   │ ┗━━━━━┛
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/empty-block
+
+warning[empty-block]: empty function body
+   ╭▸ src/compliance/MaxBalanceCompliance.sol:75:68
+   │
+75 │       function created(address to, uint256 amount) external override {
+   │ ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+76 │ ┃         // No state changes needed
+77 │ ┃     }
+   │ ┗━━━━━┛
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/empty-block
+
+warning[empty-block]: empty function body
+   ╭▸ src/compliance/MaxBalanceCompliance.sol:82:72
+   │
+82 │       function destroyed(address from, uint256 amount) external override {
+   │ ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+83 │ ┃         // No state changes needed
+84 │ ┃     }
+   │ ┗━━━━━┛
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/empty-block
+
+warning[missing-events-access-control]: `tokenContract` is changed without an event but is used for access control
+   ╭▸ src/compliance/TransferLockCompliance.sol:49:9
+   │
+49 │         tokenContract = _token;
+   │         ━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/missing-events-access-control
+
+warning[block-timestamp]: usage of `block.timestamp` in a comparison may be manipulated by validators
+   ╭▸ src/compliance/TransferLockCompliance.sol:86:16
+   │
+86 │         return block.timestamp >= lockEndTime[from];
+   │                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/block-timestamp
+
+warning[block-timestamp]: usage of `block.timestamp` in a comparison may be manipulated by validators
+    ╭▸ src/compliance/TransferLockCompliance.sol:131:16
+    │
+131 │         return block.timestamp < lockEndTime[account];
+    │                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/block-timestamp
+
+warning[block-timestamp]: usage of `block.timestamp` in a comparison may be manipulated by validators
+    ╭▸ src/compliance/TransferLockCompliance.sol:139:13
+    │
+139 │         if (block.timestamp >= lockEndTime[account]) {
+    │             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/block-timestamp
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/compliance/ComplianceAggregator.sol:129:18
+    │
+129 │             if (!tokenModules[token][i].canTransfer(from, to, amount)) {
+    │                  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/compliance/ComplianceAggregator.sol:152:13
+    │
+152 │             tokenModules[token][i].transferred(from, to, amount);
+    │             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/compliance/ComplianceAggregator.sol:166:13
+    │
+166 │             tokenModules[token][i].created(to, amount);
+    │             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[calls-loop]: external call inside a loop
+    ╭▸ src/compliance/ComplianceAggregator.sol:180:13
+    │
+180 │             tokenModules[token][i].destroyed(from, amount);
+    │             ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/calls-loop
+
+warning[missing-events-access-control]: `tokenContract` is changed without an event but is used for access control
+   ╭▸ src/compliance/MaxHoldersCompliance.sol:53:9
+   │
+53 │         tokenContract = _token;
+   │         ━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/missing-events-access-control
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+   ╭▸ src/TokenCloneFactory.sol:71:9
+   │
+71 │         emit TokenCreated(token, admin, name_, symbol_, decimals_);
+   │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+    ╭▸ src/TokenCloneFactory.sol:132:9
+    │
+132 │         emit TokenCreated(token, admin, name_, symbol_, decimals_);
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+   ╭▸ src/IdentityCloneable.sol:86:9
+   │
+86 │         emit ClaimAdded(_topic, _scheme, _issuer, _signature, _data, _uri);
+   │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   │
+   ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[reentrancy-events]: event emitted after an external call; reentrancy can reorder or fabricate logs that off-chain consumers rely on
+    ╭▸ src/IdentityCloneable.sol:121:9
+    │
+121 │         emit ClaimRemoved(_topic, _issuer);
+    │         ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    │
+    ╰ help: https://getfoundry.sh/forge/linting/reentrancy-events
+
+warning[environment-read-across-mutation]: `block.timestamp` may be reused across `vm.warp`
+    ╭▸ test/TransferLockCompliance.t.sol:142:17
+    │
+142 │         vm.warp(block.timestamp + 10 days);
+    │         ────────━━━━━━━━━━━━━━━─────────── `vm.warp` changes this environment here
+    │
+    ├ help: capture it with `vm.getBlockTimestamp()` instead
+    ╰ help: https://getfoundry.sh/forge/linting/environment-read-across-mutation
+
+warning[environment-read-across-mutation]: `block.timestamp` may be reused across `vm.warp`
+    ╭▸ test/TransferLockCompliance.t.sol:194:17
+    │
+194 │         vm.warp(block.timestamp + 10 days);
+    │         ────────━━━━━━━━━━━━━━━─────────── `vm.warp` changes this environment here
+    │
+    ├ help: capture it with `vm.getBlockTimestamp()` instead
+    ╰ help: https://getfoundry.sh/forge/linting/environment-read-across-mutation
+
+warning[environment-read-across-mutation]: `block.timestamp` may be reused across `vm.warp`
+    ╭▸ test/TransferLockCompliance.t.sol:230:35
+    │
+230 │         uint256 expectedLockEnd = block.timestamp + lockDuration;
+    │                                   ━━━━━━━━━━━━━━━
+    ‡
+239 │         vm.warp(block.timestamp + lockDuration - 1);
+    │         ─────────────────────────────────────────── `vm.warp` changes this environment here
+    │
+    ├ help: capture it with `vm.getBlockTimestamp()` instead
+    ╰ help: https://getfoundry.sh/forge/linting/environment-read-across-mutation
+
+warning[environment-read-across-mutation]: `block.timestamp` may be reused across `vm.warp`
+    ╭▸ test/TransferLockCompliance.t.sol:239:17
+    │
+239 │         vm.warp(block.timestamp + lockDuration - 1);
+    │         ────────━━━━━━━━━━━━━━━──────────────────── `vm.warp` changes this environment here
+    │
+    ├ help: capture it with `vm.getBlockTimestamp()` instead
+    ╰ help: https://getfoundry.sh/forge/linting/environment-read-across-mutation
+
