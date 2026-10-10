@@ -2,14 +2,14 @@
 
 ## 👋 Bienvenido
 
-Este proyecto es un **sistema completo de tokenización de RWA** (Real World Assets) que implementa el estándar ERC-3643 con patrones avanzados de Solidity.
+Este proyecto es un **sistema de tokenización de RWA** (Real World Assets) **inspirado en ERC-3643 / T-REX** con patrones avanzados de Solidity. **No es "ERC-3643 compliant"**: implementa un subconjunto propio de interfaces (declaración verificable en [`SECURITY.md`](SECURITY.md)) y **no está auditado ni es apto para producción con activos reales** (ver [`RepoTecnico/INFORME_OPTIMIZACION_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_V1.md)).
 
 ```
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
 ║   📚 PROYECTO EDUCATIVO DE NIVEL PROFESIONAL             ║
 ║                                                           ║
-║   ✅ 151 tests (151 passing, 0 failing)                  ║
+║   ✅ 353 tests (353 passing, 0 failing)                  ║
 ║   ✅ Gas medido: baseline .gas-snapshot                  ║
 ║   ✅ Patrones de diseño avanzados                        ║
 ║   ✅ Documentación completa                              ║
@@ -107,7 +107,8 @@ forge test
 **Día 2-3: Identity System**
 ```
 📖 Leer:
-  - src/Identity.sol
+  - src/IdentityCloneable.sol
+  - src/IdentityCloneFactory.sol
   - src/IdentityRegistry.sol
   - src/TrustedIssuersRegistry.sol
   - src/ClaimTopicsRegistry.sol
@@ -142,7 +143,8 @@ forge test
 **Día 6-7: Token Principal**
 ```
 📖 Leer:
-  - src/Token.sol (línea por línea)
+  - src/TokenCloneable.sol (línea por línea)
+  - src/TokenCloneFactory.sol
 
 🧪 Ejecutar:
   forge test --match-contract TokenTest -vvv
@@ -166,7 +168,7 @@ forge test
   - EIP-1167 specification
   - src/TokenCloneable.sol
   - src/TokenCloneFactory.sol
-  - TOKEN_CLONE_FACTORY.md
+  - REFERENCIA_TECNICA.md (patrón Clone Factory y gas)
 
 🧪 Ejecutar:
   forge test --match-contract TokenCloneFactoryTest -vvv
@@ -188,8 +190,7 @@ forge test
 ```
 📖 Leer:
   - src/compliance/ComplianceAggregator.sol
-  - COMPLIANCE_AGGREGATOR_FINAL.md
-  - COMPLIANCE_AGGREGATOR_V2.md
+  - REFERENCIA_TECNICA.md (aggregator y compliance modular)
 
 🧪 Ejecutar:
   forge test --match-contract ComplianceAggregatorTest -vvv
@@ -287,8 +288,8 @@ forge test
 forge test --gas-report | less
 
 # 4. Leer código principal
-# - src/Token.sol
 # - src/TokenCloneable.sol
+# - src/TokenCloneFactory.sol
 # - src/compliance/ComplianceAggregator.sol
 ```
 
@@ -347,7 +348,7 @@ forge test --match-test test_CompleteTransferFlow -vvvv
 [ ] Entiendo qué es un RWA token
 [ ] Puedo explicar el sistema de Identity y Claims
 [ ] Sé cómo funcionan los módulos de compliance
-[ ] He leído y entendido Token.sol
+[ ] He leído y entendido TokenCloneable.sol
 [ ] He ejecutado todos los tests y entiendo qué verifican
 [ ] He implementado al menos 1 módulo de compliance simple
 ```
@@ -434,7 +435,7 @@ Semana 3-4: Proyecto Final
 ```
 Semana 1:
   ├─ Día 1: Overview general
-  ├─ Día 2-3: Token.sol y compliance
+  ├─ Día 2-3: TokenCloneable.sol y compliance
   ├─ Día 4: Clone Factory
   └─ Día 5-7: Proyecto simple
 
@@ -474,13 +475,14 @@ Semana 2:
   ├─ 📄 REFERENCIA_TECNICA.md (Templates y snippets)
   │
   ├─ 📁 src/
-  │   ├─ Token.sol ⭐ (Token principal)
-  │   ├─ TokenCloneable.sol ⭐ (Token cloneable)
+  │   ├─ TokenCloneable.sol ⭐ (Token clonable)
   │   ├─ TokenCloneFactory.sol (Factory de tokens)
-  │   ├─ Identity.sol (Identity básica)
-  │   ├─ IdentityCloneable.sol (Identity cloneable)
+  │   ├─ IdentityCloneable.sol (Identity clonable)
   │   ├─ IdentityCloneFactory.sol (Factory de identities)
-  │   ├─ Registries (3 archivos)
+  │   ├─ IdentityRegistry.sol (Registro de identidades)
+  │   ├─ TrustedIssuersRegistry.sol (Emisores autorizados)
+  │   ├─ ClaimTopicsRegistry.sol / ClaimTopicsRegistryCloneable.sol
+  │   ├─ ICompliance.sol / IClaimTopicsRegistry.sol (interfaces)
   │   └─ 📁 compliance/
   │       ├─ ComplianceAggregator.sol ⭐ (Aggregador)
   │       ├─ MaxBalanceCompliance.sol (Ejemplo 1)
@@ -488,10 +490,10 @@ Semana 2:
   │       └─ TransferLockCompliance.sol (Ejemplo 3)
   │
   ├─ 📁 test/
-  │   └─ 8 archivos de tests (151 tests totales)
+  │   └─ 18 suites de tests (353 tests totales)
   │
   └─ 📁 script/
-      └─ 4 scripts de deployment
+      └─ 7 scripts Solidity (.s.sol) + deploy.sh + ci/
 ```
 
 ---
@@ -514,7 +516,7 @@ Semana 2:
 
 **Empieza con:**
 1. Leer GUIA_ESTUDIANTE.md completo
-2. Estudiar Token.sol
+2. Estudiar TokenCloneable.sol
 3. Estudiar Clone Factory
 4. Implementar módulo intermedio (EJERCICIOS_PRACTICOS.md → Ejercicio 2.x)
 
@@ -536,9 +538,9 @@ Semana 2:
 Orden recomendado:
 1. ICompliance.sol (interface, simple)
 2. MaxBalanceCompliance.sol (módulo simple)
-3. Identity.sol (concepto de claims)
+3. IdentityCloneable.sol (concepto de claims)
 4. IdentityRegistry.sol (registry pattern)
-5. Token.sol (integra todo)
+5. TokenCloneable.sol (integra todo)
 6. TokenCloneable.sol (variante cloneable)
 7. ComplianceAggregator.sol (patrón avanzado)
 ```
@@ -795,7 +797,7 @@ code src/compliance/MaxBalanceCompliance.sol
 │  4. ✅ Implementa tu primer módulo      │
 │     (EJERCICIOS_PRACTICOS.md)           │
 │                                         │
-│  5. ✅ Continúa con Token.sol           │
+│  5. ✅ Continúa con TokenCloneable.sol   │
 │     (Integra todo)                      │
 │                                         │
 │  6. 🚀 Proyecto final                   │

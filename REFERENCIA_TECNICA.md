@@ -8,7 +8,9 @@ Este documento es una **referencia rápida** con toda la información técnica n
 
 ## 🏗️ Estructura de Contratos
 
-### Patrón: Token ERC-3643
+### Patrón: Token clonable (inspirado en ERC-3643)
+
+> Ejemplo ilustrativo de las interfaces del contrato real `src/TokenCloneable.sol`. El proyecto **no es "ERC-3643 compliant"** ni apto para producción con activos reales (ver [`SECURITY.md`](SECURITY.md)).
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -773,23 +775,19 @@ forge coverage --report lcov                   # Coverage en lcov
 ### Deploy
 
 ```bash
-# Local (Anvil)
-forge script script/Deploy.s.sol --rpc-url localhost --broadcast
+# Ruta canónica del proyecto (Ciclo 9, D-054..D-057): sin --private-key en argv,
+# clave desde variable de entorno / Secret Manager y verificación post-deploy on-chain.
+# Ver sc/script/deploy.sh y deploy-besu.sh (wrapper).
 
-# Testnet
-forge script script/Deploy.s.sol \
-  --rpc-url $SEPOLIA_RPC \
-  --private-key $PRIVATE_KEY \
-  --broadcast \
-  --verify \
-  --etherscan-api-key $ETHERSCAN_KEY
+# Testnet (ejemplo; exige RPC_URL y, si procede, CHAIN_ID)
+RPC_URL=$SEPOLIA_RPC CHAIN_ID=11155111 ./sc/script/deploy.sh
 
-# Verificar contrato después
+# Verificar un contrato después del despliegue (sin exponer la clave)
 forge verify-contract \
   --chain sepolia \
   --compiler-version v0.8.20 \
   CONTRACT_ADDRESS \
-  src/Token.sol:Token \
+  src/TokenCloneable.sol:TokenCloneable \
   --etherscan-api-key $ETHERSCAN_KEY
 ```
 
@@ -800,13 +798,15 @@ forge verify-contract \
 cast call CONTRACT_ADDRESS "name()" --rpc-url localhost
 cast call CONTRACT_ADDRESS "balanceOf(address)" USER_ADDRESS --rpc-url localhost
 
-# Transacciones
+# Transacciones (nunca pasar la clave por argv; usar --keystore --password-file
+# o --ledger/--trezor, coherente con D-054)
 cast send CONTRACT_ADDRESS \
   "transfer(address,uint256)" \
   TO_ADDRESS \
   1000000000000000000 \
   --rpc-url localhost \
-  --private-key $PRIVATE_KEY
+  --keystore "$KEYSTORE_PATH" \
+  --password-file "$PASSWORD_FILE"
 
 # Obtener datos
 cast block latest --rpc-url localhost

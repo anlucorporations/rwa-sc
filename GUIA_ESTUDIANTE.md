@@ -193,37 +193,40 @@ Token  TokenClone  Identity Identity  Modules Aggregator
 
 ### Nivel 1: Contratos Básicos (Empieza aquí)
 
-#### 1. Identity.sol (Identidad del Inversor)
+#### 1. IdentityCloneable.sol (Identidad del Inversor)
 
 **¿Qué hace?**
 - Almacena **claims** (afirmaciones) sobre un inversor
 - Ejemplo: "Este inversor pasó KYC"
+- Desde RF-001 (Ciclo 2) **exige una firma EIP-712 válida del `issuer`**; desde RF-013 (Ciclo 8) soporta vigencia (`expiresAt`) y revocación por el issuer
 
-**Conceptos clave:**
+**Conceptos clave (struct real, `src/IdentityCloneable.sol`):**
 ```solidity
-// Estructura de un Claim
 struct Claim {
     uint256 topic;      // Tipo de claim (1 = KYC, 2 = AML, etc.)
     uint256 scheme;     // Esquema de firma (1 = ECDSA)
     address issuer;     // Quién emitió el claim
-    bytes signature;    // Firma digital
+    bytes signature;    // Firma EIP-712 (65 bytes)
     bytes data;         // Datos del claim
     string uri;         // URI con info adicional
+    uint256 expiresAt;  // 0 = sin caducidad; si > 0, validez mientras block.timestamp < expiresAt
+    bool revoked;       // true si el issuer lo revocó (claimRevoked)
 }
 
-// Ejemplo de uso
+// Ejemplo de uso (la firma la produce el issuer con EIP-712)
 identity.addClaim(
     1,              // topic: KYC
     1,              // scheme: ECDSA
     trustedIssuer,  // issuer
-    signature,      // firma
+    signature,      // firma EIP-712
     data,           // datos
-    "https://..."   // uri
+    "https://...",  // uri
+    0               // expiresAt: 0 = sin caducidad
 );
 ```
 
 **Ejercicio:**
-1. Lee el código de `Identity.sol`
+1. Lee el código de `IdentityCloneable.sol`
 2. Identifica las funciones principales
 3. Ejecuta los tests: `forge test --match-contract IdentityCloneFactoryTest`
 4. Pregúntate: ¿Por qué usamos mapping de mapping?
@@ -422,16 +425,16 @@ function created(address to, uint256) external {
 
 ### Nivel 3: Contratos Avanzados
 
-#### 9. Token.sol (ERC-3643 Token)
+#### 9. TokenCloneable.sol (Token clonable inspirado en ERC-3643)
 
 **¿Qué hace?**
-- Token compliant con ERC-3643
+- Token **inspirado en ERC-3643** (no es "ERC-3643 compliant": no implementa la spec completa)
 - Verifica identidad antes de transfers
 - Ejecuta compliance checks
 
-**Estructura:**
+**Estructura (simplificada):**
 ```solidity
-contract Token is ERC20, AccessControl, Pausable {
+contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
     // Roles
     bytes32 public constant AGENT_ROLE = keccak256("AGENT_ROLE");
     bytes32 public constant COMPLIANCE_ROLE = keccak256("COMPLIANCE_ROLE");
@@ -439,10 +442,10 @@ contract Token is ERC20, AccessControl, Pausable {
     // Registries
     IdentityRegistry public identityRegistry;
     TrustedIssuersRegistry public trustedIssuersRegistry;
-    ClaimTopicsRegistry public claimTopicsRegistry;
+    IClaimTopicsRegistry public claimTopicsRegistry;
     
     // Compliance
-    ICompliance[] public complianceModules;
+    address public aggregator;
     
     // Frozen accounts
     mapping(address => bool) private frozen;
@@ -946,7 +949,7 @@ cast send <ADDRESS> "mint(address,uint256)" <TO> <AMOUNT> --rpc-url localhost --
 ### Semana 1: Fundamentos
 
 **Día 1-2: Identity System**
-- [ ] Leer Identity.sol y entender Claims
+- [ ] Leer IdentityCloneable.sol y entender Claims
 - [ ] Leer IdentityRegistry.sol
 - [ ] Ejecutar tests de Identity
 - [ ] Ejercicio: Crear claims manualmente
@@ -958,7 +961,7 @@ cast send <ADDRESS> "mint(address,uint256)" <TO> <AMOUNT> --rpc-url localhost --
 - [ ] Ejercicio: Implementar TimeBasedCompliance
 
 **Día 5-7: Token Principal**
-- [ ] Leer Token.sol línea por línea
+- [ ] Leer TokenCloneable.sol línea por línea
 - [ ] Entender isVerified()
 - [ ] Entender canTransfer()
 - [ ] Ejercicio: Trazar flujo completo de transfer
@@ -1209,7 +1212,7 @@ Implementa un sistema completo para tokenizar un asset de tu elección con:
 - Clone factory para crear tokens
 - Mínimo 3 reglas de compliance
 - Identity verification
-- Tests completos (>80% coverage)
+- Tests completos (cobertura ≥ 80 % de líneas sobre `src/`, D-017; el repo mide 97,11 %)
 - Documentación
 
 ---
@@ -1259,8 +1262,8 @@ Este proyecto es un **caso de estudio completo** de:
 ✅ **Smart contracts profesionales** (no toy projects)  
 ✅ **Patrones de diseño** modernos (Clone Factory, Proxy)  
 ✅ **Arquitectura modular** y extensible  
-✅ **Testing comprehensivo** (139 tests)  
-✅ **Gas optimization** (90% ahorro)  
+✅ **Testing comprehensivo** (353 tests, 18 suites)  
+✅ **Gas optimization** (45–59 % de ahorro medido con comparación equivalente)  
 ✅ **Security best practices** (access control, validaciones)  
 
 **Tiempo de estudio recomendado:** 3-4 semanas full-time
@@ -1279,9 +1282,10 @@ Este proyecto es un **caso de estudio completo** de:
 ### Documentación del Proyecto
 
 1. **README.md** - Overview del proyecto
-2. **TOKEN_CLONE_FACTORY.md** - Clone Factory explicado
-3. **COMPLIANCE_AGGREGATOR_FINAL.md** - Aggregator explicado
-4. **Tests/** - Ejemplos de uso en cada test file
+2. **SECURITY.md** - Modelo de amenazas, hallazgos y riesgos residuales
+3. **CHANGELOG_ABIS.md** - Historial de cambios de ABI
+4. **REFERENCIA_TECNICA.md** - Templates, snippets y comandos
+5. **Tests/** - Ejemplos de uso en cada test file
 
 ### Comunidad y Soporte
 

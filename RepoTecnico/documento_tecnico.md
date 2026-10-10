@@ -264,7 +264,7 @@ Estos son los puntos que la arquitectura objetivo debe corregir, con evidencia d
 | `ComplianceAggregator` | **Fail-closed:** cero módulos o token no registrado ⇒ `canTransfer` devuelve `false`; administración de módulos restringida al **owner/rol del token** (no al owner global); **registro automático del token al añadir su primer módulo** (sin función `registerToken` externa, D-023) | RF-012 | H-22 (auditoría V1) |
 | Gobernanza / custodia de claves | **Roles separados:** `DEFAULT_ADMIN_ROLE` en **multisig 2-de-3**, `AGENT_ROLE` en cuenta operativa con los límites de RF-004, `COMPLIANCE_ROLE` en cuenta propia; **timelock** para acciones sensibles; **custodio de claves designado con rotación** (D-021) | RF-002, RF-004, RF-010 | H-06, H-25, H-27 (auditoría V1); backlog R-7 |
 | Repositorio / toolchain | Compilación reproducible: submódulos `forge-std`, OZ v5.5.0 y OZ-upgradeable v5.5.0 correctos, `forge build` y `forge test` al **100 %**, `solc`/optimizer/`evm_version` fijados | RF-005 | HB-05, HB-11, H-04 (auditoría V1) |
-| Documentación | Referencias rotas corregidas, README actualizado, **`SECURITY.md`** y **CHANGELOG de ABIs** | RF-006 | HB-07, H-15, H-16 |
+| Documentación | **Implementado (Ciclo 10):** referencias a archivos/contratos inexistentes corregidas, cifras sustituidas por las medidas, **`SECURITY.md`**, **`CHANGELOG_ABIS.md`** + línea base `sc/abis/` y gates `sc/script/ci/abi_diff.sh` y `check_docs.sh` | RF-006 | HB-07, H-15, H-16, H-23, H-33 |
 | CI / secretos | **Implementado (Ciclo 9):** `sc/script/deploy.sh` lee `RPC_URL`/`CHAIN_ID` y la clave de entorno/Secret Manager GCP (`DS_`), valida `cast chain-id` antes del broadcast y firma con keystore cifrado efímero (`--keystore`+`--password-file`, sin `--private-key`); `deploy-besu.sh` pasa a wrapper. `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` sigue en RF-009 | RF-010, RF-009 | HB-12, HB-10, H-28, H-04 |
 | `TokenCloneable` — storage | Eliminar `_tokenName`/`_tokenSymbol` (HB-06); el *layout* puede moverse por D-009/RT-008 | RF-002/RF-005 | HB-06 |
 | Ciclo de vida del contrato | **Sin proxy actualizable:** se mantiene **EIP-1167** y el ciclo de vida es **redeploy limpio con runbook de migración documentado** (D-019), amparado en D-009/RT-008 | RF-005 | H-07 (auditoría V1); backlog R-6 |
@@ -511,7 +511,7 @@ actor↔CU de `diagramas_casos_uso.md:461-497`; cualquier celda dudosa se ha reb
 | RF-003 | `ICompliance` + 4 contratos de compliance + token/aggregator | CU-05, CU-07 | **IMPLEMENTADO** (Ciclo 4) |
 | RF-004 | `TokenCloneable` (con D-022) | CU-06 | **IMPLEMENTADO** (Ciclo 5) |
 | RF-005 | `foundry.toml`, `.gitmodules`, suites `Token.t.sol` y `ComplianceAggregator.t.sol` | CU-08, CU-11 | **IMPLEMENTADO** (Ciclos 1 y 1b) |
-| RF-006 | Documentación raíz + `SECURITY.md` + `CHANGELOG_ABIS.md` | CU-12 | A IMPLEMENTAR |
+| RF-006 | Documentación raíz + `SECURITY.md` + `CHANGELOG_ABIS.md` + `sc/abis/` + `sc/script/ci/{abi_diff,check_docs}.sh` | CU-12 | **IMPLEMENTADO** (Ciclo 10) |
 | RF-007 | *(ninguno — zona web)* | — | PAUSADO (D-003) |
 | RF-008 | *(ninguno — zona web)* | — | PAUSADO (D-003) |
 | RF-009 | `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` | CU-11 | A IMPLEMENTAR |
@@ -532,7 +532,7 @@ RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:4
 |---|---|---|---|---|
 | RNF-001 | Gas EIP-1167 medido y comparado de forma equivalente; `.gas-snapshot` versionado | CU-08 | **IMPLEMENTADO** (medido; gate de CI en RF-009) | `metricas_ejecucion.md:50-61`; `casos_uso.md:1079` |
 | RNF-002 | `forge coverage` ≥ 80 % sobre `src/` excluyendo interfaces y `test/` (D-017) | CU-11 | **IMPLEMENTADO** (96,43 % en src/; gate de CI en RF-009) | `requerimientos.md:117-118`; `casos_uso.md:1080` |
-| RNF-003 | 100 % de tests en CI antes de cada merge | CU-11 | **PARCIAL** (320/320 en local; CI en RF-009) | `casos_uso.md:1081` |
+| RNF-003 | 100 % de tests en CI antes de cada merge | CU-11 | **PARCIAL** (**353/353** en local; CI en RF-009) | `metricas_ejecucion.md` §16.3/§18; `casos_uso.md:1081` |
 | RNF-004 | Ningún secreto en repo/scripts (Secret Manager GCP `DS_`, `.env` ignorado) | CU-13 | **IMPLEMENTADO** (Ciclo 9) | `sc/script/deploy.sh:1-370`; `casos_uso.md:1082`; `entornos_globales.md:35` |
 | RNF-005 | Reglas de compliance extensibles sin tocar el token (módulos + aggregator) | CU-07, CU-14 | **PARCIALMENTE IMPLEMENTADO** | `ComplianceAggregator.sol:61-135`; `casos_uso.md:1083` |
 | RNF-006 | *(docker compose de las apps web)* | — | **NO APLICA (D-003)** | `requerimientos.md:77`; `casos_uso.md:1084` |
@@ -547,17 +547,18 @@ RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:4
 | HB-04 | RF-003 | Cubierto por el plan |
 | HB-05 | RF-005 | Parcialmente corregido de hecho: `lib/` existe clonada pero gitignored, y Forge v1.8.3 está instalado fuera del PATH (`metricas_ejecucion.md:10-17`) |
 | HB-06 | CU-08 (eliminación de storage muerto) | A IMPLEMENTAR |
-| HB-07 | RF-006 | Cubierto por el plan |
+| HB-07 | RF-006 | **CORREGIDO** (Ciclo 10): sin referencias a archivos inexistentes en los documentos raíz (gate `sc/script/ci/check_docs.sh`) |
 | HB-08 | *(zona web)* | Fuera de alcance (D-003) |
 | HB-09 | *(zona web)* | Fuera de alcance (D-003) |
 | HB-10 | RF-009 | Cubierto por el plan |
 | HB-11 | RF-005 | Cubierto por el plan |
 | HB-12 | RF-010 | **IMPLEMENTADO** (Ciclo 9): sin material de claves en scripts ni en el repo |
-| H-01 (auditoría V1) | RF-001 | A IMPLEMENTAR |
+| H-01 (auditoría V1) | RF-001 | **IMPLEMENTADO** (Ciclo 2) |
 | H-05 (auditoría V1) | RF-011 | **IMPLEMENTADO** (Ciclo 6) |
 | H-08 (auditoría V1) | RF-013 | **IMPLEMENTADO** (Ciclo 8) |
 | H-22 (auditoría V1) | RF-012 | **IMPLEMENTADO** (Ciclo 7) |
-| H-02, H-03, H-04, H-06, H-07, H-09..H-21, H-23..H-34 | Cubiertos, parciales o al backlog | Ver `requerimientos.md:169-207` |
+| H-15, H-16, H-23, H-33 (auditoría V1) | RF-006 | **IMPLEMENTADO** (Ciclo 10): referencias corregidas, declaración verificable en `SECURITY.md`, rúbrica observable y estado/rama alineados |
+| H-02, H-03, H-04, H-06, H-07, H-09..H-14, H-17..H-21, H-24..H-32, H-34 | Cubiertos, parciales o al backlog | Ver `requerimientos.md` §8.1 y `SECURITY.md` §2 |
 
 > **Resumen de cobertura (fuente V1):** 10 hallazgos cubiertos, 3 parcialmente cubiertos y 21 en backlog
 > (`requerimientos.md:206-207`). Los cuatro fallos de seguridad del ciclo activo son H-01, H-05, H-08 y H-22
@@ -688,34 +689,24 @@ material sensible). **Besu** se ejecuta con el mismo script cambiando `RPC_URL`/
 
 ### 7.1 Métricas reales
 
-| Métrica | Valor real | Objetivo | Estado | Fuente |
+| Métrica | Valor real (Ciclo 10) | Objetivo | Estado | Fuente |
 |---|---|---|---|---|
-| Tests declarados | **151** (8 suites; recuento directo de funciones `test*` en `test/`) | — | — | `metricas_ejecucion.md:31`; `requerimientos.md:15` |
-| Tests contados por Forge | **98** (93 pasan + 5 fallan) | 151 | — | `metricas_ejecucion.md:32-34` |
-| Tests que pasan | **93** | 100 % | ❌ | `metricas_ejecucion.md:33` |
-| Tests que fallan | **5** (3 tests de gas + los 2 `setUp` de las suites muertas) | 0 | ❌ | `metricas_ejecucion.md:34` |
-| Tests que nunca arrancan | **53** (`Token.t.sol` **29** + `ComplianceAggregator.t.sol` **24**) | 0 | ❌ | `metricas_ejecucion.md:35,39-49` |
-| Funciones afectadas en las 2 suites muertas | **55** (30 + 25 recuento directo = 53 tests + 2 `setUp` que revierten) | 0 | ❌ | `metricas_ejecucion.md:35,39-49`; `INFORME_OPTIMIZACION_V1.md:174` |
-| Cobertura de líneas | **42,86 %** (339/791) | ≥ 80 % (RNF-002) | ❌ | `metricas_ejecucion.md:69` |
-| Cobertura de sentencias | **38,25 %** (288/753) | — | ❌ | `metricas_ejecucion.md:70` |
-| Cobertura de ramas | **35,68 %** (66/185) | — | ❌ | `metricas_ejecucion.md:71` |
-| Cobertura de funciones | **55,70 %** (83/149) | — | ❌ | `metricas_ejecucion.md:72` |
-| `ComplianceAggregator.sol` | **1,56 %** | — | ❌ | `metricas_ejecucion.md:75` |
-| Avisos de lint (Forge) | **52** | 0 deseable | ⚠️ | `evidencias/lint_forge.txt` |
-| CI | **no existe** | RF-009 | ❌ | `entornos_globales.md:101` |
-| `.gas-snapshot` | **no existe** | RNF-001 | ❌ | `INFORME_OPTIMIZACION_V1.md:85` |
-| Repositorio versionado | HEAD = **1 commit** (`2a4a683`) con solo `README.md` | RF-005/RF-009 | ❌ | `INFORME_OPTIMIZACION_V1.md:86` |
+| Tests ejecutados por Forge | **353** (18 suites) | 353 | ✅ | `forge test`; `metricas_ejecucion.md` §16.3 |
+| Tests que pasan | **353** | 100 % | ✅ | `forge test` → `353 tests passed, 0 failed, 0 skipped` |
+| Tests que fallan | **0** | 0 | ✅ | idem |
+| Tests que nunca arrancan | **0** (ninguna suite revierte en `setUp`) | 0 | ✅ | `metricas_ejecucion.md` §16.3 |
+| Cobertura de líneas `src/` (D-017) | **97,11 %** | ≥ 80 % (RNF-002) | ✅ | `metricas_ejecucion.md` §16.3 |
+| Cobertura de ramas `src/` (D-017) | **86,13 %** | — | ✅ | `metricas_ejecucion.md` §16.3 |
+| `.gas-snapshot` | **versionado** (`forge snapshot --check --tolerance 5` → exit 0) | RNF-001 | ✅ | `metricas_ejecucion.md` §16.3 |
+| Ahorro de gas (comparación equivalente) | **45–59 %** | sin cifra sin respaldo | ✅ | `README.md`; `metricas_ejecucion.md` §7.3 |
+| CI | **no existe todavía** | RF-009 | ❌ (Ciclo 11) | `entornos_globales.md` |
+| Repositorio versionado | rama `rwa-sc-DSH-GCP` con el árbol completo | RF-005/RF-009 | ✅ | `git log` |
 
-> **Aritmética de las dos suites muertas (DT-04), sin mezclar las dos cifras.**
-> El **recuento directo de funciones `test*`** da **30** en `test/Token.t.sol` y **25** en
-> `test/ComplianceAggregator.t.sol` = **55 funciones**. De ellas, los **2 `setUp`** revierten con
-> `InvalidInitialization()`, de modo que las que llegan a ser seleccionadas y **no arrancan** son
-> **53 = 29 + 24**. Forge, por su parte, **cuenta 98** en el resto de suites (93 pasan + 5 fallan), de las
-> cuales **2 son los `setUp`** de esas suites muertas. Es decir: **55 funciones afectadas** (30 + 25) y
-> **53 tests nunca arrancados** (29 + 24) describen el mismo hecho desde dos orígenes distintos —
-> recuento directo vs `metricas_ejecucion.md`— y **no deben sumarse entre sí** (55 ≠ 53 + 2 es una
-> identidad, no una adición al total). El baseline de **RNF-003** es el **recuento directo: 151 tests**, y
-> solo podrá cerrarse cuando las 8 suites arranquen y `forge test` publique su propio conteo como artefacto.
+> **Baseline histórico de la auditoría V1 (2026-10-03), ya superado.** El punto de partida medido fue
+> **151 tests declarados / 98 contados (93 pasan + 5 fallan) / 53 sin arrancar / 55 funciones afectadas** y
+> cobertura **42,86 %** (`metricas_ejecucion.md` §3). La aritmética de las dos suites muertas (DT-04) se
+> conserva en `metricas_ejecucion.md:39-49` como traza histórica. La cifra de **353** procede del conteo
+> real de Forge y el baseline de **RNF-003** es ese mismo resultado en verde.
 
 Desglose de los **52 avisos de lint** (`evidencias/lint_forge.txt`, `forge lint`), por regla:
 
@@ -760,7 +751,7 @@ Recuento por severidad del informe: **1 crítica, 11 altas, 18 medias, 4 bajas**
 | R2 | Gobernanza y control de acceso | H-06, H-07, H-22, H-27, H-28 (5) | Una sola EOA con todos los roles; factories permissionless y EIP-1167 sin upgrade; aggregator fail-open con owner global; `forcedTransfer` sin topes y `mint` sin cap; clave privada en claro | **RF-004, RF-012, RF-010**; **gobernanza y custodia resueltas por D-021** (roles separados, multisig 2-de-3, timelock, custodio con rotación) y **tope de `mint` por D-022** (`maxSupply` con evento); ciclo de vida por **D-019** (redeploy limpio + runbook, sin proxy); factories a allowlist **M-7** |
 | R3 | Reproducibilidad, build y CI | H-02, H-03, H-04 (3) | Código sin versionar, submódulos contradictorios, `lib/` gitignored, sin pin de `solc` ni CI; cifras de gas no medibles | **RF-005, RF-009, RNF-001**; `.gas-snapshot` (B-7); fijar `solc`/optimizer/`evm_version` **M-13** |
 | R4 | Arquitectura, escala e integración | H-19, H-20, H-21, H-24, H-26, H-29 (6) | Estado singleton cross-token; arrays O(n) y vistas sin paginar; sin indexación ni artefactos de deploy; deploy parcial sin módulos; `chainId` sin validar | **RF-012** (aislamiento/fail-closed, **registro automático por D-023**); backlog **M-10, M-11, M-15, M-14, M-17** |
-| R5 | Documentación, trazabilidad y conformidad | H-13, H-14, H-15, H-16, H-23, H-31, H-32, H-33, H-34 (9) | Catálogo de topics divergente; diccionario con storage inexistente; docs y contratos citados que no existen; "ERC-3643 compliant" sin criterio; éxito de deploy por `grep`; estado de fases contradictorio; sin evento `TokenContractSet` | **RF-006**; backlog **M-8, QW-6, QW-11, QW-12, QW-8, M-16, R-8**; **ausencia de auditoría externa explícita en R6** |
+| R5 | Documentación, trazabilidad y conformidad | H-13, H-14, H-15, H-16, H-23, H-31, H-32, H-33, H-34 (9) | Catálogo de topics divergente; diccionario con storage inexistente; docs y contratos citados que no existen; "ERC-3643 compliant" sin criterio; éxito de deploy por `grep`; estado de fases contradictorio; sin evento `TokenContractSet` | **RF-006 (Ciclo 10) cierra H-15, H-16, H-23 y H-33** (`SECURITY.md`, rúbrica observable, docs sin referencias rotas, gates `abi_diff.sh`/`check_docs.sh`); **H-31 corregido en el Ciclo 9** (D-056, verificación on-chain); **H-32 parcial** (import de `IdentityCloneable` corregido); pendiente backlog **M-8, QW-6, QW-8** |
 | R6 | RNF, cumplimiento regulatorio, datos y continuidad | H-09, H-10, H-11, H-12, H-25, H-30 (6) | Catálogo RNF ISO 25010 incompleto; sin screening de sanciones/PEP/AML; PII y documentos KYC sin custodio/base legal/cifrado; sin observabilidad ni indexación; sin actor regulador; sin backup/DR ni RPO/RTO | Backlog **R-1, R-2, R-3, R-4, R-5, R-7** |
 | R7 | Ausencia de auditoría externa independiente | H-01, H-16 (2) | El código con fallos de seguridad (H-01/H-05) y afirmaciones de conformidad sin criterio (H-16) **no ha sido auditado por un tercero**; B-8 exige retirar "production-ready" antes de auditarlo y C-11 lo condiciona | **D-024:** la auditoría externa (**R-9**, `requerimientos.md:266`) es **bloqueante solo para producción con activos reales**; **no** bloquea el cierre de RF-001..RF-013; queda como **condición de salida** (§9) y backlog **R-9/M-8** |
 
@@ -823,7 +814,7 @@ como **D-019..D-024** (mismo texto que en `requerimientos.md:122-139`, donde se 
 | **B-5** | Reproducibilidad del clon limpio y toolchain fijada (`solc`/optimizer/`evm_version`, `foundry.lock`) | **RF-005** |
 | **B-6** | Claims con vigencia y revocación + test que bloquea transferencias de claim caducado/revocado | **RF-013**; `expiresAt` firmado por **D-020** |
 | **B-7** | RNF-001 operativo: `.gas-snapshot` versionado, umbral y tolerancia explícitos, tests de ahorro equivalentes en verde | **RNF-001** (con RF-005) |
-| **B-8** | Trazabilidad documental, sin referencias inexistentes y sin "production-ready" sin auditoría | **RF-006**; condicionado por **D-024** |
+| **B-8** | Trazabilidad documental, sin referencias inexistentes y sin "production-ready" sin auditoría | **RF-006** · **IMPLEMENTADO (Ciclo 10)**: `SECURITY.md`, `CHANGELOG_ABIS.md`, línea base `sc/abis/` y gates `abi_diff.sh`/`check_docs.sh`; declaración verificable sin "ERC-3643 compliant"; condicionado por **D-024** |
 
 ### 9.2 Criterios de calidad (C) — resumen
 
@@ -838,7 +829,7 @@ como **D-019..D-024** (mismo texto que en `requerimientos.md:122-139`, donde se 
 | **C-7** | Stakeholders definidos (custodio de claves, DPO, regulador, operador de red, soporte) | Backlog **R-7/R-3/R-2/M-17**; **custodio designado por D-021** |
 | **C-8** | Política de protección de datos aprobada y PII fuera de cadena | Backlog **R-3** (H-11) |
 | **C-9** | Despliegue completo end-to-end con verificación post-deploy | Backlog **M-14/M-15** (H-24, H-29) |
-| **C-10** | Documentación consistente (topics, diccionario, rúbrica, evento `TokenContractSet`) | **RF-006** + backlog **M-8/QW-6/M-16/QW-11/QW-8** |
+| **C-10** | Documentación consistente (topics, diccionario, rúbrica, evento `TokenContractSet`) | **RF-006 (Ciclo 10)**: rúbrica observable (H-23), docs sin referencias rotas (H-15), estado alineado (H-33) y declaración verificable (H-16); pendiente backlog **M-8/QW-6/QW-8** (H-13, H-14, H-34) |
 | **C-11** | Auditoría externa aprobada y `SECURITY.md`/`LICENSE` antes de activos reales | **RF-006** + backlog **R-8/R-9**; alcance fijado por **D-024** |
 
 > **Condición de salida (refleja D-024).** La V2 se declara **apta para continuar mejoras** al cerrar
@@ -864,8 +855,8 @@ como **D-019..D-024** (mismo texto que en `requerimientos.md:122-139`, donde se 
 | `diagrama_er.md` | v1.1 · 2026-10-03 | Diagramas entidad-relación (on-chain, off-chain y planificado) sincronizados con el diccionario |
 | `base_datos.sql` | v0.2 · 2026-10-03 | Borrador documental PostgreSQL (no ejecutable) y catálogo canónico de topics |
 | `entornos_globales.md` | — | Rutas, repos, GCP, redes, cuentas, toolchain real y rama de trabajo |
-| `metricas_ejecucion.md` | — | Métricas reales medidas: 151 declarados / 98 contados (93 pasan + 5 fallan) / 53 sin arrancar / 55 funciones afectadas, y cobertura 42,86 %, con reproducibilidad |
-| `estado_proyecto.md` | 2026-10-03 | Estado de fases e hitos y compendio de decisiones D-001..D-011 (D-019..D-024 según `requerimientos.md:122-139`) |
+| `metricas_ejecucion.md` | — | Métricas reales medidas: **353/353 tests**, cobertura **97,11 % líneas / 86,13 % ramas**, `.gas-snapshot` y Ciclo 10 (RF-006, gates de docs y ABIs), con reproducibilidad |
+| `estado_proyecto.md` | 2026-10-03 | Estado de fases e hitos y compendio de decisiones D-001..D-011 (D-019..D-024 según `requerimientos.md`), con el hito del Ciclo 10 |
 | `plan_desarrollo.md` | v1.0 · 2026-10-03 | Plan de desarrollo vertical de la Fase 3 (ciclos de entrega sobre RF-001..RF-013): consumidor de este documento técnico |
 | `AUDITORIA_DOCUMENTO_TECNICO.md` | — | Auditoría adversarial de la **v1.0** de este documento: hallazgos DT-01..DT-13 y preguntas P1..P6 (resueltas por D-019..D-024) |
 | `evidencias/README.md`, `evidencias/PoC_H01_H05.t.sol`, `evidencias/salida_poc.txt`, `evidencias/lint_forge.txt` | — | PoC reproducidos de H-01 y H-05, salida del PoC y 52 avisos de lint de Forge |
@@ -875,9 +866,11 @@ como **D-019..D-024** (mismo texto que en `requerimientos.md:122-139`, donde se 
 
 - Contratos: `rwa-sc/sc/src/` (11 archivos) y `rwa-sc/sc/src/compliance/` (4 archivos) = **15 contratos**
   (`INFORME_OPTIMIZACION_V1.md:82`).
-- Tests: `rwa-sc/sc/test/` — 8 suites (`Token.t.sol`, `ComplianceAggregator.t.sol`,
-  `TokenCloneFactory.t.sol`, `IdentityCloneFactory.t.sol`, `ClaimTopicsRegistryCloneFactory.t.sol`,
-  `MaxBalanceCompliance.t.sol`, `MaxHoldersCompliance.t.sol`, `TransferLockCompliance.t.sol`).
+- Tests: `rwa-sc/sc/test/` — **18 suites** (353 tests): `Token`, `TokenCloneFactory`, `TokenLimits`,
+  `TokenReentrancy`, `ComplianceAggregator`, `RF012_AggregatorFailClosed`, `IdentityCloneFactory`,
+  `IdentityCloneable` (RF-001), `RF013_ClaimLifecycle`, `IdentityRegistry`, `TrustedIssuersRegistry`,
+  `ClaimTopicsRegistry`, `ClaimTopicsRegistryCloneFactory`, `RF011_FailClosed`, `RF003_ERC165`,
+  `MaxBalanceCompliance`, `MaxHoldersCompliance`, `TransferLockCompliance`.
 - Scripts: `rwa-sc/sc/script/` — 7 `.s.sol` (`CompleteDeploymentExample`, `CreateTokenWithCloneFactory`,
   `DeployClaimTopicsRegistryCloneFactory`, `DeployComplianceAggregator`, `DeployIdentityCloneFactory`,
   `DeployTokenCloneFactory`, `DeployFullStack`), `deploy.sh` y el wrapper `rwa-sc/deploy-besu.sh`.

@@ -9,7 +9,7 @@ Cada token RWA necesita su propio `ClaimTopicsRegistry` con requisitos específi
 Usando el mismo patrón de las otras factories del proyecto:
 - **Un contrato de implementación** (`ClaimTopicsRegistryCloneable`)
 - **Múltiples clones baratos** creados por la factory
-- **Ahorro de ~350k gas por registry**
+- **Ahorro medido de 240.889 gas por registry (53 %)** con comparación equivalente clon + `initialize` vs despliegue completo (`test/benchmarks/`, ver `README.md` y `metricas_ejecucion.md`)
 
 ## 📦 Componentes
 
@@ -86,7 +86,7 @@ utilityToken.setClaimTopicsRegistry(utilityRegistry);
 - Real Estate Token requiere: KYC + AML + Accredited + Tax
 - Utility Token requiere: Solo KYC
 - Mismos inversores, diferentes niveles de acceso
-- Ahorro de ~350k gas por registry vs deployment completo
+- Ahorro medido de **240.889 gas (53 %)** por registry vs despliegue completo equivalente
 
 ### Caso 2: Requisitos Dinámicos en el Tiempo
 
@@ -125,7 +125,7 @@ for (uint i = 0; i < 10; i++) {
     token.setClaimTopicsRegistry(registry);
 }
 
-// Ahorro total: 10 registries × ~350k gas = ~3.5M gas
+// Ahorro total: 10 registries × 240.889 gas ≈ 2,4M gas (medido con comparación equivalente)
 ```
 
 ## 📊 Arquitectura Completa
@@ -164,22 +164,21 @@ for (uint i = 0; i < 10; i++) {
 - Los requisitos pueden cambiar dinámicamente
 - No afecta a otros tokens del ecosistema
 
-### 2. **Eficiencia de Gas**
-```
-Deployment Tradicional:
-- Token: ~3M gas
-- Identity: ~800k gas  
-- ClaimTopics: ~400k gas
-Total: ~4.2M gas
+### 2. **Eficiencia de Gas (medida)**
 
-Con Factories (después del primer deployment):
-- Token Clone: ~50k gas
-- Identity Clone: ~45k gas
-- ClaimTopics Clone: ~50k gas
-Total: ~145k gas
+Cifras medidas con `forge test` sobre `solc 0.8.20` + optimizer 200 runs + `evm_version = "paris"`,
+comparando **clon EIP-1167 + `initialize`** contra un **despliegue completo equivalente**
+(`test/benchmarks/`). Baseline por test en `sc/.gas-snapshot` (RNF-001):
 
-Ahorro: ~4M gas (96.5% menos!)
-```
+| Ruta | Clon (factory) | Despliegue completo | Ahorro |
+|---|---|---|---|
+| `createToken` | 381.570 | 859.098 | 477.528 (**55 %**) |
+| `createIdentity` | 212.307 | 530.753 | 318.446 (**59 %**) |
+| `createIdentityWithClaim` | 440.694 | 812.509 | 371.815 (**45 %**) |
+| `createRegistry` | 210.149 | 451.038 | 240.889 (**53 %**) |
+
+> Las cifras antiguas de este documento ("~3M → 50k", "96,5 %") **no estaban medidas** y quedan
+> sustituidas por las de arriba.
 
 ### 3. **Reutilización de Infraestructura**
 - IdentityRegistry compartido (un inversor, múltiples tokens)
@@ -270,10 +269,10 @@ uint256 total = factory.getTotalRegistries();
 
 ---
 
-**Gas Total Ahorrado en un Ecosystem con 10 Tokens:**
-- Tokens: 10 × 2.95M = 29.5M gas
-- Identities: 20 × 755k = 15.1M gas (2 inversores × 10 identities)
-- Registries: 10 × 350k = 3.5M gas
+**Gas Total Ahorrado en un Ecosystem con 10 Tokens (medido, comparación equivalente):**
+- Tokens: 10 × 477.528 = 4.775.280 gas
+- Identities: 20 × 318.446 = 6.368.920 gas
+- Registries: 10 × 240.889 = 2.408.890 gas
 
-**Total: ~48M gas ahorrado** 💰
+**Total: ~13,55M gas ahorrado** (las cifras antiguas de ~48M no estaban medidas)
 

@@ -577,11 +577,11 @@ pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
 import {[TuModulo]Compliance} from "../src/compliance/[TuModulo]Compliance.sol";
-import {Token} from "../src/Token.sol";
+import {TokenCloneable} from "../src/TokenCloneable.sol";
 
 contract [TuModulo]ComplianceTest is Test {
     [TuModulo]Compliance public compliance;
-    Token public token;
+    TokenCloneable public token;
     
     address public owner;
     address public user1;
@@ -728,17 +728,18 @@ function initialize(...) external initializer {
 
 ## 📊 Métricas y Benchmarking
 
-### Gas Optimization Checklist
+### Gas Optimization Checklist (con criterio observable)
 
-```
-[ ] Usas immutable para valores constantes
-[ ] Cacheas array.length en loops
-[ ] Evitas storage writes innecesarios
-[ ] Usas memory en lugar de storage cuando es posible
-[ ] Agrupas múltiples bools en un uint256
-[ ] Usas custom errors en lugar de strings
-[ ] Evitas loops sobre arrays grandes
-```
+| Práctica | Cómo se comprueba (comando / umbral) |
+|---|---|
+| `immutable`/`constant` para valores fijos | `forge inspect <Contrato> storage-layout --json` no lista la variable como storage |
+| Cachear `array.length` en loops | `forge test --gas-report` con ≤ N llamadas `SLOAD` por iteración (revisar `--gas-report`) |
+| Evitar escrituras de storage innecesarias | comparar `forge snapshot` antes/después: 0 regresiones con `--check --tolerance 5` |
+| `memory` en lugar de `storage` en lecturas | 0 warnings de `forge lint` sobre copia innecesaria a storage |
+| Empaquetar bools en un `uint256` | tamaño de `storage-layout` en bytes ≤ diseño de referencia |
+| Custom errors en lugar de strings | `grep -c 'require(.*"' src/**/*.sol` = 0 |
+| Evitar loops sobre arrays sin cota | vistas con paginación (`getXAt(index)`) y test de gas con N=100 sin crecimiento O(n²) |
+| Baseline de gas versionado | `forge snapshot --check --tolerance 5` exit 0 con `.gas-snapshot` commiteado |
 
 ### Medir Gas
 
@@ -759,36 +760,24 @@ forge test --match-test test_VersionB --gas-report > gasB.txt
 
 ---
 
-## 🎓 Rúbrica de Evaluación
+## 🎓 Rúbrica de Evaluación (criterios observables)
 
-### Excelente (90-100)
-- Código limpio y bien organizado
-- Tests comprehensivos (>90% coverage)
-- Gas optimizado
-- Documentación completa
-- Características avanzadas implementadas
-- Sin warnings de seguridad
+> Cada banda se comprueba **ejecutando comandos** sobre el proyecto del estudiante. No se evalúa por
+> impresión subjetiva: se exige el artefacto o el `exit 0`. D-017: la cobertura se mide sobre `src/`
+> excluyendo interfaces y `test/`.
 
-### Bueno (75-89)
-- Código funcional
-- Tests adecuados (>70% coverage)
-- Documentación básica
-- Implementa todos los requisitos
-- Algunos warnings menores
-
-### Aprobado (60-74)
-- Código funcional básico
-- Tests básicos (<70% coverage)
-- Documentación mínima
-- Implementa requisitos mínimos
-- Algunos issues de seguridad
-
-### Reprobado (<60)
-- Código no compila
-- Tests insuficientes o fallando
-- Sin documentación
-- Requisitos incompletos
-- Issues de seguridad críticos
+| Criterio observable | Comando / artefacto | Excelente (90-100) | Bueno (75-89) | Aprobado (60-74) | Reprobado (<60) |
+|---|---|---|---|---|---|
+| Compila sin errores ni warnings de `solc` | `forge build` (exit 0) | exit 0 | exit 0 | exit 0 | falla |
+| Formato | `forge fmt --check` | exit 0 | exit 0 | no exigido | — |
+| Suite en verde | `forge test` | 0 fallos y ≥ 95 % de las suites con ≥ 1 aserción `assert*`/`vm.expectRevert` | 0 fallos | 0 fallos | ≥ 1 fallo |
+| Tests negativos (revert) | `forge test --match-test Revert` | ≥ 1 por función con `require`/custom error | ≥ 1 por contrato | ≥ 1 en total | 0 |
+| Cobertura de líneas `src/` (D-017) | `forge coverage --report summary` | ≥ 90 % | ≥ 80 % | ≥ 60 % | < 60 % |
+| Ahorro de gas con comparación equivalente | test `CREATE` (clon vs despliegue completo) | ≥ 50 % y `.gas-snapshot` con `forge snapshot --check --tolerance 5` exit 0 | ≥ 40 % y cifra documentada con enlace al test | ahorro documentado | sin medición o cifra sin respaldo |
+| Seguridad: sin hallazgos altos | `slither . --filter-path test` | 0 High y 0 Medium | 0 High | 0 High críticos (reentrancia/control de acceso) | ≥ 1 High |
+| Sin secretos versionados | `grep -rniE 'private[_-]?key|keystore' src script README.md` | 0 coincidencias de material real | 0 | 0 | clave o seed en el repo |
+| Documentación verificable | `script/ci/check_docs.sh` (adapta el alcance) | exit 0 y cifras con enlace a artefacto | exit 0 | README con comandos reproducibles | referencia a archivos inexistentes o "production-ready"/"ERC-3643 compliant" sin auditoría |
+| Deriva de ABIs | `script/ci/abi_diff.sh` | exit 0 con `abis/` versionado | exit 0 | — | ABI cambiada sin entrada en el changelog |
 
 ---
 

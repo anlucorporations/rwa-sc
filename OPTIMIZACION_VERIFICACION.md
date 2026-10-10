@@ -1,5 +1,13 @@
 # ⚡ Optimización de Verificación de Claims
 
+> ## ⚠️ AVISO (RF-006 / H-03): documento de ESTIMACIÓN NO MEDIDA
+>
+> Las cifras de gas de este documento (~1.200.000 → ~180.000, "85 %", "70 %") son **estimaciones no
+> medidas**: no existe el "Código Anterior" versionado contra el que compararlas ni un test que las
+> reproduzca. **No deben citarse como evidencia.** Las cifras reales de ahorro de gas del proyecto
+> (medidas con comparación equivalente clon vs despliegue completo) son **45–59 %** y están en
+> [`README.md`](README.md) y [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
+
 ## 🎯 Problema Original
 
 ### Código Anterior (Ineficiente)
@@ -311,21 +319,12 @@ function isVerifiedBatch(address[] memory accounts)
 }
 ```
 
-## 📊 Benchmarks
+## 📊 Benchmarks — retirados (H-03)
 
-```
-Test Environment: Foundry, Local Network
-Trusted Issuers: 20
-Required Topics: 3
-
-╔════════════════════╦═══════════╦═══════════╦═══════════╗
-║ Operación          ║ Antes     ║ Ahora     ║ Mejora    ║
-╠════════════════════╬═══════════╬═══════════╬═══════════╣
-║ First Transfer     ║ 1,450,000 ║   430,000 ║    -70%   ║
-║ Subsequent         ║ 1,200,000 ║   180,000 ║    -85%   ║
-║ View isVerified    ║   150,000 ║    25,000 ║    -83%   ║
-╚════════════════════╩═══════════╩═══════════╩═══════════╝
-```
+> La tabla "Benchmarks" original (1.450.000→430.000; 1.200.000→180.000; 150.000→25.000) se ha
+> **retirado**: sus propias cifras estaban rotuladas como "estimado" en este texto y no existía un
+> "Código Anterior" versionado con el que medir. Para gas real, usar `forge snapshot` / `.gas-snapshot`
+> y las cifras medidas en [`README.md`](README.md) y [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
 
 ## 🎓 Lecciones Aprendidas
 
@@ -356,15 +355,16 @@ Optimizamos lo que se ejecuta 1000x más frecuentemente.
 
 Esta optimización demuestra que **pensar en la estructura de datos correcta** puede tener un impacto masivo en el rendimiento.
 
-**Resultados:**
-- ✅ 85% menos gas en verificaciones
-- ✅ 70% menos gas en transfers
-- ✅ Escalabilidad mejorada
-- ✅ Mejor UX (transacciones más baratas)
+**Resultados (estimados, no medidos):**
+- ⚠️ 85 % menos gas en verificaciones (estimación sin reproducción)
+- ⚠️ 70 % menos gas en transfers (estimación sin reproducción)
+- ✅ Escalabilidad mejorada (estructural)
 
 **Costo:**
-- ⚠️ 4-16% más gas al agregar/remover claims
+- ⚠️ 4-16% más gas al agregar/remover claims (estimado)
 - ⚠️ Pequeño incremento en storage
 
-**Veredicto:** 🏆 Totalmente vale la pena para sistemas RWA en producción.
+**Veredicto:** la optimización es estructuralmente razonable, pero **este documento no la mide**. No usar
+sus cifras como evidencia ni afirmar aptitud "para producción" (el sistema **no es apto para producción
+con activos reales** sin auditoría externa; ver [`SECURITY.md`](SECURITY.md)).
 

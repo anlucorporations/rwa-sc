@@ -123,27 +123,33 @@ TokenCloneable
 
 **Importa:**
 ```
-└── @openzeppelin/contracts-upgradeable
-    ├── OwnableUpgradeable
-    └── IClaimTopicsRegistry.sol (interface)
+├── @openzeppelin/contracts-upgradeable
+│   └── OwnableUpgradeable
+│
+└── @openzeppelin/contracts (no upgradeable)
+    └── ECDSA (recuperación de la firma EIP-712, D-026)
 ```
 
-**NO depende de otros contratos del sistema**
+**NO depende de otros contratos del sistema** (corregido: la versión anterior de este documento atribuía
+un import inexistente de `IClaimTopicsRegistry`; H-32)
 - Es autónomo
-- Solo almacena claims
-- El owner gestiona los claims
+- Almacena claims firmados con EIP-712
+- La autorización del issuer por topic la impone `TokenCloneable.isVerified` contra el `TrustedIssuersRegistry` (D-025)
 
 **Estructura:**
 ```
 IdentityCloneable
     ├── Claims Storage
     │   └── mapping(topic => mapping(issuer => Claim))
+    │   └── mapping(topic => mapping(issuer => uint256)) claimNonce  (RF-013, anti-replay)
     │
     └── Métodos
-        ├── addClaim()
-        ├── removeClaim()
-        ├── getClaim()
-        └── claimExists()
+        ├── addClaim(topic, scheme, issuer, signature, data, uri, expiresAt)   (onlyOwner)
+        ├── removeClaim(topic, issuer)                                          (onlyOwner)
+        ├── revokeClaim(topic, issuer)                                          (solo el issuer)
+        ├── hasValidClaim(topic, issuer)   (vista; única fuente de verdad de vigencia/revocación)
+        ├── getClaim(topic, issuer)
+        └── claimNonce(topic, issuer)
 ```
 
 ### 3. ClaimTopicsRegistryCloneable.sol

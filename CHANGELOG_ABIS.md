@@ -17,6 +17,7 @@
 | 2026-10-10 | Ciclo 4 | RF-003 (cierra H-17/HB-04) | `ICompliance`, `ComplianceAggregator`, `MaxBalanceCompliance`, `MaxHoldersCompliance`, `TransferLockCompliance`, `TokenCloneable` | **No (aditivo)**; rompe a implementadores de módulos |
 | 2026-10-10 | Ciclo 8 | RF-013 (cierra H-08 auditoría V1) | `IdentityCloneable`, `IdentityRegistry` | **Sí** (`getClaim` añade salida; `revokeClaim`/`hasValidClaim`/`ClaimRevoked` son aditivos) |
 | 2026-10-11 | Ciclo 8c | RF-013 (cierra el bypass de revocación por replay) | `IdentityCloneable` | **Sí off-chain**: `CLAIM_TYPEHASH` gana `uint256 nonce`; nueva vista `claimNonce(uint256,address)` (aditiva); el digest firmado cambia |
+| 2026-10-11 | Ciclo 10 | RF-006 (cierra H-15/H-16/H-23/H-33) | — (ningún contrato de `src/`) | **No**: añade la línea base `sc/abis/` (15 ABIs) y el gate `script/ci/abi_diff.sh` |
 
 ---
 
@@ -367,3 +368,23 @@ canónico `sc/script/deploy.sh` + `sc/script/DeployFullStack.s.sol`:
 - Para apuntar las apps a un despliegue concreto, leer direcciones y ABIs del propio artefacto JSON en vez de
   hardcodear las ABIs estáticas: las firmas son las mismas del Ciclo 8c, así que no hay migración de tipos,
   solo actualización de direcciones.
+
+---
+
+## Ciclo 10 — RF-006: línea base de ABIs y control de deriva (sin cambios de ABI)
+
+El Ciclo 10 **no modifica ningún contrato de `src/`**: todas las firmas, selectores y salidas son las del
+Ciclo 8c. Lo relevante para consumidores es el nuevo **control automático de deriva**:
+
+- **Línea base versionada:** `sc/abis/<Contrato>.json` (una ABI canónica por cada contrato de `src/` y
+  `src/compliance/`, incluidas las interfaces `ICompliance` e `IClaimTopicsRegistry`). Estado inicial:
+  **15 ABIs**, generadas con `forge inspect <Contrato> abi --json`.
+- **Gate:** `sc/script/ci/abi_diff.sh` compara la ABI actual con la línea base y **falla** si algún
+  selector o firma nuevo, modificado o eliminado no está declarado en este changelog.
+- **Procedimiento de actualización de la línea base:**
+  1. Cambiar el contrato en `src/`.
+  2. Añadir aquí la sección del contrato con la firma anterior/nueva, el selector y el impacto en `rwa-web`.
+  3. Ejecutar `sc/script/ci/abi_diff.sh --update` y commitear `sc/abis/*.json` **junto con** esta entrada.
+
+> Añadir o regenerar `sc/abis/` sin la entrada correspondiente en este archivo deja el gate en rojo: es el
+> comportamiento buscado (debe acompañarse de una entrada en `CHANGELOG_ABIS.md`).

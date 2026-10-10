@@ -227,12 +227,18 @@ trustedIssuersRegistry.hasClaimTopic(amlProvider, 3) // → false
 ### Ataque 3: Claim Falso
 ```solidity
 // ❌ Usuario agrega claim de issuer que no lo emitió realmente
-identity.addClaim(1, 1, kycProvider, fakeSig, fakeData, "");
+identity.addClaim(1, 1, kycProvider, fakeSig, fakeData, "", expiresAt);
 
-// ✅ DETECTADO: 
-// - La signature puede verificarse off-chain
-// - El URI puede consultarse para validación
-// - El issuer puede revocar claims
+// ✅ BLOQUEADO on-chain desde el Ciclo 2 (RF-001, cierre de H-01):
+// - `addClaim` exige `scheme == 1` y `signature.length == 65`.
+// - Recupera el firmante con `ECDSA` sobre el digest EIP-712 (dominio
+//   {name:"RWA-Identity", version:"1", chainId, verifyingContract, holder, topic,
+//    scheme, dataHash, expiresAt, nonce}) y revierte con "Signature signer mismatch"
+//   si el firmante no es el `issuer` declarado.
+// - `TokenCloneable.isVerified` exige `hasValidClaim(topic, issuer)` (vigencia y no
+//   revocado) y que el issuer esté autorizado para el topic en TrustedIssuersRegistry.
+// - Desde el Ciclo 8 (RF-013) el `issuer` puede `revokeClaim` y los claims pueden expirar.
+// Evidencia: `test/RF013_ClaimLifecycle.t.sol` y `test/IdentityCloneable.t.sol` (suite RF-001).
 ```
 
 ### Ataque 4: Suplantación de Identity
@@ -376,8 +382,9 @@ T5: Revocación (si es necesario)
 
 3. **No olvidar actualizar cuando expiren**
    ```solidity
-   // Implementar lógica para claims con expiración
-   // O proceso manual de renovación
+   // Implementado en el Ciclo 8 (RF-013): cada claim lleva `expiresAt`
+   // (`0` = sin caducidad) y `hasValidClaim(topic, issuer)` es la única fuente de verdad.
+   // Renovar exige una firma nueva del issuer con el `expiresAt` vigente.
    ```
 
 ## 🎯 Resumen
@@ -386,11 +393,11 @@ T5: Revocación (si es necesario)
 
 1. **Whitelist** - Solo issuers aprobados en TrustedIssuersRegistry
 2. **Scope** - Cada issuer solo puede emitir topics específicos  
-3. **Validación** - El Token verifica que el claim existe y viene de un issuer válido
+3. **Validación criptográfica** - `addClaim` exige firma EIP-712 válida del issuer (RF-001) y `isVerified` exige un claim vigente y no revocado (`hasValidClaim`, RF-013) contra el registry
 
 **Esto garantiza que:**
 - ✅ Solo claims de fuentes confiables son aceptados
 - ✅ Cada issuer está limitado a su área de expertise
-- ✅ Los inversores no pueden falsificar claims
-- ✅ El sistema es auditable y transparente
+- ✅ Los inversores no pueden falsificar claims (verificado con tests negativos de RF-001: firma vacía, firmante distinto, longitud inválida, `s` alto)
+- ✅ El sistema es auditable y transparente (con las limitaciones de [`SECURITY.md`](SECURITY.md): sin auditoría externa ni apto para producción con activos reales)
 

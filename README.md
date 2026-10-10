@@ -16,13 +16,14 @@ Luego continúa con:
 
 ## 📊 Overview del Proyecto
 
-Este proyecto implementa un **sistema completo de tokenización RWA** con:
+Este proyecto implementa un **sistema de tokenización RWA** (Real World Assets) con:
 
-- ✅ **ERC-3643** (T-REX) standard para security tokens
-- ✅ **Clone Factory** (EIP-1167) — ~55 % de ahorro de gas medido con comparación equivalente (ver `.gas-snapshot`)
-- ✅ **Compliance Aggregator** - Gestión modular de compliance
-- ✅ **151 tests** (151 pasando, 0 fallos, 0 skipped) — `forge test`
-- ✅ **Gas medido** con baseline versionado (`sc/.gas-snapshot`); **no production-ready** sin auditoría
+- ⚠️ **Inspirado en ERC-3643 / T-REX**, no "ERC-3643 compliant": implementa un subconjunto propio de interfaces (ver declaración verificable en [`SECURITY.md`](SECURITY.md)). **No auditado y no apto para producción con activos reales** (ver [`RepoTecnico/INFORME_OPTIMIZACION_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_V1.md)).
+- ✅ **Clone Factory** (EIP-1167) — ahorro de gas medido con comparación equivalente: **45–59 %** (Token 55 %, Identity 59 %, Identity+claim 45 %, Registry 53 %; ver `.gas-snapshot`).
+- ✅ **Compliance Aggregator** — gestión modular de compliance (fail-closed).
+- ✅ **353 tests** (353 pasando, 0 fallos, 0 skipped) — `forge test`, cifra respaldada por [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
+- ✅ **Cobertura de `src/`**: **97,11 % de líneas / 86,13 % de ramas** (D-017: sin interfaces ni `test/`; `metricas_ejecucion.md`).
+- ✅ **Gas medido** con baseline versionado (`sc/.gas-snapshot`); **no production-ready** sin auditoría externa (D-024).
 
 ---
 
@@ -46,9 +47,9 @@ Este proyecto implementa un **sistema completo de tokenización RWA** con:
 ### 1. Token System
 
 **Contracts:**
-- `Token.sol` - Token ERC-3643 original
-- `TokenCloneable.sol` - Versión cloneable (~55 % menos gas medido)
+- `TokenCloneable.sol` - Token clonable principal (EIP-1167)
 - `TokenCloneFactory.sol` - Factory para crear tokens
+- `ICompliance.sol` - Interfaz de módulos de compliance
 
 **Key Features:**
 - Identity verification obligatoria
@@ -60,12 +61,12 @@ Este proyecto implementa un **sistema completo de tokenización RWA** con:
 ### 2. Identity System
 
 **Contracts:**
-- `Identity.sol` - Identity básica (para testing)
-- `IdentityCloneable.sol` - Versión cloneable
+- `IdentityCloneable.sol` - Identity clonable con claims firmados (EIP-712)
 - `IdentityCloneFactory.sol` - Factory para identities
 - `IdentityRegistry.sol` - Registro de identities
 - `TrustedIssuersRegistry.sol` - Emisores autorizados
-- `ClaimTopicsRegistry.sol` - Claims requeridos
+- `ClaimTopicsRegistry.sol` / `ClaimTopicsRegistryCloneable.sol` - Topics requeridos
+- `ClaimTopicsRegistryCloneFactory.sol` - Factory del registro de topics
 
 **Key Features:**
 - Claims on-chain
@@ -75,10 +76,10 @@ Este proyecto implementa un **sistema completo de tokenización RWA** con:
 ### 3. Compliance System
 
 **Contracts:**
-- `ComplianceAggregator.sol` - Aggregador modular
-- `MaxBalanceCompliance.sol` - Límite de saldo
-- `MaxHoldersCompliance.sol` - Límite de holders
-- `TransferLockCompliance.sol` - Período de bloqueo
+- `compliance/ComplianceAggregator.sol` - Aggregador modular (fail-closed)
+- `compliance/MaxBalanceCompliance.sol` - Límite de saldo
+- `compliance/MaxHoldersCompliance.sol` - Límite de holders
+- `compliance/TransferLockCompliance.sol` - Período de bloqueo
 
 **Key Features:**
 - Modular architecture
@@ -94,17 +95,17 @@ Este proyecto implementa un **sistema completo de tokenización RWA** con:
 
 ```
 Tokens:
-  - Token.sol                    (Token ERC-3643 original)
-  - TokenCloneable.sol           (Versión cloneable)
+  - TokenCloneable.sol           (Token clonable, EIP-1167)
   - TokenCloneFactory.sol        (Factory de tokens)
 
 Identity:
-  - Identity.sol                 (Identity básica)
-  - IdentityCloneable.sol        (Versión cloneable)
+  - IdentityCloneable.sol        (Identity clonable con claims EIP-712)
   - IdentityCloneFactory.sol     (Factory de identities)
   - IdentityRegistry.sol         (Registro)
   - TrustedIssuersRegistry.sol   (Emisores)
   - ClaimTopicsRegistry.sol      (Topics requeridos)
+  - ClaimTopicsRegistryCloneable.sol
+  - ClaimTopicsRegistryCloneFactory.sol
 
 Compliance:
   - compliance/
@@ -113,15 +114,23 @@ Compliance:
     ├─ MaxHoldersCompliance.sol       (Límite de holders)
     └─ TransferLockCompliance.sol     (Lock period)
   - ICompliance.sol              (Interface)
+  - IClaimTopicsRegistry.sol     (Interface)
 ```
 
 ### Scripts (`script/`)
 
 ```
-- DeployTokenCloneFactory.s.sol        (Deploy token factory)
-- DeployIdentityCloneFactory.s.sol     (Deploy identity factory)
-- DeployComplianceAggregator.s.sol     (Deploy aggregator)
-- CreateTokenWithCloneFactory.s.sol    (Crear token)
+- DeployFullStack.s.sol                  (Despliegue canónico end-to-end)
+- DeployTokenCloneFactory.s.sol          (Deploy token factory)
+- DeployIdentityCloneFactory.s.sol       (Deploy identity factory)
+- DeployClaimTopicsRegistryCloneFactory.s.sol
+- DeployComplianceAggregator.s.sol       (Deploy aggregator)
+- CreateTokenWithCloneFactory.s.sol      (Crear token)
+- CompleteDeploymentExample.s.sol        (Ejemplo completo)
+- deploy.sh                              (Orquestación, secretos y verificación)
+- ci/check_no_bypass_flag.sh             (Gate RF-002)
+- ci/abi_diff.sh                         (Gate RF-006 — deriva de ABIs)
+- ci/check_docs.sh                       (Gate RF-006 — documentación)
 ```
 
 ### Tests (`test/`)
@@ -130,13 +139,23 @@ Compliance:
 - Token.t.sol                          (30 tests)
 - TokenCloneFactory.t.sol              (13 tests)
 - IdentityCloneFactory.t.sol           (12 tests)
+- IdentityCloneable.t.sol              (21 tests)
+- IdentityRegistry.t.sol               (41 tests)
+- TrustedIssuersRegistry.t.sol         (33 tests)
+- ClaimTopicsRegistry.t.sol            (25 tests)
+- ClaimTopicsRegistryCloneFactory.t.sol (14 tests)
 - ComplianceAggregator.t.sol           (25 tests)
-- ClaimTopicsRegistryCloneFactory.t.sol (12 tests)
 - MaxBalanceCompliance.t.sol           (15 tests)
 - MaxHoldersCompliance.t.sol           (22 tests)
 - TransferLockCompliance.t.sol         (22 tests)
+- RF003_ERC165.t.sol                   (16 tests)
+- RF011_FailClosed.t.sol               (6 tests)
+- RF012_AggregatorFailClosed.t.sol     (8 tests)
+- RF013_ClaimLifecycle.t.sol           (16 tests)
+- TokenLimits.t.sol                    (17 tests)
+- TokenReentrancy.t.sol                (17 tests)
 
-Total: 151 tests (151 pasando, 0 fallos, 0 skipped)
+Total: 353 tests en 18 suites (353 pasando, 0 fallos, 0 skipped)
 ```
 
 ---
@@ -231,17 +250,21 @@ forge script script/CreateTokenWithCloneFactory.s.sol --rpc-url localhost --broa
 
 | Documento | Descripción |
 |-----------|-------------|
-| **TOKEN_CLONE_FACTORY.md** | Clone Factory pattern explicado |
-| **COMPLIANCE_AGGREGATOR_FINAL.md** | Aggregator arquitectura y uso |
-| **COMPLIANCE_AGGREGATOR_V2.md** | Arquitectura modular detallada |
+| **REFERENCIA_TECNICA.md** | Patrón Clone Factory, aggregator y snippets |
+| **DEPENDENCIAS_CONTRATOS.md** | Dependencias e imports entre contratos |
+| **SECURITY.md** | Modelo de amenazas, hallazgos y riesgos residuales |
+| **CHANGELOG_ABIS.md** | Historial de cambios de ABI y su impacto en consumidores |
+| **RepoTecnico/documento_tecnico.md** | Documento técnico del proyecto |
+| **RepoTecnico/metricas_ejecucion.md** | Cifras reales medidas (tests, cobertura, gas) |
 
 ### Para Project Managers (Ejecutivo)
 
 | Documento | Descripción |
 |-----------|-------------|
-| **../RESUMEN_EJECUTIVO_FINAL.md** | Resumen de toda la implementación |
-| **../SESSION_FINAL_SUMMARY.md** | Resumen de la sesión |
-| **../CLEANUP_REPORT.md** | Archivos eliminados/mantenidos |
+| **RepoTecnico/estado_proyecto.md** | Estado de fases, hitos y decisiones |
+| **RepoTecnico/requerimientos.md** | Requisitos, decisiones (D-xxx) y backlog |
+| **RepoTecnico/plan_desarrollo.md** | Ciclos de desarrollo y trazabilidad |
+| **RepoTecnico/INFORME_OPTIMIZACION_V1.md** | Auditoría V1: 34 hallazgos y plan de acción |
 
 ---
 
@@ -270,16 +293,26 @@ forge coverage
 
 | Suite | Tests | Descripción |
 |-------|-------|-------------|
-| TokenTest | 30 | Token principal |
+| TokenTest | 30 | Token clonable principal |
 | TokenCloneFactoryTest | 13 | Token factory |
+| TokenLimitsTest | 17 | Whitelist/topes/`maxSupply` (RF-004) |
+| TokenReentrancyTest | 17 | Anti-reentrancia (RF-002) |
 | ComplianceAggregatorTest | 25 | Compliance aggregator |
+| RF012_AggregatorFailClosedTest | 8 | Aggregator fail-closed (RF-012) |
 | IdentityCloneFactoryTest | 12 | Identity factory |
-| ClaimTopicsRegistryCloneFactoryTest | 12 | Claim topics factory |
+| IdentityCloneableRF001Test | 21 | Claims EIP-712 (RF-001) |
+| RF013_ClaimLifecycleTest | 16 | Vigencia/revocación de claims (RF-013) |
+| IdentityRegistryTest | 41 | Registro de identidades |
+| TrustedIssuersRegistryTest | 33 | Emisores autorizados |
+| ClaimTopicsRegistryTest | 25 | Topics requeridos |
+| ClaimTopicsRegistryCloneFactoryTest | 14 | Claim topics factory |
+| RF011_FailClosedTest | 6 | `isVerified` fail-closed (RF-011) |
+| RF003_ERC165Test | 16 | Validación de módulos ERC-165 (RF-003) |
 | MaxBalanceComplianceTest | 15 | Max balance module |
 | MaxHoldersComplianceTest | 22 | Max holders module |
 | TransferLockComplianceTest | 22 | Transfer lock module |
 
-**Total: 151 tests (151 pasando, 0 fallos, 0 skipped)** — verificado con `forge test`.
+**Total: 353 tests en 18 suites (353 pasando, 0 fallos, 0 skipped)** — verificado con `forge test` y enlazado a [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
 
 ---
 
@@ -398,4 +431,4 @@ code START_HERE.md
 
 **¡Feliz aprendizaje! 🚀📚**
 
-*Este proyecto representa 151 tests (151 pasando, 0 fallos) con baseline de gas versionado, miles de líneas de código, y múltiples patrones avanzados de Solidity. Tómate tu tiempo para entenderlo bien.*
+*Este proyecto representa 353 tests (353 pasando, 0 fallos) con baseline de gas versionado, miles de líneas de código, y múltiples patrones avanzados de Solidity. Tómate tu tiempo para entenderlo bien.*

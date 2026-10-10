@@ -1,8 +1,8 @@
 # 📌 Estado del Proyecto — RWA (Mejora)
 
-> **Proyecto:** Mejora y estabilización de la plataforma RWA (Real World Assets, ERC-3643)
+> **Proyecto:** Mejora y estabilización de la plataforma RWA (Real World Assets, inspirada en ERC-3643)
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
-> **Versión:** v2.0 · 2026-10-03 (cierre de la Fase 2)
+> **Versión:** v2.1 · Ciclo 10 (RF-006) cerrado — documentación veraz, `SECURITY.md` y control de deriva de ABIs
 
 ## Fases
 
@@ -10,8 +10,8 @@
 |---|---|---|---|
 | 1 | Concepción | ✅ COMPLETADO | Artefactos creados, repos y GCP definidos, entrevista de 3 bloques |
 | 2 | Auditoría | ✅ COMPLETADO (por confirmar) | Auditoría sin issues críticos + CU auditados + gráficos + documento técnico auditado |
-| 3 | Desarrollo | 🔄 EN CURSO — Ciclos 1, 1b, 2 y 3 ✅ · Ciclos 4–8 autorizados en bloque | Plan vertical aprobado, ciclos completados y probados |
-| 4 | Pruebas | ⬜ Por cerrar | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
+| 3 | Desarrollo | ✅ COMPLETADO — Ciclos 1, 1b, 2, 3, 4, 5, 6, 7, 8, 8b, 8c, 9 y 10 ✅ · Ciclo 11 (RF-009, CI) pendiente | Plan vertical aprobado, ciclos completados y probados |
+| 4 | Pruebas | 🔄 CASI CERRADA — **353/353 tests en verde** y cobertura `src/` **97,11 % líneas / 86,13 % ramas** en local; falta el gate automático de CI (RF-009) | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
 | 5 | Manuales | ⬜ Por cerrar | Manuales generados y confirmación final |
 
 ## Hitos de la Fase 2 (completados)
@@ -48,7 +48,7 @@
   **0** en `createToken`. Decisiones **D-029..D-032**.
 - [x] **Documentación versionada:** `RepoTecnico/` se movió dentro del repo (`rwa-sc/RepoTecnico/`, commit
   `fb38e4f`), por lo que los ciclos siguientes versionan código **y** documentación. Decisión del usuario.
-- [ ] Ciclo 10 (RF-006) → Ciclo 11 (RF-009). (Los Ciclos 3 a 9 y el 8b estan cerrados.)
+- [ ] Ciclo 11 (RF-009): pipeline `.gitlab-ci.yml` con build, `fmt`, test, coverage y los gates de RF-006.
 
 - [x] **Ciclo 1b — RF-005 · Cobertura ≥ 80 % por contrato en los registries** (commit local `a92cf1d`):
   3 suites nuevas (92 tests: IdentityRegistry 34, TrustedIssuersRegistry 33, ClaimTopicsRegistry 25);
@@ -114,13 +114,24 @@
   517) verificado; Besu queda como alternativa vía el wrapper `deploy-besu.sh`. **353/353 tests sin regresión**.
   Cierra **HB-12, H-24, H-28, H-31** y el criterio **C-9**. Decisiones **D-054..D-057**.
 
-### Corrección de cifras tras el Ciclo 1
+### Corrección de cifras tras el Ciclo 10
 
 | Afirmación previa | Medición real |
 |---|---|
-| "139 tests, 100 % passing" | **151 tests, 151 pasan** (antes: 98 contados, 93 pasan, 5 fallan, 53 muertos) |
+| "139 tests, 100 % passing" | **353 tests, 353 pasan** (18 suites; `forge test` → `353 passed, 0 failed, 0 skipped`); antes: 98 contados, 93 pasan, 5 fallan, 53 muertos |
 | "Ahorro de gas 88–98 %" | **45–59 %** medido con comparación equivalente (Token 55 %, Identity 59 %, Identity+claim 45 %, Registry 53 %) |
-| "Cobertura > 80 %" | `src/` **86,33 %** (agregado) · total 67,50 % · puntos débiles por contrato: `IdentityRegistry` 37 %, `TrustedIssuersRegistry` 38 %, `ClaimTopicsRegistry` 45 % |
+| "Cobertura > 80 %" | `src/` **97,11 % líneas / 86,13 % ramas** (D-017, sin interfaces ni `test/`) |
+| "production-ready" / "ERC-3643 compliant" | **Retiradas**: sustituidas por una declaración verificable en [`../SECURITY.md`](../SECURITY.md); sin auditoría externa y **no aptas para producción con activos reales** (D-024) |
+
+- [x] **Ciclo 10 — RF-006 · Documentación veraz, `SECURITY.md` y control de deriva de ABIs** (commit local, sin push):
+  se eliminan las referencias a `Token.sol`/`Identity.sol` y a los 3 `.md` inexistentes en los 10 documentos raíz;
+  las cifras manuales se sustituyen por las medidas y enlazadas a su artefacto; se crea **`SECURITY.md`**
+  (modelo de amenazas, estado de los 34 hallazgos de la auditoría V1, controles con test y riesgos residuales)
+  y la línea base **`sc/abis/<Contrato>.json`** (15 ABIs) con `sc/script/ci/abi_diff.sh` y
+  `sc/script/ci/check_docs.sh`; la rúbrica de `EJERCICIOS_PRACTICOS.md` pasa a criterios observables (H-23).
+  **353/353 tests sin regresión**, `forge fmt --check` limpio, ambos gates en verde. Cierra **HB-07, H-15, H-16,
+  H-23 y H-33** y los criterios **B-8** y **C-10** (parcial: quedan H-13/H-14/H-34 en backlog). Decisiones
+  **D-058..D-060**.
 
 ## Acuerdos y decisiones
 
@@ -154,6 +165,9 @@
 | D-026 | EIP-712 reproducido a mano (mismo digest) por el pragma `^0.8.24` de `EIP712Upgradeable` vs `solc 0.8.20`; `ECDSA` sí es de OpenZeppelin |
 | D-027 | `createIdentityWithClaim`: el `walletOwner` firmado es la factory (owner temporal); anti-replay por `verifyingContract` |
 | D-028 | Los criterios de autorización de topic de CU-02/CU-03 se reubican en la capa token (coherente con D-025) |
+| D-058 | **Documentación veraz (RF-006)**: toda cifra publicada se sustituye por la medida y enlaza a su artefacto; se prohíben las referencias a archivos inexistentes y las afirmaciones "production-ready"/"ERC-3643 compliant" sin declaración verificable |
+| D-059 | **`SECURITY.md` como documento vivo**: refleja el estado de los 34 hallazgos V1 (corregido/ciclo o backlog) y los riesgos residuales; cada mitigación cita al menos un `test_*` o un `ci_check_*` |
+| D-060 | **Control de deriva de ABIs**: la línea base vive en `sc/abis/<Contrato>.json`; `sc/script/ci/abi_diff.sh` falla ante cualquier deriva no declarada en `CHANGELOG_ABIS.md`, que debe actualizarse junto con la línea base |
 
 ## Plan de la Fase 3 (orden aprobado)
 
@@ -186,16 +200,17 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 
 ## Brechas abiertas (declaradas)
 
-1. **Sin CI**: no existe `.gitlab-ci.yml`; las métricas son mediciones puntuales (RF-009).
-2. **Árbol sin versionar**: HEAD del remoto = 1 commit con solo `README.md` (HB-04 / H-04).
-3. **Sin auditoría externa**: bloqueante para producción (D-024).
-4. **Cobertura** resuelta para `src/`: 96,08 % de líneas (Ciclo 2); el gate de CI por umbral llega en RF-009.
+1. **Sin CI**: no existe `.gitlab-ci.yml`; los gates `check_docs.sh`, `abi_diff.sh` y `check_no_bypass_flag.sh` se ejecutan manualmente (RF-009, Ciclo 11).
+2. **Sin auditoría externa**: bloqueante para producción con activos reales (D-024; `SECURITY.md` §5).
+3. **Gobernanza en una sola EOA** hasta el multisig/timelock (H-06; D-021, backlog R-7).
+4. **PII/KYC off-chain sin política formal** de base legal, cifrado y retención (H-11, backlog R-3).
 5. **DF3-05..DF3-10**: detalles de diseño que se resuelven dentro de los ciclos de la Fase 3.
 
 ## Próximo paso
 
-Confirmación del usuario para iniciar el **Ciclo 10 (RF-006)**: documentación alineada con el código
-(`SECURITY.md`, `CHANGELOG_ABIS.md`, referencias rotas) y cierre de HB-07/H-15/H-16/H-33.
+Ciclo 11 (**RF-009**): crear el pipeline `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` con `forge build`, `fmt --check`,
+`test` (gate RNF-003), `coverage` con `COVERAGE_THRESHOLD` sobre `src/` (D-017), publicación del conteo real y
+los gates de RF-006 (`script/ci/check_docs.sh`, `script/ci/abi_diff.sh`) y RF-002 (`check_no_bypass_flag.sh`).
 - [x] **Ciclo 8b — Revisión del toolchain** (decisión **D-053**, sin cambios de código): se **mantiene
   `solc 0.8.20`** y el **digest EIP-712 propio** (binding de `chainId`/`verifyingContract`/`nonce` cubierto
   por tests, con `ECDSA` de OpenZeppelin). `EIP712Upgradeable` de OZ 5.5.0 exige `^0.8.24`; la subida del

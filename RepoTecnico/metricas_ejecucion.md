@@ -1029,3 +1029,66 @@ Contratos desplegados y verificados con `cast code` (10/10) y `cast call`:
 - `documento_tecnico.md`: fila `RF-010` → **IMPLEMENTADO (Ciclo 9)**, `HB-12`/`RNF-004` implementados y §6.6
   reescrita con el procedimiento y las direcciones; `entornos_globales.md` §7.2/§12; `estado_proyecto.md`
   (hito del Ciclo 9).
+
+## 18. Ciclo 10 — RF-006: documentación veraz, `SECURITY.md` y control de deriva de ABIs
+
+**Objetivo:** alinear la documentación con el código (H-15/H-16/H-23/H-33), publicar el rastro de seguridad
+(`SECURITY.md`) y crear los gates que impiden la deriva de ABIs y de documentación (CU-12). **El ciclo no
+toca `src/` ni `test/`.**
+
+### 18.1 Tests — sin regresión
+
+| Métrica | Antes (Ciclo 9) | Después (Ciclo 10) |
+|---|---|---|
+| Tests | 353 | **353** |
+| Fallos | 0 | **0** |
+| `src/` | 97,11 % líneas / 86,13 % ramas | **sin cambios** (el ciclo no toca `src/`) |
+
+Comandos: `forge build` (0 errores; 2 warnings de lint de tests preexistentes), `forge test` →
+`353 tests passed, 0 failed, 0 skipped (353 total)`, `forge fmt --check` → limpio.
+
+### 18.2 Artefactos nuevos
+
+| Artefacto | Contenido |
+|---|---|
+| `rwa-sc/SECURITY.md` | Modelo de amenazas (T1..T10), estado de los 34 hallazgos V1, HB-01..HB-12, controles con test, riesgos residuales y política de reporte |
+| `rwa-sc/sc/abis/<Contrato>.json` | Línea base de **15 ABIs** (una por contrato de `src/` y `src/compliance/`, incluidas interfaces) |
+| `rwa-sc/sc/script/ci/abi_diff.sh` | Compara `forge inspect <C> abi --json` con `sc/abis/<C>.json`; falla ante selectores/firmas no declarados en `CHANGELOG_ABIS.md`; `--update` regenera la línea base |
+| `rwa-sc/sc/script/ci/check_docs.sh` | Falla ante referencias a archivos inexistentes (H-15), falta de `SECURITY.md`/`CHANGELOG_ABIS.md`, afirmaciones prohibidas sin matizar, HB-01..HB-12 sin cubrir o placeholders |
+
+### 18.3 Cifras corregidas en los documentos raíz
+
+| Afirmación previa | Cifra publicada ahora | Respaldo |
+|---|---|---|
+| "139 tests (100 % passing)" | **353 tests, 353 pasan** | `forge test` (esta sección) |
+| "coverage > 80 %" | `src/` **97,11 % líneas / 86,13 % ramas** | D-017; §16.3 |
+| "ahorro de gas 88–98 %" | **45–59 %** (Token 55 %, Identity 59 %, Identity+claim 45 %, Registry 53 %) | `README.md` §Gas; §7.3 |
+| "production-ready" / "ERC-3643 compliant" | **retiradas**; declaración verificable de interfaces + "sin auditoría, no apto para producción con activos reales" | `SECURITY.md` §0; D-024 |
+
+El documento `OPTIMIZACION_VERIFICACION.md` queda rotulado como **estimación no medida** (H-03) y su tabla
+"Benchmarks" retirada.
+
+### 18.4 Verificaciones del ciclo
+
+| Verificación | Resultado |
+|---|---|
+| `forge build` | 0 errores |
+| `forge test` | **353/353**, 0 fallos |
+| `forge fmt --check` | limpio |
+| `sc/script/ci/check_docs.sh` | **exit 0** (`12 documentos; sin referencias rotas, sin afirmaciones sin matizar`) |
+| `sc/script/ci/check_docs.sh` (negativo, copia `/tmp`) | **exit 1** al insertar "139 tests" y "production-ready" sin matizar |
+| `sc/script/ci/abi_diff.sh` | **exit 0** (`15 ABIs sin deriva`) |
+| `sc/script/ci/abi_diff.sh` (negativo, copia `/tmp`) | **exit 1** al alterar `abis/TokenCloneable.json` (`mint`→`mintFake`): lista los selectores `0x40c10f19` / `0x08650c09` no declarados |
+| `grep -rn "Token.sol\|Identity.sol\|TOKEN_CLONE_FACTORY\|COMPLIANCE_AGGREGATOR_FINAL\|COMPLIANCE_AGGREGATOR_V2\|DeployIdentityRegistry" rwa-sc/ --include='*.md' --include='*.sh' --include='*.sol'` | Sin coincidencias en documentos raíz, `src/` ni `sc/script/` (salvo el propio `sc/script/ci/check_docs.sh`, que define los patrones a prohibir); quedan las citas históricas de `RepoTecnico/` (permitidas: explican que no existen) y las de `sc/lib/` (submódulos de terceros) |
+| `ls rwa-sc/SECURITY.md rwa-sc/sc/abis` | `SECURITY.md` presente; **15** ABIs de línea base |
+| `git status --short` | limpio tras el commit local |
+
+### 18.5 Documentación y decisiones
+
+- `SECURITY.md` y `CHANGELOG_ABIS.md` enlazados desde `README.md`, `START_HERE.md`, `GUIA_ESTUDIANTE.md`,
+  `ARQUITECTURA_FINAL.md`, `REFERENCIA_TECNICA.md`, `VERIFICACION_TRUSTED_ISSUER.md` y
+  `OPTIMIZACION_VERIFICACION.md`.
+- Decisiones nuevas: **D-058, D-059, D-060 y D-061** en `requerimientos.md` (Bloque 6).
+- `documento_tecnico.md`: `RF-006` → **IMPLEMENTADO (Ciclo 10)**, filas de H-15/H-16/H-23/H-33 y criterios
+  **B-8**/**C-10**; §7.1 actualizada a las métricas vigentes; `estado_proyecto.md` con el hito del Ciclo 10.
+- Cierra **HB-07, H-15, H-16, H-23 y H-33** y los criterios **B-8** y **C-10** (H-13/H-14/H-34 permanecen en backlog).

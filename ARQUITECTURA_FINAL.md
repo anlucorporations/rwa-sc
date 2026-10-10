@@ -2,7 +2,7 @@
 
 ## 📋 Resumen Ejecutivo
 
-Este sistema implementa el estándar **ERC-3643** para tokens de activos del mundo real (RWA) con **patrón de clonación EIP-1167** para maximizar la eficiencia de gas.
+Este sistema está **inspirado en el estándar ERC-3643** para tokens de activos del mundo real (RWA) con **patrón de clonación EIP-1167** para reducir el coste de gas. No es "ERC-3643 compliant": implementa un subconjunto propio de interfaces y **no está auditado** (ver [`SECURITY.md`](SECURITY.md) y [`RepoTecnico/INFORME_OPTIMIZACION_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_V1.md)).
 
 ## 🎯 Componentes Principales
 
@@ -11,10 +11,10 @@ Este sistema implementa el estándar **ERC-3643** para tokens de activos del mun
 #### Producción (con Factory)
 - **`TokenCloneable.sol`** - Contrato de token cloneable
 - **`TokenCloneFactory.sol`** - Factory para crear clones de tokens
-- **Ahorro**: ~2.95M gas por token (después del primero)
+- **Ahorro medido**: **55 %** (381.570 gas) con comparación equivalente clon + `initialize` vs despliegue completo (ver `README.md` y `metricas_ejecucion.md`)
 
 #### Testing
-- **`Token.sol`** - Versión no-upgradeable para tests ⚠️ SOLO PARA TESTING
+- Las suites (`test/Token.t.sol`) **no usan contratos "no-upgradeable para testing"**: instancian el **clon vía factory + `initialize`** (D-015). No existen contratos `Token` ni `Identity` no-upgradeables.
 
 ### 2. Sistema de Identidades
 
@@ -22,18 +22,18 @@ Este sistema implementa el estándar **ERC-3643** para tokens de activos del mun
 - **`IdentityCloneable.sol`** - Contrato de identidad cloneable
 - **`IdentityCloneFactory.sol`** - Factory para crear clones de identidades
 - **`IdentityRegistry.sol`** - Registro que vincula wallets → identities (compartido)
-- **Ahorro**: ~755k gas por identidad (después de la primera)
+- **Ahorro medido**: **59 %** (`createIdentity`, 318.446 gas) y **45 %** (`createIdentityWithClaim`, 371.815 gas)
 
-### 3. Sistema de ClaimTopics ⭐ NUEVO
+### 3. Sistema de ClaimTopics ⭐
 
 #### Producción (con Factory)
 - **`IClaimTopicsRegistry.sol`** - Interface (usado por Token)
 - **`ClaimTopicsRegistryCloneable.sol`** - Registry cloneable que implementa la interface
 - **`ClaimTopicsRegistryCloneFactory.sol`** - Factory para crear clones
-- **Ahorro**: ~350k gas por registry (después del primero)
+- **Ahorro medido**: **53 %** (240.889 gas)
 
 #### Testing
-- **`ClaimTopicsRegistry.sol`** - Versión no-upgradeable para tests ⚠️ SOLO PARA TESTING
+- **`ClaimTopicsRegistry.sol`** - Registry no-cloneable, equivalente de referencia en `test/Token.t.sol`
 
 ### 4. Registros Compartidos
 
@@ -154,7 +154,7 @@ identityRegistry.registerIdentity(investorAddress, identity);
 ### 1. **EIP-1167 Minimal Proxy (Clone Pattern)**
 - Un contrato de implementación
 - Múltiples proxies mínimos (clones)
-- ~99% ahorro de gas en deployments subsecuentes
+- Ahorro medido del **45–59 %** frente al despliegue completo equivalente (no existe un "~99 %" respaldado por test)
 
 ### 2. **Factory Pattern**
 - Centraliza la creación de contratos
@@ -176,20 +176,18 @@ identityRegistry.registerIdentity(investorAddress, identity);
 - `AGENT_ROLE` - Operaciones del día a día
 - `COMPLIANCE_ROLE` - Gestión de compliance
 
-## 📊 Comparativa de Gas
+## 📊 Comparativa de Gas (medida)
 
-| Operación | Sin Factory | Con Factory | Ahorro |
-|-----------|-------------|-------------|---------|
-| **Primera vez** | | | |
-| Token | 3M gas | 3M gas | 0 |
-| Identity | 800k gas | 800k gas | 0 |
-| ClaimTopics | 400k gas | 400k gas | 0 |
-| **Subsecuentes** | | | |
-| Token | 3M gas | 50k gas | **2.95M (98%)** |
-| Identity | 800k gas | 45k gas | **755k (94%)** |
-| ClaimTopics | 400k gas | 50k gas | **350k (88%)** |
-| **10 Tokens + 20 Identities + 10 Registries** | | | |
-| Total | 39M gas | 2.35M gas | **36.65M (94%)** |
+Cifras medidas con `forge test` sobre `solc 0.8.20` + optimizer 200 runs + `evm_version = "paris"`,
+comparando **clon EIP-1167 + `initialize`** contra un **despliegue completo equivalente**
+(`test/benchmarks/`, opcode `CREATE` en assembly). Baseline por test en `sc/.gas-snapshot` (RNF-001):
+
+| Contrato / ruta | Clon (factory) | Despliegue completo | Ahorro |
+|---|---|---|---|
+| `TokenCloneable` (`createToken`) | 381.570 | 859.098 | 477.528 (**55 %**) |
+| `IdentityCloneable` (`createIdentity`) | 212.307 | 530.753 | 318.446 (**59 %**) |
+| `IdentityCloneable` (`createIdentityWithClaim`) | 440.694 | 812.509 | 371.815 (**45 %**) |
+| `ClaimTopicsRegistryCloneable` (`createRegistry`) | 210.149 | 451.038 | 240.889 (**53 %**) |
 
 ## 🔐 Modelo de Seguridad
 
@@ -283,7 +281,7 @@ registry.removeClaimTopic(3);
 
 ### ❌ DON'T
 
-1. **No usar Token.sol/Identity.sol/ClaimTopicsRegistry.sol en producción** (solo para tests)
+1. **Usar siempre la ruta de producción `TokenCloneable`/`IdentityCloneable` (factory + clon + `initialize`)**; `ClaimTopicsRegistry.sol` es solo el equivalente de referencia de los tests
 2. **No cambiar requisitos sin comunicar a holders**
 3. **No compartir ClaimTopicsRegistry** entre tokens con diferentes necesidades
 4. **No olvidar configurar TrustedIssuers** antes de verificar claims

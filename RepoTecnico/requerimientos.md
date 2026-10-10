@@ -12,8 +12,8 @@
 
 Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
 
-- **`rwa-sc`** (Zona Contratos): 11 contratos Solidity 0.8.20 + 8 suites de test Forge (151 tests)
-  + 5 scripts de deploy. Patrones: EIP-1167 clones, Compliance modular, Registry de identidades/claims.
+- **`rwa-sc`** (Zona Contratos): 15 contratos Solidity 0.8.20 (11 en `src/` + 4 en `src/compliance/`) + 18 suites de test Forge (353 tests)
+  + 7 scripts `.s.sol` de deploy + `deploy.sh` + gates de CI. Patrones: EIP-1167 clones, Compliance modular, Registry de identidades/claims.
 - **`rwa-web`** (Zona WEB): 5 micro-apps Next.js 16 / React 19 / TS / Tailwind v4 sobre Anvil + MongoDB
   (GridFS para documentos). Ethers v6 (viem en `web-registry-trusted2`). **Fuera de alcance de este ciclo (D-003).**
 
@@ -356,6 +356,27 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   `deploy-besu.sh` se conserva como **wrapper de compatibilidad** hacia `sc/script/deploy.sh` (RPC de Besu por
   defecto y autodetección de `chain-id`), sin leer archivos de claves; el destino canónico es el Anvil de GCP
   (D-040). La clave privada por defecto de Anvil que figuraba en `REFERENCIA_TECNICA.md` se **redacta**.
+- **D-058 (Ciclo 10 · documentación veraz):** toda cifra publicada en la documentación se sustituye por la
+  **medida** y se enlaza a su artefacto (`RepoTecnico/metricas_ejecucion.md`, shards de gas, `sc/abis/`).
+  Quedan **prohibidas** las referencias a archivos/contratos inexistentes (`Token.sol`, `Identity.sol`,
+  `TOKEN_CLONE_FACTORY.md`, `COMPLIANCE_AGGREGATOR_FINAL.md`, `COMPLIANCE_AGGREGATOR_V2.md`,
+  `DeployIdentityRegistry.s.sol`) y las afirmaciones "production-ready"/"ERC-3643 compliant" sin declaración
+  verificable. Cifras canónicas: **353 tests / 353 pasan**, cobertura `src/` **97,11 % líneas / 86,13 % ramas**
+  (D-017), ahorro de gas **45–59 %** con comparación equivalente.
+- **D-059 (Ciclo 10 · `SECURITY.md`):** el documento de seguridad es **vivo** y refleja el estado de los 34
+  hallazgos de la auditoría V1 (corregido + ciclo, parcial o backlog), los hallazgos base HB-01..HB-12, los
+  controles implementados y los **riesgos residuales**; cada mitigación cita al menos una función `test_*` o un
+  `ci_check_*` existente. Enlaza a `INFORME_OPTIMIZACION_V1.md` y a `CHANGELOG_ABIS.md`.
+- **D-060 (Ciclo 10 · control de deriva de ABIs):** la línea base de ABIs se versiona en
+  `sc/abis/<Contrato>.json` (estado actual: **15 contratos**). `sc/script/ci/abi_diff.sh` compara
+  `forge inspect <Contrato> abi --json` contra esa línea base y **falla** si hay selectores o firmas nuevos,
+  modificados o eliminados que no estén declarados en `CHANGELOG_ABIS.md`. Actualizar la línea base exige
+  `script/ci/abi_diff.sh --update` **y** la entrada correspondiente en `CHANGELOG_ABIS.md`.
+- **D-061 (Ciclo 10 · gate de documentación):** `sc/script/ci/check_docs.sh` falla si algún documento raíz
+  referencia archivos inexistentes, si falta `SECURITY.md` o `CHANGELOG_ABIS.md`, si aparece una afirmación
+  prohibida sin matizar, si `SECURITY.md` no cubre HB-01..HB-12 o si hay marcadores sin sustituir. Los
+  documentos de `RepoTecnico/` quedan fuera del escaneo por ser el registro de auditoría (citan los textos
+  prohibidos como hallazgo histórico).
 
 ## 7. Mapa RF → casos de uso (Fase 2)
 
@@ -366,8 +387,9 @@ Ver `casos_uso/casos_uso.md` (**v1.3, 17 casos de uso**, 92 criterios Gherkin + 
   (`ComplianceAggregator` fail-closed y administración por token) → **CU-16**; RF-013 (vigencia y revocación de
   claims) → **CU-17**. Los tres marcados como "A IMPLEMENTAR" en los casos de uso.
 - Sin cobertura por alcance (D-003): RF-007, RF-008, RNF-006.
-- Datos reales de la suite (2026-10-03): 151 tests declarados, 93 pasan, 5 fallan y 53 no arrancan;
-  coverage 42,86%. Ver `metricas_ejecucion.md`.
+- Datos reales de la suite (Ciclo 10, estado actual): **353 tests, 353 pasan, 0 fallan**, 18 suites;
+  cobertura `src/` 97,11 % de líneas / 86,13 % de ramas (D-017). Ver `metricas_ejecucion.md` §16.3 y §18.
+  (Histórico de la auditoría V1, 2026-10-03: 151 declarados, 93 pasan, 5 fallan, 53 no arrancan, coverage 42,86 %.)
 
 ## 8. Backlog priorizado (auditoría V1 — no en este ciclo)
 
@@ -394,29 +416,29 @@ Ver `casos_uso/casos_uso.md` (**v1.3, 17 casos de uso**, 92 criterios Gherkin + 
 | H-12 | Sin RNF de observabilidad ni indexación de eventos | Backlog | R-4 (ver §8.3) |
 | H-13 | Catálogo de claim topics divergente | Backlog | M-8 |
 | H-14 | `diccionario_datos.md` describe storage inexistente | Backlog | QW-6 |
-| H-15 | Docs y contratos citados como existentes que no existen | **Cubierto** | RF-006 |
-| H-16 | "ERC-3643 compliant"/"production-ready" sin criterio | Backlog | R-8 (RF-006 solo cubre `SECURITY.md`) |
+| H-15 | Docs y contratos citados como existentes que no existen | **Cubierto** | RF-006 / D-058 (`script/ci/check_docs.sh`) |
+| H-16 | "ERC-3643 compliant"/"production-ready" sin criterio | **Cubierto** | RF-006 / D-058 (declaración verificable en `SECURITY.md`); `LICENSE` en R-8 |
 | H-17 | `addComplianceModule` no valida `ICompliance` (ERC-165) | **Cubierto** | RF-003 |
 | H-18 | Reentrancia en callbacks / flag `bypassCompliance` | **Cubierto** | RF-002 |
 | H-19 | Estado singleton cross-token en módulos de compliance | Backlog | M-10 |
 | H-20 | Arrays no acotados O(n) y vistas sin paginación | Backlog | M-11 |
-| H-21 | Sin indexación de eventos ni artefactos de despliegue | Backlog | M-15, R-4 |
+| H-21 | Sin indexación de eventos ni artefactos de despliegue | **Cubierto (parcial)** | Ciclo 9 persiste `sc/deployments/<chainId>-<timestamp>.json`; indexer en R-4 |
 | H-22 | `ComplianceAggregator` fail-open y owner global | **Cubierto** | RF-012 (D-014) |
-| H-23 | Rúbrica de evaluación no operacional | Backlog | M-16 |
-| H-24 | `deploy-besu.sh` parcial (no despliega registries/token) | Backlog | M-14 |
+| H-23 | Rúbrica de evaluación no operacional | **Cubierto** | RF-006 / D-058 (rúbrica con comandos y umbrales en `EJERCICIOS_PRACTICOS.md`) |
+| H-24 | `deploy-besu.sh` parcial (no despliega registries/token) | **Cubierto** | Ciclo 9 · RF-010 (`DeployFullStack.s.sol` + `deploy.sh`) |
 | H-25 | Falta stakeholder regulador/supervisor y reporte | Backlog | R-2 |
-| H-26 | Sin operador de red Besu ni validación de `chainId` | Backlog | M-17 |
+| H-26 | Sin operador de red Besu ni validación de `chainId` | **Cubierto** | Ciclo 9 · D-055 (`deploy.sh` aborta si `CHAIN_ID` no coincide) |
 | H-27 | Sin soporte al inversor / recuperación auditable | **Cubierto (parcial)** | RF-004 (whitelist/topes); actor de soporte al backlog |
 | H-28 | Clave privada en claro en `deploy-besu.sh` | **Cubierto** | RF-010, RNF-004 |
-| H-29 | El deploy no instancia/activa módulos de compliance | Backlog | M-14 |
+| H-29 | El deploy no instancia/activa módulos de compliance | **Cubierto (parcial)** | Ciclo 9 despliega y activa `MaxBalanceCompliance`; generalización en M-14 |
 | H-30 | Sin backup/DR, RPO/RTO ni runbook de recuperación | Backlog | R-5 (ver §8.3) |
-| H-31 | Éxito del deploy decidido por `grep` de logs | Backlog | QW-11 |
-| H-32 | Exactitud documental (`DEPENDENCIAS_CONTRATOS`, `metricas_ejecucion`) | Backlog | QW-6 |
-| H-33 | Estado de fases/rama contradictorio entre docs | Backlog | QW-12 |
+| H-31 | Éxito del deploy decidido por `grep` de logs | **Cubierto** | Ciclo 9 · D-056 (verificación on-chain con `cast code`/`cast call`) |
+| H-32 | Exactitud documental (`DEPENDENCIAS_CONTRATOS`, `metricas_ejecucion`) | **Cubierto (parcial)** | RF-006 corrige el import inexistente de `IdentityCloneable`; `diccionario_datos.md` sigue en QW-6 |
+| H-33 | Estado de fases/rama contradictorio entre docs | **Cubierto** | RF-006 / D-058 (`estado_proyecto.md` y `entornos_globales.md` alineados) |
 | H-34 | Los cambios de `tokenContract` no emiten evento | Backlog | QW-8 |
 
-**Resumen:** 10 hallazgos **cubiertos** (H-01, H-02, H-04, H-05, H-08, H-15, H-17, H-18, H-22, H-28),
-3 **parcialmente cubiertos** (H-03, H-06, H-27) y 21 **en backlog**.
+**Resumen (tras los Ciclos 9 y 10):** 16 hallazgos **cubiertos** (H-01, H-02, H-04, H-05, H-08, H-15, H-16, H-17, H-18, H-22, H-23, H-24, H-26, H-28, H-31, H-33),
+6 **parcialmente cubiertos** (H-03, H-06, H-21, H-27, H-29, H-32) y 12 **en backlog**.
 
 ### 8.2 Agrupación por el plan del informe V1 (§8) — esfuerzo S/M/L
 
