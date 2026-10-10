@@ -264,4 +264,28 @@ contract RF012_AggregatorFailClosedTest is Test {
         assertEq(registered.length, 1);
         assertEq(registered[0], address(token));
     }
+
+    /// @notice CU-16 EARS `test_RF012_retirar_ultimo_modulo_bloquea`: retirar el ultimo modulo activo
+    /// devuelve el aggregator a fail-closed: `canTransfer` false y la transferencia revierte.
+    function test_RF012_retirar_ultimo_modulo_bloquea() public {
+        token.mint(user1, 100 ether);
+
+        _attachAggregator();
+        AlwaysApproveCompliance module = new AlwaysApproveCompliance();
+        _addModuleViaToken(address(module));
+        assertEq(aggregator.getModuleCount(address(token)), 1, "un modulo activo");
+
+        vm.prank(address(token));
+        assertTrue(aggregator.canTransfer(user1, user2, 1 ether), "con el modulo debe permitir");
+
+        token.removeModuleThroughAggregator(address(aggregator), address(module));
+
+        assertEq(aggregator.getModuleCount(address(token)), 0, "sin modulos activos");
+        vm.prank(address(token));
+        assertFalse(aggregator.canTransfer(user1, user2, 1 ether), "fail-closed tras retirar el ultimo modulo");
+
+        vm.prank(user1);
+        vm.expectRevert("Transfer not compliant");
+        token.transfer(user2, 1 ether);
+    }
 }

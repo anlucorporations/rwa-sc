@@ -2,7 +2,8 @@
 #
 # RF-006 (Ciclo 10) — gate de documentación. Concreta los checks de CU-12
 # `ci_check_RF006_refs_rotas_cero`, `ci_check_RF006_security_md_existe`,
-# `ci_check_RF006_changelog_abis_existe` y `ci_check_RF006_hallazgos_cubiertos`.
+# `ci_check_RF006_changelog_abis_existe`, `ci_check_RF006_hallazgos_cubiertos` y
+# `ci_check_RF006_mitigacion_con_test`.
 #
 # Falla (exit != 0) si:
 #   (a) algún documento raíz referencia archivos/contratos que no existen
@@ -14,7 +15,11 @@
 #   (d) aparece una afirmación prohibida sin matizar ("139 tests",
 #       "production-ready", "ERC-3643 compliant");
 #   (e) `SECURITY.md` no cubre los 12 hallazgos HB-01..HB-12;
-#   (f) un documento contiene un marcador sin sustituir (TODO/FIXME/TBD).
+#   (f) un documento contiene un marcador sin sustituir (TODO/FIXME/TBD);
+#   (g) `SECURITY.md` cita un `test_*` que no existe en `sc/test/**` o un
+#       `ci_check_*` que no existe como gate en `sc/script/ci/**` (o en
+#       `.gitlab-ci.yml`). Los prefijos terminados en `_` (p. ej. `test_RF004_*`)
+#       se aceptan si existe al menos un miembro de esa familia.
 #
 # Alcance: los documentos "raíz" de `rwa-sc/` (los que publica el proyecto).
 # `RepoTecnico/` queda fuera porque es el registro de auditoría y de requisitos,
@@ -100,6 +105,47 @@ if [ "${#present_docs[@]}" -gt 0 ]; then
         err "marcadores sin sustituir:"
         printf '%s\n' "${ph_hits}" >&2
     fi
+fi
+
+# --- (g) cada test_*/ci_check_* citado en SECURITY.md existe realmente --------
+if [ -s "SECURITY.md" ]; then
+    mapfile -t sec_refs < <(grep -oE '(test_[A-Za-z0-9_]+|ci_check_[A-Za-z0-9_]+)' SECURITY.md | sort -u)
+    mapfile -t real_tests < <(grep -rhoE 'function[[:space:]]+test[A-Za-z0-9_]*' sc/test --include='*.sol' 2>/dev/null \
+        | sed -E 's/function[[:space:]]+//' | sort -u)
+
+    # Indice/lista en memoria: `printf | grep -q` cerraria la tuberia al primer acierto
+    # (SIGPIPE en `printf`) y con `pipefail` daria un falso "no existe" (fallo flaky).
+    declare -A real_test_set=()
+    for t in "${real_tests[@]}"; do
+        real_test_set["${t}"]=1
+    done
+
+    for ref in "${sec_refs[@]}"; do
+        [ -n "${ref}" ] || continue
+        case "${ref}" in
+            test_*)
+                if [[ "${ref}" == *_ ]]; then
+                    prefix_found=0
+                    for t in "${real_tests[@]}"; do
+                        if [[ "${t}" == "${ref}"* ]]; then
+                            prefix_found=1
+                            break
+                        fi
+                    done
+                    if [ "${prefix_found}" -eq 0 ]; then
+                        err "SECURITY.md cita '${ref}*' y no existe ninguna función de test con ese prefijo"
+                    fi
+                elif [ -z "${real_test_set[${ref}]:-}" ]; then
+                    err "SECURITY.md cita '${ref}' y no existe en sc/test/**"
+                fi
+                ;;
+            ci_check_*)
+                if ! grep -rqE "${ref}" sc/script/ci .gitlab-ci.yml 2>/dev/null; then
+                    err "SECURITY.md cita '${ref}' y no existe como gate en sc/script/ci/**"
+                fi
+                ;;
+        esac
+    done
 fi
 
 if [ "${fail}" -ne 0 ]; then

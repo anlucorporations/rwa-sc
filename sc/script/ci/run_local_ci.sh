@@ -158,12 +158,16 @@ stage_gas() {
     forge snapshot --check --tolerance 5
 }
 
-# --- ci-checks: RF-002 / RF-006 ----------------------------------------------
+# --- ci-checks: RF-002 / RF-006 / RF-010 -------------------------------------
+# Cada gate se comprueba de forma explicita: sin `set -e`, el estado de salida de
+# la funcion seria el del ULTIMO comando y un gate fallido quedaria enmascarado.
 stage_ci_checks() {
     cd "${SC_ROOT}"
-    "${SCRIPT_DIR}/check_no_bypass_flag.sh"
-    "${SCRIPT_DIR}/check_docs.sh"
-    "${SCRIPT_DIR}/abi_diff.sh"
+    "${SCRIPT_DIR}/check_no_bypass_flag.sh" || return 1
+    "${SCRIPT_DIR}/check_docs.sh" || return 1
+    "${SCRIPT_DIR}/abi_diff.sh" || return 1
+    "${SCRIPT_DIR}/check_secrets.sh" || return 1
+    return 0
 }
 
 run_stage "validate" stage_validate

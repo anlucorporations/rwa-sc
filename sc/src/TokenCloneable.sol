@@ -44,8 +44,8 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
     ICompliance[] public complianceModules;
 
     // Token information
-    string private _tokenName;
-    string private _tokenSymbol;
+    // RF-005 (Ciclo 1b): `name()`/`symbol()` los sirve `ERC20Upgradeable` desde su propio storage.
+    // Aqui NO se duplican `_tokenName`/`_tokenSymbol` (storage muerto que nadie leia).
     uint8 private _tokenDecimals;
 
     event IdentityRegistrySet(address indexed registry);
@@ -100,8 +100,6 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
         __AccessControl_init();
         __Pausable_init();
 
-        _tokenName = name_;
-        _tokenSymbol = symbol_;
         _tokenDecimals = decimals_;
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);

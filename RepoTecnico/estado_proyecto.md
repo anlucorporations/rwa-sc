@@ -2,7 +2,7 @@
 
 > **Proyecto:** Mejora y estabilización de la plataforma RWA (Real World Assets, inspirada en ERC-3643)
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
-> **Versión:** v2.2 · Ciclo 11 (RF-009) cerrado — pipeline de CI de GitLab y **cierre de la Fase 3**
+> **Versión:** v2.3 · Fase 4 (Pruebas) cerrada — invariantes, matriz de criterios y cierre de los 7 huecos
 
 ## Fases
 
@@ -11,7 +11,7 @@
 | 1 | Concepción | ✅ COMPLETADO | Artefactos creados, repos y GCP definidos, entrevista de 3 bloques |
 | 2 | Auditoría | ✅ COMPLETADO (por confirmar) | Auditoría sin issues críticos + CU auditados + gráficos + documento técnico auditado |
 | 3 | Desarrollo | ✅ COMPLETADO — Ciclos 1, 1b, 2, 3, 4, 5, 6, 7, 8, 8b, 8c, 9, 10 y **11** ✅ | Plan vertical aprobado, ciclos completados y probados |
-| 4 | Pruebas | 🔄 CASI CERRADA — **353/353 tests en verde** y cobertura `src/` **97,12 % líneas** con el gate de CI ya definido (`check_coverage.sh`); falta ejecutar el pipeline en remoto (`push` + runner) | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
+| 4 | Pruebas | ✅ COMPLETADO — **368/368 tests en verde** (22 suites, 19 funciones `invariant_*`), cobertura `src/` **97,11 % líneas** (mínimo por contrato 91,53 %), matriz de **142 criterios** y **7 huecos cerrados**; pipeline 7/7 en verde | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
 | 5 | Manuales | ⬜ Por cerrar | Manuales generados y confirmación final |
 
 ## Hitos de la Fase 2 (completados)
@@ -151,6 +151,28 @@
 > cerrados. Lo único que resta es **operativo**: `push` de `rwa-sc-DSH-GCP` y un **runner** de GitLab para
 > ejecutar el pipeline en remoto (Fase 4).
 
+## Hitos de la Fase 4 (completados)
+
+- [x] **Invariantes con estado (RF-009):** 4 suites en `sc/test/invariant/` (19 `invariant_*`) con
+  `runs = 64`/`depth = 64`; cero violaciones. Detalle en `pruebas/pruebas_invariantes.md` y
+  `metricas_ejecucion.md` §21. Decisiones **D-066..D-069**.
+- [x] **Matriz de trazabilidad criterio→prueba:** `pruebas/matriz_criterios.md` cruza los **142 criterios**
+  de `casos_uso.md` v1.3 con las suites y gates reales; veredicto 111 CUBIERTO / 22 PARCIAL / 9 FALTA.
+- [x] **Cierre de los 7 huecos de criterios y del cambio de código:** 7 pruebas nuevas
+  (`test_RF001_registries_owner_tras_renuncia`, `test_RF002_transfer_from_sin_allowance_revierte`,
+  `test_RNF005_cambio_topics_afecta_isVerified`, `test_RNF005_set_claim_topics_registry_cero_revierte`,
+  `test_RF012_retirar_ultimo_modulo_bloquea`, `test_RF005_initialization_implementacion_bloqueada`,
+  `test_RF005_no_storage_muerto_tokenName`) y eliminación del storage muerto `_tokenName`/`_tokenSymbol`
+  de `TokenCloneable` (RF-005, se conserva `_tokenDecimals`). `forge test` → **368/368**. Decisiones
+  **D-070 y D-073**.
+- [x] **Gates nuevos de CI:** `sc/script/ci/check_secrets.sh` (RF-010,
+  `ci_check_RF010_secret_scan_sin_hallazgos`) integrado en el job `ci-checks` y en `run_local_ci.sh`;
+  `check_docs.sh` amplía `ci_check_RF006_mitigacion_con_test` (todo `test_*`/`ci_check_*` citado en
+  `SECURITY.md` debe existir). Decisiones **D-071 y D-072**.
+- [x] **Alineación documental (`casos_uso.md` v1.4):** 0 rótulos pendientes en los RF materializados,
+  0 nombres de test obsoletos y los dos criterios derogados (fail-open) reescritos a fail-closed.
+  Cobertura `src/` **97,11 %** (672/692) y mínimo **91,53 %**. Decisión **D-074**.
+
 ## Acuerdos y decisiones
 
 | ID | Decisión |
@@ -191,6 +213,11 @@
 | D-063 | **Gate de cobertura por contrato (D-042)**: `check_coverage.sh` exige el **agregado de líneas de `src/` ≥ umbral** (D-017, sin interfaces) **y el mínimo por contrato de líneas ≥ umbral**; las ramas se reportan pero no bloquean (hay contratos por debajo del 80 % de ramas por diseño). Umbral en una única variable `COVERAGE_THRESHOLD` (+ `COVERAGE_CONTRACT_THRESHOLD`) |
 | D-064 | **Conteo real como artefacto**: el job `test` publica `sc/ci-artifacts/test-count.txt` generado con `forge test --list \| grep -cE '^    test'` más el resumen de la ejecución; **prohibido escribir el número a mano** en el pipeline o en los documentos |
 | D-065 | **`jq` en el runner**: la imagen oficial de Foundry es Ubuntu **no-root** y no incluye `jq` (que `abi_diff.sh` exige); el job `ci-checks` lo instala si el runner permite root o si el ejecutor es **shell**, y si no hay que usar una imagen propia `FROM ghcr.io/foundry-rs/foundry:v1.8.3` con `jq` |
+| D-070 | **RF-005 · storage muerto:** se eliminan `_tokenName`/`_tokenSymbol` de `TokenCloneable` (`name()`/`symbol()` vienen de `ERC20Upgradeable`); se conserva `_tokenDecimals`, que sí usa `decimals()`. Test de storage-layout (`test_RF005_no_storage_muerto_tokenName`) sobre el artefacto compilado |
+| D-071 | **Gate de secretos (RF-010):** `sc/script/ci/check_secrets.sh` falla ante claves de 64 hex en scripts/config, asignaciones de secreto con valor de 64 hex, tokens `glpat-`/`ghp_`/`AKIA`, uso de `keys.json` o `--private-key` en scripts, y exige `.env`/`.env.*` en `.gitignore`; se integra en `ci-checks` y en `run_local_ci.sh` |
+| D-072 | **Mitigación con test (RF-006):** `check_docs.sh` exige que cada `test_*` citado en `SECURITY.md` exista en `sc/test/**` y cada `ci_check_*` exista como gate en `sc/script/ci/**` (o `.gitlab-ci.yml`); los prefijos terminados en `_` se aceptan si existe al menos un miembro de la familia |
+| D-073 | **Cierre de huecos (Fase 4):** se añaden las 7 pruebas que cierran los FALTA de la matriz y se regeneran `.gas-snapshot`; la ABI no cambia (el storage no es ABI) y `sc/abis/` no requiere actualización |
+| D-074 | **Alineación documental:** `casos_uso.md` v1.4 sustituye los rótulos «pendiente» por «IMPLEMENTADO (Ciclo N)», reemplaza los 67 nombres de test obsoletos por los reales de la matriz y reescribe los 2 criterios derogados (fail-open) a fail-closed |
 
 ## Plan de la Fase 3 (orden aprobado)
 
@@ -212,7 +239,9 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 |---|---|---|
 | `requerimientos.md` | v1.1 | RF-001..RF-013, RNF, RT, HB-01..HB-12, entrevista (5 bloques), backlog |
 | `INFORME_OPTIMIZACION_V1.md` | V1 | Auditoría de 34 hallazgos + plan + criterios V2 |
-| `casos_uso/casos_uso.md` | v1.3 | 17 CU y 142 criterios Gherkin/EARS |
+| `casos_uso/casos_uso.md` | v1.4 | 17 CU y 142 criterios Gherkin/EARS, alineados con la matriz (rótulos y nombres reales) |
+| `pruebas/matriz_criterios.md` | v1.0 | Matriz de los 142 criterios → prueba/gate, con FALTA/PARCIAL y plan de cierre |
+| `pruebas/pruebas_invariantes.md` | v1.0 | Invariantes con estado de la Fase 4 |
 | `casos_uso/AUDITORIA_CASOS_USO.md` | — | 17 hallazgos de la auditoría de CU |
 | `casos_uso/diagramas_casos_uso.md` | v1.1 | 7 diagramas Mermaid |
 | `documento_tecnico.md` | v1.1 | Arquitectura, datos, trazas, entornos, riesgos |
@@ -223,13 +252,12 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 
 ## Brechas abiertas (declaradas)
 
-1. **Pipeline sin ejecutar en remoto**: `.gitlab-ci.yml` existe, está validado en local (`run_local_ci.sh` en verde) y los gates `check_docs.sh`, `abi_diff.sh` y `check_no_bypass_flag.sh` ya se invocan desde el pipeline; falta **`push`** de `rwa-sc-DSH-GCP` y un **runner** de GitLab (RF-009).
+1. **Pipeline en remoto**: RESUELTA — los pipelines `2934202154` y `2934241152` (rama `rwa-sc-DSH-GCP`) terminaron en verde con 7/7 jobs; `run_local_ci.sh` (con el gate nuevo `check_secrets.sh`) sigue siendo el ensayo local (RF-009).
 2. **Sin auditoría externa**: bloqueante para producción con activos reales (D-024; `SECURITY.md` §5).
 3. **Gobernanza en una sola EOA** hasta el multisig/timelock (H-06; D-021, backlog R-7).
 4. **PII/KYC off-chain sin política formal** de base legal, cifrado y retención (H-11, backlog R-3).
-5. **DF3-05..DF3-10**: detalles de diseño que se resuelven dentro de los ciclos de la Fase 3.
-6. **Pipeline en remoto**: RESUELTA — los pipelines `2934202154` y `2934241152` (rama `rwa-sc-DSH-GCP`)
-   terminaron en verde con 7/7 jobs; la brecha anterior ("sin CI ejecutada") queda cerrada.
+5. **`check_secrets.sh` es estático**: no ejecuta `deploy.sh` ni escanea el histórico de git; cubre el árbol versionado actual (RF-010). La verificación dinámica del despliegue (aborto sin clave, limpieza del keystore) queda como deuda declarada.
+6. **Pipeline en remoto (histórico)**: los pipelines `2934202154` y `2934241152` (rama `rwa-sc-DSH-GCP`) terminaron en verde con 7/7 jobs; la brecha original ("sin CI ejecutada") quedó cerrada.
 
 ## Pipeline en GitLab (cerrado)
 
@@ -239,14 +267,15 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 - Incidencias reales resueltas durante el primer push: *dubious ownership* en el runner no-root (arreglado con
   `git config --global --add safe.directory '*'`, que cubre también los submódulos anidados) y eliminación de la
   dependencia de `jq` en el gate de ABIs (la imagen oficial solo trae `git`).
-- Quedan **subidos a GitLab** todos los commits de la Fase 3 (rama `rwa-sc-DSH-GCP`; `main` intacta).
+- Quedan **subidos a GitLab** todos los commits de la Fase 3 (rama `rwa-sc-DSH-GCP`; `main` intacta). Los
+  cambios de la **Fase 4** (invariantes, matriz, 7 huecos y gates nuevos) están en **commit local, sin push**,
+  por la regla del proyecto (sin orden explícita del usuario no hay `push`).
 
 ## Próximo paso
 
-**Fase 3 cerrada.** El siguiente paso es **operativo**: cuando el usuario autorice el `push` (`/push`), subir
-`rwa-sc-DSH-GCP` a `https://gitlab.com/anlucorporations/rwa-sc.git` y registrar/activar un **runner** de
-GitLab para que `.gitlab-ci.yml` ejecute las 7 etapas en remoto (Fase 4 — Pruebas). Mientras no haya `push`,
-el ensayo oficial es:
+**Fase 4 cerrada.** El siguiente paso es la **Fase 5 (Manuales)**. En cuanto a la operación: cuando el usuario
+autorice el `push` (`/push`), subir `rwa-sc-DSH-GCP` a `https://gitlab.com/anlucorporations/rwa-sc.git` con los
+commits de la Fase 4 (los de la Fase 3 ya están en remoto). El ensayo oficial del pipeline sigue siendo:
 
 ```bash
 cd /home/dsh/workspace/RWA/rwa-sc

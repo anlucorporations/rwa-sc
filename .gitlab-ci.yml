@@ -11,7 +11,7 @@
 #                contrato >= 80 %), con `sc/script/ci/check_coverage.sh`
 #   gas       -> `forge snapshot --check --tolerance 5` (gate RNF-001 / D-039)
 #   ci-checks -> check_no_bypass_flag.sh (RF-002) + check_docs.sh + abi_diff.sh
-#                (RF-006)
+#                (RF-006) + check_secrets.sh (RF-010)
 #
 # La rama de CI es `rwa-sc-DSH-GCP`. El pipeline AÚN NO ha corrido en remoto:
 # no se ha hecho `push` (regla del proyecto: sin orden explícita del usuario no
@@ -175,7 +175,7 @@ gas:
     - cd sc
     - forge snapshot --check --tolerance 5
 
-# --- 7. ci-checks: gates de RF-002 y RF-006 ---------------------------------
+# --- 7. ci-checks: gates de RF-002, RF-006 y RF-010 -------------------------
 # Los gates son autosuficientes: `abi_diff.sh` ya NO requiere `jq` (usa la salida
 # cruda y determinista de `forge inspect` + `diff`/`comm`/`grep`), porque la imagen
 # oficial de Foundry es `ubuntu:22.04` + `git` y NO trae `jq` ni `python3`.
@@ -187,3 +187,4 @@ ci-checks:
     - bash script/ci/check_no_bypass_flag.sh
     - bash script/ci/check_docs.sh
     - bash script/ci/abi_diff.sh
+    - bash script/ci/check_secrets.sh

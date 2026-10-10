@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {Test, console} from "forge-std/Test.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
+import {IERC20Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
 import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
 import {TokenCloneable} from "../src/TokenCloneable.sol";
 import {IdentityCloneable} from "../src/IdentityCloneable.sol";
@@ -363,6 +364,25 @@ contract TokenReentrancyTest is Test {
 
         assertEq(maliciousModule.transferredCount(), 1);
         assertEq(maliciousModule.createdCount(), 1);
+    }
+
+    /// @notice CU-10 EARS `test_RF002_transfer_from_sin_allowance_revierte`: con allowance 0,
+    /// `transferFrom` revierte en el propio ERC-20 (`ERC20InsufficientAllowance`) antes de tocar la
+    /// compliance, por lo que ningún módulo recibe `transferred` y no se mueve ningún balance.
+    function test_RF002_transfer_from_sin_allowance_revierte() public {
+        token.mint(user1, 100 ether);
+        assertEq(token.allowance(user1, user2), 0);
+        assertEq(maliciousModule.transferredCount(), 0);
+
+        vm.prank(user2);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, user2, uint256(0), 1 ether)
+        );
+        token.transferFrom(user1, user2, 1 ether);
+
+        assertEq(maliciousModule.transferredCount(), 0, "no debe notificarse transferred");
+        assertEq(token.balanceOf(user1), 100 ether);
+        assertEq(token.balanceOf(user2), 0);
     }
 
     // ===================== RF-002: gas =====================

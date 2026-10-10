@@ -149,4 +149,38 @@ contract RF011_FailClosedTest is Test {
         vm.prank(user1);
         token.transfer(user2, 1);
     }
+
+    // ================= CU-14: extensibilidad de la politica de topics =================
+
+    /// @notice CU-14 EARS `test_RNF005_cambio_topics_afecta_isVerified`: anadir un topic requerido a
+    /// un token con holders ya verificados surte efecto de inmediato (sin redeploy): `isVerified`
+    /// pasa a `false` y la transferencia revierte; el cambio de politica no altera balances.
+    function test_RNF005_cambio_topics_afecta_isVerified() public {
+        token.setMaxBurnPerTx(type(uint256).max);
+        token.mint(user1, 100 ether);
+        assertTrue(token.isVerified(user1), "precondicion: holder verificado");
+
+        claimTopicsRegistry.addClaimTopic(7);
+
+        assertFalse(token.isVerified(user1), "el nuevo topic exigido invalida la verificacion");
+        assertFalse(token.isVerified(user2), "el nuevo topic exigido invalida la verificacion");
+
+        vm.prank(user1);
+        vm.expectRevert("Transfer not compliant");
+        token.transfer(user2, 1 ether);
+
+        assertEq(token.balanceOf(user1), 100 ether, "el cambio de politica no altera balances");
+        assertEq(token.balanceOf(user2), 0);
+    }
+
+    /// @notice CU-14 EARS `test_RNF005_set_claim_topics_registry_cero_revierte`: fijar a cero el
+    /// registry de topics revierte con el literal del contrato y no altera el registry vigente.
+    function test_RNF005_set_claim_topics_registry_cero_revierte() public {
+        vm.expectRevert(bytes("Invalid registry address"));
+        token.setClaimTopicsRegistry(address(0));
+
+        assertEq(
+            address(token.claimTopicsRegistry()), address(claimTopicsRegistry), "el registry previo debe conservarse"
+        );
+    }
 }

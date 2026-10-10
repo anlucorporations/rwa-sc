@@ -423,19 +423,44 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   entre ejecuciones y el tiempo de `forge test` oscila entre 15,5 s y 80,7 s. No afecta al gate de gas
   (RNF-001/D-039) porque las entradas de invariantes del `.gas-snapshot` registran `(runs, calls, reverts)`,
   no gas; se acepta como limitación conocida de reproducibilidad del *conjunto de entradas*.
+- **D-070 (Fase 4 · storage muerto de `TokenCloneable`):** se eliminan `_tokenName` y `_tokenSymbol` del
+  contrato clonable (RF-005): `name()`/`symbol()` los sirve `ERC20Upgradeable` desde su propio storage, así que
+  mantenerlos era storage muerto escrito en `initialize` y nunca leído. Se conserva `_tokenDecimals`, que sí
+  usa `decimals()`. La prueba `test_RF005_no_storage_muerto_tokenName` inspecciona el `storageLayout` del
+  artefacto compilado (control positivo: `identityRegistry`/`_tokenDecimals`; negativo: los dos slots muertos).
+  No cambia la ABI.
+- **D-071 (Fase 4 · gate de secretos de RF-010):** se crea `sc/script/ci/check_secrets.sh` y se integra en el
+  job `ci-checks` y en `run_local_ci.sh`. Falla ante claves privadas de 64 hex en scripts/configuración, ante
+  asignaciones de secreto (`private_key`/`mnemonic`/`secret`) con valor de 64 hex, ante tokens de proveedor
+  (`glpat-`, `ghp_`, `AKIA…`), ante el uso de `keys.json` o `--private-key` en scripts, y exige que `.env` y
+  `.env.*` estén en `.gitignore`. Cierra el único criterio de CU-13 (`ci_check_RF010_secret_scan_sin_hallazgos`)
+  que no tenía ningún soporte.
+- **D-072 (Fase 4 · mitigación con test de RF-006):** `sc/script/ci/check_docs.sh` se amplía para exigir que
+  cada `test_*` citado en `SECURITY.md` exista realmente en `sc/test/**` y cada `ci_check_*` exista como gate en
+  `sc/script/ci/**` (o en `.gitlab-ci.yml`). Los prefijos terminados en `_` (p. ej. `test_RF004_*`) se aceptan
+  si existe al menos un miembro de la familia. Cierra `ci_check_RF006_mitigacion_con_test`.
+- **D-073 (Fase 4 · cierre de los huecos de la matriz):** se añaden las 7 pruebas que cierran los criterios
+  FALTA/PARCIAL priorizados de `RepoTecnico/pruebas/matriz_criterios.md` §3 y se regenera `.gas-snapshot`. La
+  línea base de ABIs no se toca porque el cambio de storage no altera la ABI.
+- **D-074 (Fase 4 · alineación de `casos_uso.md` a v1.4):** se sustituyen todos los rótulos «pendiente
+  (RF-00x)» por «IMPLEMENTADO (Ciclo N)» en los requisitos ya materializados, se reemplazan los 67 nombres de
+  test obsoletos (más los 2 citados en prosa) por los reales de la matriz §4.1 y se reescriben los dos criterios
+  derogados que describían el comportamiento fail-open (`isVerified` sin topics y `canTransfer` sin módulos) a
+  su forma fail-closed vigente (RF-011/RF-012). El encabezado remite a la matriz de criterios.
 
 ## 7. Mapa RF → casos de uso (Fase 2)
 
-Ver `casos_uso/casos_uso.md` (**v1.3, 17 casos de uso**, 92 criterios Gherkin + 50 EARS = 142), auditado y corregido
-(ver `casos_uso/AUDITORIA_CASOS_USO.md`) y con diagramas en `casos_uso/diagramas_casos_uso.md` (v1.1).
+Ver `casos_uso/casos_uso.md` (**v1.4, 17 casos de uso**, 92 criterios Gherkin + 50 EARS = 142), auditado,
+corregido y alineado con `pruebas/matriz_criterios.md` (ver `casos_uso/AUDITORIA_CASOS_USO.md`) y con diagramas
+en `casos_uso/diagramas_casos_uso.md` (v1.1).
 - Cubiertos: RF-001..RF-006, RF-009, RF-010 y RNF-001..RNF-005.
 - **Ampliación auditoría V1 (D-014):** RF-011 (fail-closed de `isVerified`) → **CU-15**; RF-012
   (`ComplianceAggregator` fail-closed y administración por token) → **CU-16**; RF-013 (vigencia y revocación de
-  claims) → **CU-17**. Los tres marcados como "A IMPLEMENTAR" en los casos de uso.
+  claims) → **CU-17**. Los tres están implementados y con etiqueta `IMPLEMENTADO (Ciclo N)` en los casos de uso.
 - Sin cobertura por alcance (D-003): RF-007, RF-008, RNF-006.
-- Datos reales de la suite (Ciclo 11, estado actual): **353 tests, 353 pasan, 0 fallan**, 18 suites;
-  cobertura `src/` 97,12 % de líneas (mínimo por contrato 91,53 % de líneas; D-017/D-042), con el gate
-  `check_coverage.sh` en el pipeline. Ver `metricas_ejecucion.md` §16.3 y §19.
+- Datos reales de la suite (Fase 4, estado actual): **368 tests, 368 pasan, 0 fallan**, 22 suites (19 funciones
+  `invariant_*`); cobertura `src/` 97,11 % de líneas (mínimo por contrato 91,53 % de líneas; D-017/D-042), con
+  el gate `check_coverage.sh` en el pipeline. Ver `metricas_ejecucion.md` §21 y §22.
   (Histórico de la auditoría V1, 2026-10-03: 151 declarados, 93 pasan, 5 fallan, 53 no arrancan, coverage 42,86 %.)
 
 ## 8. Backlog priorizado (auditoría V1 — no en este ciclo)

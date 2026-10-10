@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test, console} from "forge-std/Test.sol";
+import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import {TokenCloneFactory} from "../src/TokenCloneFactory.sol";
 import {TokenCloneable} from "../src/TokenCloneable.sol";
 import {TokenBenchmark} from "./benchmarks/TokenBenchmark.sol";
@@ -212,6 +213,56 @@ contract TokenCloneFactoryTest is Test {
     function test_GetGasSavingsInfo() public view {
         string memory info = factory.getGasSavingsInfo();
         assertTrue(bytes(info).length > 0);
+    }
+
+    // ===================== RF-005: implementacion y storage layout =====================
+
+    /// @notice CU-08 EARS `test_RF005_initialization_implementacion_bloqueada`: la implementacion que
+    /// expone la factory NO se puede inicializar. Su constructor ejecuta `_disableInitializers()`, de
+    /// modo que un atacante que tome el `implementation()` no puede apropiarse de sus roles.
+    function test_RF005_initialization_implementacion_bloqueada() public {
+        TokenCloneable implementation = TokenCloneable(factory.implementation());
+
+        vm.expectRevert(Initializable.InvalidInitialization.selector);
+        implementation.initialize("Token", "TK", 18, admin1);
+
+        // La implementacion no tiene owner de roles: sigue sin admin tras el intento.
+        assertFalse(implementation.hasRole(implementation.DEFAULT_ADMIN_ROLE(), admin1));
+    }
+
+    /// @notice CU-08 EARS `test_RF005_no_storage_muerto_tokenName`: `TokenCloneable` ya no declara
+    /// `_tokenName`/`_tokenSymbol`. `name()`/`symbol()` los sirve `ERC20Upgradeable`; conservarlos era
+    /// storage muerto (se escribian en `initialize` y nadie los leia). Se inspecciona el artefacto
+    /// compilado, igual que `test_RF002_storage_layout_sin_bypassCompliance`.
+    function test_RF005_no_storage_muerto_tokenName() public {
+        string memory artifact =
+            vm.readFile(string.concat(vm.projectRoot(), "/out/TokenCloneable.sol/TokenCloneable.json"));
+
+        // Control positivo: el artefacto SI contiene el layout (y el decimal real que se usa).
+        assertTrue(_contains(artifact, "identityRegistry"), "storageLayout ausente en el artefacto");
+        assertTrue(_contains(artifact, "_tokenDecimals"), "_tokenDecimals debe seguir en el layout");
+
+        // Control negativo: los dos slots muertos ya no existen.
+        assertFalse(_contains(artifact, "_tokenName"), "_tokenName reaparecio en el storage layout");
+        assertFalse(_contains(artifact, "_tokenSymbol"), "_tokenSymbol reaparecio en el storage layout");
+    }
+
+    function _contains(string memory haystack, string memory needle) internal pure returns (bool) {
+        bytes memory h = bytes(haystack);
+        bytes memory n = bytes(needle);
+        if (n.length == 0) return true;
+        if (n.length > h.length) return false;
+        for (uint256 i = 0; i <= h.length - n.length; i++) {
+            bool matched = true;
+            for (uint256 j = 0; j < n.length; j++) {
+                if (h[i + j] != n[j]) {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) return true;
+        }
+        return false;
     }
 }
 

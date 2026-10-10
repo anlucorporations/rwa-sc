@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {TrustedIssuersRegistry} from "../src/TrustedIssuersRegistry.sol";
+import {IdentityRegistry} from "../src/IdentityRegistry.sol";
+import {ClaimTopicsRegistry} from "../src/ClaimTopicsRegistry.sol";
 
 /// @dev Suite dedicada de `TrustedIssuersRegistry` (Ciclo 1b).
 /// Cubre todas las funciones externas, control de acceso, caminos de revierte,
@@ -362,6 +364,67 @@ contract TrustedIssuersRegistryTest is Test {
         _assertTopicsEq(registry.getIssuerClaimTopics(issuer1), expected);
         assertEq(registry.isTrustedIssuer(issuer1), true);
         assertEq(registry.getTrustedIssuersCount(), 1);
+    }
+
+    // ---------------------------------------------------------------------
+    // CU-01 EARS: renuncia de propiedad (M-05)
+    // ---------------------------------------------------------------------
+
+    /// @notice CU-01 `test_RF001_registries_owner_tras_renuncia`: tras `renounceOwnership()`, los tres
+    /// registries de identidad quedan sin owner y TODA mutacion revierte con `OwnableUnauthorizedAccount`
+    /// (tanto desde el antes-owner como desde una cuenta ajena), sin alterar el estado.
+    function test_RF001_registries_owner_tras_renuncia() public {
+        TrustedIssuersRegistry trusted = new TrustedIssuersRegistry(address(this));
+        IdentityRegistry identities = new IdentityRegistry(address(this));
+        ClaimTopicsRegistry topics = new ClaimTopicsRegistry(address(this));
+
+        uint256[] memory initialTopics = _oneTopic(1);
+        trusted.addTrustedIssuer(issuer1, initialTopics);
+        topics.addClaimTopic(1);
+
+        trusted.renounceOwnership();
+        identities.renounceOwnership();
+        topics.renounceOwnership();
+
+        assertEq(trusted.owner(), address(0));
+        assertEq(identities.owner(), address(0));
+        assertEq(topics.owner(), address(0));
+
+        // El antes-owner (este contrato) ya no puede mutar nada.
+        _expectUnauthorized(address(this));
+        trusted.addTrustedIssuer(issuer2, initialTopics);
+        _expectUnauthorized(address(this));
+        trusted.updateIssuerClaimTopics(issuer1, _twoTopics(7, 9));
+        _expectUnauthorized(address(this));
+        trusted.removeTrustedIssuer(issuer1);
+
+        _expectUnauthorized(address(this));
+        identities.registerIdentity(issuer1, address(0xBEEF));
+        _expectUnauthorized(address(this));
+        identities.removeIdentity(issuer1);
+
+        _expectUnauthorized(address(this));
+        topics.addClaimTopic(7);
+        _expectUnauthorized(address(this));
+        topics.removeClaimTopic(1);
+
+        // Y una cuenta ajena tampoco.
+        address stranger = makeAddr("stranger");
+        vm.prank(stranger);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, stranger));
+        trusted.addTrustedIssuer(issuer2, initialTopics);
+
+        // El estado sembrado sigue intacto.
+        assertTrue(trusted.isTrustedIssuer(issuer1));
+        assertEq(trusted.getTrustedIssuersCount(), 1);
+        assertTrue(trusted.hasClaimTopic(issuer1, 1));
+        assertTrue(topics.claimTopicExists(1));
+        assertEq(topics.getClaimTopicsCount(), 1);
+        assertFalse(identities.isRegistered(issuer1));
+    }
+
+    function _expectUnauthorized(address caller) internal {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, caller));
     }
 
     // ---------------------------------------------------------------------

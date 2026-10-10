@@ -1270,3 +1270,75 @@ entradas de invariantes del `.gas-snapshot` registran `(runs, calls, reverts)`, 
 `burn`/`forcedTransfer`, congelación/pausa, guard `nonReentrant`, `isVerified` ⟺ claim vigente de issuer
 autorizado, sincronía de los tres registries, ciclo de vida del claim (`claimNonce`, revocación, vigencia)
 y fail-closed/aislamiento del `ComplianceAggregator`. **No se modificó `src/`**, ni ABI, ni `SECURITY.md`.
+
+---
+
+## 22. Fase 4 — Matriz de criterios y cierre de huecos (RF-009/RF-005/RF-002/RF-012/RF-010/RF-006)
+
+Cierre de los huecos detectados por `RepoTecnico/pruebas/matriz_criterios.md` (§3): 7 pruebas nuevas,
+1 cambio de código (storage muerto) y 2 gates de CI nuevos.
+
+### 22.1 Conteo y cobertura — antes / después
+
+| Métrica | Antes (§21) | Después |
+|---|---:|---:|
+| Tests (`forge test`, resumen) | 361 | **368** |
+| Suites | 22 | 22 |
+| `tests_listed` (`test --list`, `^    test`) | 357 | **364** |
+| Funciones `invariant_*` | 19 | 19 |
+| Cobertura `src/` (líneas) | 97,12 % (674/694) | **97,11 % (672/692)** |
+| Mínimo por contrato | 91,53 % | **91,53 %** |
+
+`forge test` → `Ran 22 test suites ... 368 tests passed, 0 failed, 0 skipped`.
+`forge snapshot --check --tolerance 5` → OK (`.gas-snapshot` regenerado).
+
+### 22.2 Cambio de código (RF-005)
+
+`TokenCloneable` elimina `_tokenName`/`_tokenSymbol` (storage muerto: `name()`/`symbol()` los sirve
+`ERC20Upgradeable`). Se conserva `_tokenDecimals`, que sí usa `decimals()`. Sin cambio de ABI
+(`abi_diff.sh` → 15 ABIs sin deriva; el layout de storage no es ABI) y cobertura `src/` **97,11 %**.
+
+### 22.3 Pruebas nuevas (7)
+
+| Prueba | CU / criterio | Cierra |
+|---|---|---|
+| `test_RF001_registries_owner_tras_renuncia` | CU-01 EARS | renuncia de owner en los 3 registries |
+| `test_RF002_transfer_from_sin_allowance_revierte` | CU-10 EARS | allowance 0 → `ERC20InsufficientAllowance`, sin notificar módulos |
+| `test_RNF005_cambio_topics_afecta_isVerified` | CU-14 Gherkin | añadir topic invalida `isVerified` sin redeploy |
+| `test_RNF005_set_claim_topics_registry_cero_revierte` | CU-14 EARS | `setClaimTopicsRegistry(0)` → `"Invalid registry address"` |
+| `test_RF012_retirar_ultimo_modulo_bloquea` | CU-16 EARS | fail-closed tras retirar el último módulo |
+| `test_RF005_initialization_implementacion_bloqueada` | CU-08 Gherkin | `initialize` sobre la implementación → `InvalidInitialization` |
+| `test_RF005_no_storage_muerto_tokenName` | CU-08 EARS | el artefacto no contiene `_tokenName`/`_tokenSymbol` |
+
+### 22.4 Gates nuevos
+
+- `sc/script/ci/check_secrets.sh` (RF-010): falla ante claves de 64 hex en scripts/config, asignaciones de
+  secreto con 64 hex, tokens `glpat-`/`ghp_`/`AKIA`, `keys.json` o `--private-key` en scripts; exige
+  `.env`/`.env.*` en `.gitignore`. Caso negativo demostrado en copia temporal (exit 1) y positivo en el repo
+  (exit 0; 98 archivos versionados escaneados).
+- `check_docs.sh` ampliado (RF-006, `ci_check_RF006_mitigacion_con_test`): cada `test_*` citado en
+  `SECURITY.md` debe existir en `sc/test/**` y cada `ci_check_*` como gate en `sc/script/ci/**`. Caso negativo
+  demostrado en copia temporal (exit 1) y positivo en el repo (exit 0).
+
+### 22.5 Alineación documental
+
+`casos_uso.md` v1.4: 109 referencias a `A IMPLEMENTAR` → **0**; 69 nombres de test obsoletos → **0**; 2 criterios
+derogados (fail-open) reescritos a fail-closed; remisión a la matriz en el encabezado.
+
+### 22.6 Verificaciones del cierre
+
+`forge build` 0 errores; `forge test` **368/368**; `forge fmt --check` limpio;
+`forge snapshot --check --tolerance 5` OK; `check_no_bypass_flag.sh` + `check_docs.sh` + `abi_diff.sh` +
+`check_secrets.sh` + `check_coverage.sh` en verde; `run_local_ci.sh` → exit 0.
+
+### 22.7 Hallazgos del cierre (bugs corregidos, sin impacto en contratos)
+
+- **F4-01 — `run_local_ci.sh` enmascaraba fallos de gate.** `stage_ci_checks` invocaba los cuatro gates sin
+  comprobar su estado; al no haber `set -e`, la función devolvía el estado del **último** comando
+  (`check_secrets.sh`), de modo que un `check_docs.sh` o `abi_diff.sh` en rojo se reportaba como `ci-checks OK`
+  y el pipeline local terminaba en exit 0. Corregido con `|| return 1` por gate. Es un bug de la simulación
+  local, **no** del pipeline de GitLab (allí cada `bash script/...` es una línea del job y su fallo tumba el job).
+- **F4-02 — falso negativo intermitente en `check_docs.sh` (nuevo check de RF-006).** La comprobación
+  `printf '%s\n' "${real_tests[@]}" | grep -q` cerraba la tubería al primer acierto (SIGPIPE en `printf`) y con
+  `set -o pipefail` devolvía "no existe" de forma no determinista (reproducido 1 de cada 50 ejecuciones).
+  Sustituido por un índice asociativo en memoria; 100/100 ejecuciones estables.
