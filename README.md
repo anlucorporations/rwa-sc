@@ -1,93 +1,401 @@
-# rwa-sc
+# Smart Contracts - RWA Token Platform
 
+## 🎓 Para Estudiantes
 
+**¿Primera vez aquí? Empieza con:**
 
-## Getting started
+📖 **[START_HERE.md](START_HERE.md)** ← Lee esto primero
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Luego continúa con:
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+1. **[GUIA_ESTUDIANTE.md](GUIA_ESTUDIANTE.md)** - Conceptos, arquitectura, teoría
+2. **[EJERCICIOS_PRACTICOS.md](EJERCICIOS_PRACTICOS.md)** - Ejercicios paso a paso
+3. **[REFERENCIA_TECNICA.md](REFERENCIA_TECNICA.md)** - Templates, snippets, checklists
 
-## Add your files
+---
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## 📊 Overview del Proyecto
+
+Este proyecto implementa un **sistema completo de tokenización RWA** con:
+
+- ✅ **ERC-3643** (T-REX) standard para security tokens
+- ✅ **Clone Factory** (EIP-1167) — ~55 % de ahorro de gas medido con comparación equivalente (ver `.gas-snapshot`)
+- ✅ **Compliance Aggregator** - Gestión modular de compliance
+- ✅ **151 tests** (151 pasando, 0 fallos, 0 skipped) — `forge test`
+- ✅ **Gas medido** con baseline versionado (`sc/.gas-snapshot`); **no production-ready** sin auditoría
+
+---
+
+## 🏗️ Arquitectura
+
+### Componentes Principales
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/anlucorporations/rwa-sc.git
-git branch -M main
-git push -uf origin main
+┌─────────────────────────────────────────────────────────┐
+│                  RWA TOKEN PLATFORM                     │
+└─────────────────────────────────────────────────────────┘
+                         │
+      ┌──────────────────┼──────────────────┐
+      │                  │                  │
+      ▼                  ▼                  ▼
+┌──────────┐      ┌──────────┐       ┌──────────┐
+│  Tokens  │      │ Identity │       │Compliance│
+└──────────┘      └──────────┘       └──────────┘
 ```
 
-## Integrate with your tools
+### 1. Token System
 
-* [Set up project integrations](https://gitlab.com/anlucorporations/rwa-sc/-/settings/integrations)
+**Contracts:**
+- `Token.sol` - Token ERC-3643 original
+- `TokenCloneable.sol` - Versión cloneable (~55 % menos gas medido)
+- `TokenCloneFactory.sol` - Factory para crear tokens
 
-## Collaborate with your team
+**Key Features:**
+- Identity verification obligatoria
+- Compliance checks en cada transfer
+- Role-based access control
+- Pausability
+- Freeze accounts
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+### 2. Identity System
 
-## Test and Deploy
+**Contracts:**
+- `Identity.sol` - Identity básica (para testing)
+- `IdentityCloneable.sol` - Versión cloneable
+- `IdentityCloneFactory.sol` - Factory para identities
+- `IdentityRegistry.sol` - Registro de identities
+- `TrustedIssuersRegistry.sol` - Emisores autorizados
+- `ClaimTopicsRegistry.sol` - Claims requeridos
 
-Use the built-in continuous integration in GitLab.
+**Key Features:**
+- Claims on-chain
+- Trusted issuers
+- Configurable claim requirements
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+### 3. Compliance System
 
-***
+**Contracts:**
+- `ComplianceAggregator.sol` - Aggregador modular
+- `MaxBalanceCompliance.sol` - Límite de saldo
+- `MaxHoldersCompliance.sol` - Límite de holders
+- `TransferLockCompliance.sol` - Período de bloqueo
 
-# Editing this README
+**Key Features:**
+- Modular architecture
+- Extensible (add any ICompliance module)
+- Dual management (owner + token admin)
+- No holdersList in aggregator
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+---
 
-## Suggestions for a good README
+## 📁 Estructura de Archivos
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+### Contratos (`src/`)
 
-## Name
-Choose a self-explaining name for your project.
+```
+Tokens:
+  - Token.sol                    (Token ERC-3643 original)
+  - TokenCloneable.sol           (Versión cloneable)
+  - TokenCloneFactory.sol        (Factory de tokens)
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+Identity:
+  - Identity.sol                 (Identity básica)
+  - IdentityCloneable.sol        (Versión cloneable)
+  - IdentityCloneFactory.sol     (Factory de identities)
+  - IdentityRegistry.sol         (Registro)
+  - TrustedIssuersRegistry.sol   (Emisores)
+  - ClaimTopicsRegistry.sol      (Topics requeridos)
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+Compliance:
+  - compliance/
+    ├─ ComplianceAggregator.sol       (Aggregador modular)
+    ├─ MaxBalanceCompliance.sol       (Límite de balance)
+    ├─ MaxHoldersCompliance.sol       (Límite de holders)
+    └─ TransferLockCompliance.sol     (Lock period)
+  - ICompliance.sol              (Interface)
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+### Scripts (`script/`)
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+```
+- DeployTokenCloneFactory.s.sol        (Deploy token factory)
+- DeployIdentityCloneFactory.s.sol     (Deploy identity factory)
+- DeployComplianceAggregator.s.sol     (Deploy aggregator)
+- CreateTokenWithCloneFactory.s.sol    (Crear token)
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### Tests (`test/`)
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```
+- Token.t.sol                          (30 tests)
+- TokenCloneFactory.t.sol              (13 tests)
+- IdentityCloneFactory.t.sol           (12 tests)
+- ComplianceAggregator.t.sol           (25 tests)
+- ClaimTopicsRegistryCloneFactory.t.sol (12 tests)
+- MaxBalanceCompliance.t.sol           (15 tests)
+- MaxHoldersCompliance.t.sol           (22 tests)
+- TransferLockCompliance.t.sol         (22 tests)
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Total: 151 tests (151 pasando, 0 fallos, 0 skipped)
+```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+---
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+## 🚀 Quick Start
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+### Prerequisitos
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```bash
+# Instalar Foundry
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
 
-## License
-For open source projects, say how it is licensed.
+# Verificar instalación
+forge --version
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+### Clonar el repositorio (submódulos reproducibles)
+
+Las dependencias (`forge-std` v1.12.0, `openzeppelin-contracts` v5.5.0 y
+`openzeppelin-contracts-upgradeable` v5.5.0) están declaradas como submódulos en
+**`rwa-sc/.gitmodules`** (único `.gitmodules` del repo) y pinneadas por revisión en
+**`sc/foundry.lock`**. Bootstrap sin pasos manuales:
+
+```bash
+# Clona el repo y sus 3 submódulos en un solo paso
+git clone --recurse-submodules <url-del-repo> rwa-sc
+
+# Si ya lo clonaste sin submódulos:
+git submodule update --init --recursive
+
+# Verifica que los 3 submódulos estén en la revisión pinneada
+# (no debe aparecer ningún prefijo '-' ni '+')
+git submodule status
+```
+
+### Compilar y Testear
+
+```bash
+export PATH="$HOME/.foundry/bin:$PATH"   # Forge/Anvil v1.8.3
+cd sc
+
+# Compilar
+forge build
+
+# Ejecutar todos los tests
+forge test
+
+# Tests con detalles
+forge test -vv
+
+# Gas report
+forge test --gas-report
+```
+
+### Deploy Local
+
+```bash
+# Terminal 1: Iniciar Anvil
+anvil
+
+# Terminal 2: Deploy
+cd sc
+
+# Deploy token factory
+forge script script/DeployTokenCloneFactory.s.sol --rpc-url localhost --broadcast
+
+# Deploy identity factory
+forge script script/DeployIdentityCloneFactory.s.sol --rpc-url localhost --broadcast
+
+# Deploy compliance aggregator
+forge script script/DeployComplianceAggregator.s.sol --rpc-url localhost --broadcast
+
+# Crear un token
+forge script script/CreateTokenWithCloneFactory.s.sol --rpc-url localhost --broadcast
+```
+
+---
+
+## 📚 Documentación
+
+### Para Estudiantes (Educativo)
+
+| Documento | Descripción | Tiempo |
+|-----------|-------------|--------|
+| **START_HERE.md** | Punto de inicio, mapa de documentación | 10 min |
+| **GUIA_ESTUDIANTE.md** | Conceptos, arquitectura, explicaciones | 2-3 horas |
+| **EJERCICIOS_PRACTICOS.md** | Ejercicios con código | Varias semanas |
+| **REFERENCIA_TECNICA.md** | Templates, snippets, comandos | Referencia |
+
+### Para Desarrolladores (Técnico)
+
+| Documento | Descripción |
+|-----------|-------------|
+| **TOKEN_CLONE_FACTORY.md** | Clone Factory pattern explicado |
+| **COMPLIANCE_AGGREGATOR_FINAL.md** | Aggregator arquitectura y uso |
+| **COMPLIANCE_AGGREGATOR_V2.md** | Arquitectura modular detallada |
+
+### Para Project Managers (Ejecutivo)
+
+| Documento | Descripción |
+|-----------|-------------|
+| **../RESUMEN_EJECUTIVO_FINAL.md** | Resumen de toda la implementación |
+| **../SESSION_FINAL_SUMMARY.md** | Resumen de la sesión |
+| **../CLEANUP_REPORT.md** | Archivos eliminados/mantenidos |
+
+---
+
+## 🧪 Testing
+
+### Ejecutar Tests
+
+```bash
+# Todos los tests
+forge test
+
+# Suite específica
+forge test --match-contract TokenTest -vv
+
+# Test específico
+forge test --match-test test_Transfer_Success -vvvv
+
+# Con gas report
+forge test --gas-report
+
+# Coverage
+forge coverage
+```
+
+### Test Suites
+
+| Suite | Tests | Descripción |
+|-------|-------|-------------|
+| TokenTest | 30 | Token principal |
+| TokenCloneFactoryTest | 13 | Token factory |
+| ComplianceAggregatorTest | 25 | Compliance aggregator |
+| IdentityCloneFactoryTest | 12 | Identity factory |
+| ClaimTopicsRegistryCloneFactoryTest | 12 | Claim topics factory |
+| MaxBalanceComplianceTest | 15 | Max balance module |
+| MaxHoldersComplianceTest | 22 | Max holders module |
+| TransferLockComplianceTest | 22 | Transfer lock module |
+
+**Total: 151 tests (151 pasando, 0 fallos, 0 skipped)** — verificado con `forge test`.
+
+---
+
+## 💰 Gas Optimization
+
+### Ahorro medido (comparación equivalente)
+
+Los tests de gas comparan **clon EIP-1167 + `initialize`** contra un **despliegue
+completo no-upgradeable equivalente** (`test/benchmarks/`: `TokenBenchmark`,
+`IdentityBenchmark`, `IdentityWithClaimBenchmark` y `ClaimTopicsRegistry`). Son
+líneas base de gas, no dobles funcionales. Cifras medidas con `forge test` sobre
+`solc 0.8.20` + optimizer 200 runs + `evm_version = "paris"`:
+
+| Contrato | Clon (factory) | Despliegue completo | Ahorro |
+|---|---|---|---|
+| `TokenCloneable` (`createToken`) | 381.570 | 859.098 | 477.528 (**55 %**) |
+| `IdentityCloneable` (`createIdentity`) | 212.307 | 530.753 | 318.446 (**59 %**) |
+| `IdentityCloneable` (`createIdentityWithClaim`) | 440.694 | 812.509 | 371.815 (**45 %**) |
+| `ClaimTopicsRegistryCloneable` (`createRegistry`) | 210.149 | 451.038 | 240.889 (**53 %**) |
+
+> Las cifras antiguas de este README (90,2 %, 67 %, "3,7M → 365k") nunca estuvieron
+> respaldadas por un test y quedan sustituidas por estas. El baseline de gas por test
+> está versionado en **`sc/.gas-snapshot`** (RNF-001).
+
+#### Metodología (importante)
+
+`forge` reescribe las expresiones `new Contrato()` de contratos de `src/` como el
+cheatcode `vm.deployCode`, que **no consume gas medible** con `gasleft()`. Por eso
+los benchmarks se despliegan con el opcode `CREATE` en assembly
+(`test/benchmarks/BenchmarkDeployer.sol`), directamente comparable con el `create`
+que usa EIP-1167 en `Clones.clone()`.
+
+---
+
+## 🔑 Conceptos Clave
+
+### 1. ERC-3643 Compliance Flow
+
+```solidity
+// Verificación en cada transfer
+function _update(address from, address to, uint256 amount) {
+    // 1. Verificar identidad
+    require(isVerified(from) && isVerified(to));
+    
+    // 2. Verificar compliance
+    require(canTransfer(from, to, amount));
+    
+    // 3. Ejecutar transfer
+    super._update(from, to, amount);
+    
+    // 4. Notificar módulos
+    for (cada módulo) {
+        módulo.transferred(from, to, amount);
+    }
+}
+```
+
+### 2. Clone Factory Pattern
+
+```solidity
+// Factory crea clones ligeros
+address clone = implementation.clone();  // ~382K gas (clone + initialize, medido)
+TokenCloneable(clone).initialize(...);   // Inicializa clone
+
+// vs deployment tradicional
+TokenCloneable token = new TokenCloneable();  // ~859K gas con init equivalente (medido)
+```
+
+### 3. Modular Compliance
+
+```solidity
+// Token puede gestionar sus módulos
+token.addModuleThroughAggregator(aggregator, module);
+
+// Aggregator delega a todos los módulos
+for (cada módulo) {
+    if (!módulo.canTransfer(...)) return false;
+}
+```
+
+---
+
+## 📞 Soporte
+
+### ¿Tienes Preguntas?
+
+1. **Revisa la documentación:** Probablemente ya está explicado
+2. **Lee los tests:** Muestran cómo usar cada feature
+3. **Revisa REFERENCIA_TECNICA.md:** Tiene debugging tips
+4. **Busca en el código:** Está bien comentado
+
+### ¿Encontraste un Bug?
+
+1. Verifica que estés en la rama correcta
+2. Ejecuta `forge clean && forge build`
+3. Revisa que todos los tests pasen: `forge test`
+
+---
+
+## 🎉 ¡Empieza Ahora!
+
+```bash
+# Paso 1: Abre la guía principal
+open START_HERE.md
+# O en tu editor:
+code START_HERE.md
+
+# Paso 2: Sigue las instrucciones
+# La guía te llevará paso a paso
+
+# Paso 3: ¡Aprende haciendo!
+# Implementa, prueba, rompe, arregla, repite
+```
+
+---
+
+**¡Feliz aprendizaje! 🚀📚**
+
+*Este proyecto representa 151 tests (151 pasando, 0 fallos) con baseline de gas versionado, miles de líneas de código, y múltiples patrones avanzados de Solidity. Tómate tu tiempo para entenderlo bien.*

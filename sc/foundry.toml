@@ -1,0 +1,16 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+# Toolchain fijado (RF-005 / B-5): compilador, optimizador y EVM deterministas.
+# evm_version = "paris" evita PUSH0/MCOPY y maximiza compatibilidad de red (BESU/sidechains).
+solc_version = "0.8.20"
+optimizer = true
+optimizer_runs = 200
+evm_version = "paris"
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/"
+]
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
