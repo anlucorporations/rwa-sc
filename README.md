@@ -316,6 +316,39 @@ forge coverage
 
 ---
 
+## 🔄 Integración Continua (RF-009)
+
+El pipeline de GitLab vive en [`.gitlab-ci.yml`](.gitlab-ci.yml) y se ejecuta en la rama
+**`rwa-sc-DSH-GCP`** y en cada *merge request*. Imagen fijada:
+`ghcr.io/foundry-rs/foundry:v1.8.3` (la misma versión que el toolchain local).
+
+| Etapa | Comando | Gate |
+|---|---|---|
+| `validate` | `git submodule update --init --recursive` + `git submodule status` | B-5: 3 submódulos pinneados, sin prefijos `-`/`+` |
+| `build` | `forge build` | compilación reproducible |
+| `fmt` | `forge fmt --check` | formato limpio |
+| `test` | `forge test` | **RNF-003**: cualquier fallo detiene el pipeline; publica el **conteo real** como artefacto |
+| `coverage` | `forge coverage --report summary --report lcov` | **RNF-002 / D-017 / D-042**: agregado de `src/` ≥ 80 % (sin interfaces) **y** mínimo por contrato ≥ 80 % |
+| `gas` | `forge snapshot --check --tolerance 5` | **RNF-001 / D-039** |
+| `ci-checks` | `check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh` | RF-002 / RF-006 |
+
+Artefactos: `sc/ci-artifacts/test-count.txt` (conteo real, no escrito a mano) y `sc/lcov.info`.
+Sin secretos: el pipeline no despliega.
+
+**Estado:** listo y validado **en local**, pero **aún no ha corrido en remoto**: el proyecto no
+hace `push` sin orden explícita del usuario. El ensayo local equivalente (mismos comandos, mismo
+orden) es:
+
+```bash
+sc/script/ci/run_local_ci.sh   # validate -> build -> fmt -> test -> coverage -> gas -> ci-checks
+```
+
+Detalle de ejecución, umbrales y decisiones en
+[`RepoTecnico/entornos_globales.md`](RepoTecnico/entornos_globales.md) §13 y
+[`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md) §19.
+
+---
+
 ## 💰 Gas Optimization
 
 ### Ahorro medido (comparación equivalente)

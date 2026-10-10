@@ -361,8 +361,8 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   Quedan **prohibidas** las referencias a archivos/contratos inexistentes (`Token.sol`, `Identity.sol`,
   `TOKEN_CLONE_FACTORY.md`, `COMPLIANCE_AGGREGATOR_FINAL.md`, `COMPLIANCE_AGGREGATOR_V2.md`,
   `DeployIdentityRegistry.s.sol`) y las afirmaciones "production-ready"/"ERC-3643 compliant" sin declaración
-  verificable. Cifras canónicas: **353 tests / 353 pasan**, cobertura `src/` **97,11 % líneas / 86,13 % ramas**
-  (D-017), ahorro de gas **45–59 %** con comparación equivalente.
+  verificable. Cifras canónicas: **353 tests / 353 pasan**, cobertura `src/` **97,12 % líneas**
+  (mínimo por contrato 91,53 %; D-017/D-042), ahorro de gas **45–59 %** con comparación equivalente.
 - **D-059 (Ciclo 10 · `SECURITY.md`):** el documento de seguridad es **vivo** y refleja el estado de los 34
   hallazgos de la auditoría V1 (corregido + ciclo, parcial o backlog), los hallazgos base HB-01..HB-12, los
   controles implementados y los **riesgos residuales**; cada mitigación cita al menos una función `test_*` o un
@@ -377,6 +377,30 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   prohibida sin matizar, si `SECURITY.md` no cubre HB-01..HB-12 o si hay marcadores sin sustituir. Los
   documentos de `RepoTecnico/` quedan fuera del escaneo por ser el registro de auditoría (citan los textos
   prohibidos como hallazgo histórico).
+- **D-062 (Ciclo 11 · pipeline de CI):** el pipeline vive en `rwa-sc/.gitlab-ci.yml` y se dispara en
+  *merge requests* y en la rama `rwa-sc-DSH-GCP` (`workflow.rules`). Etapas en orden:
+  `validate` (submódulos pinneados, B-5) → `build` (`forge build`) → `fmt` (`forge fmt --check`) →
+  `test` (gate RNF-003) → `coverage` (gate RNF-002/D-042) → `gas` (`forge snapshot --check --tolerance 5`,
+  gate RNF-001/D-039) → `ci-checks` (RF-002 + RF-006). Imagen **fijada**
+  `ghcr.io/foundry-rs/foundry:v1.8.3` (tag verificado en `ghcr.io`); variables `FOUNDRY_PROFILE=default` y
+  `SOLC_VERSION=0.8.20` coherentes con `foundry.toml`; **sin secretos** (el pipeline no despliega). El pipeline
+  **no se ha ejecutado en remoto** porque no se hace `push` sin orden explícita del usuario.
+- **D-063 (Ciclo 11 · gate de cobertura por contrato, D-042):** `sc/script/ci/check_coverage.sh` parsea
+  `forge coverage --report summary` y exige (a) el **agregado de líneas de `src/` ≥ umbral**, excluyendo
+  `src/ICompliance.sol` y `src/IClaimTopicsRegistry.sol` (D-017), y (b) el **mínimo por contrato de líneas ≥
+  umbral** (D-042), indicando el contrato y el porcentaje que fallan. Las **ramas** se publican pero **no
+  bloquean** (hay contratos por debajo del 80 % de ramas por diseño, p. ej. `MaxBalanceCompliance` 66,67 %).
+  El umbral se lee de una única variable (`COVERAGE_THRESHOLD`, y `COVERAGE_CONTRACT_THRESHOLD`, por defecto
+  igual), cumpliendo el EARS `ci_check_RF009_umbral_configurable_centralizado`.
+- **D-064 (Ciclo 11 · conteo real como artefacto):** el job `test` genera
+  `sc/ci-artifacts/test-count.txt` con `forge test --list | grep -cE '^    test'` y el resumen de la
+  ejecución, y `coverage` publica `sc/lcov.info`; queda **prohibido** fijar el número de tests a mano en el
+  pipeline o en los documentos (coherente con D-058).
+- **D-065 (Ciclo 11 · `jq` en el runner de CI):** la imagen oficial de Foundry es Ubuntu **no-root** y **no
+  incluye `jq`**, que `sc/script/ci/abi_diff.sh` exige. El job `ci-checks` lo instala si el runner permite
+  `root` (`user = "root"` en el ejecutor docker) o si el ejecutor es **shell** (donde `forge` y `jq` ya están,
+  precondición de CU-11); si el runner es docker no-root, hay que usar una imagen propia
+  `FROM ghcr.io/foundry-rs/foundry:v1.8.3` con `jq` instalado.
 
 ## 7. Mapa RF → casos de uso (Fase 2)
 
@@ -387,8 +411,9 @@ Ver `casos_uso/casos_uso.md` (**v1.3, 17 casos de uso**, 92 criterios Gherkin + 
   (`ComplianceAggregator` fail-closed y administración por token) → **CU-16**; RF-013 (vigencia y revocación de
   claims) → **CU-17**. Los tres marcados como "A IMPLEMENTAR" en los casos de uso.
 - Sin cobertura por alcance (D-003): RF-007, RF-008, RNF-006.
-- Datos reales de la suite (Ciclo 10, estado actual): **353 tests, 353 pasan, 0 fallan**, 18 suites;
-  cobertura `src/` 97,11 % de líneas / 86,13 % de ramas (D-017). Ver `metricas_ejecucion.md` §16.3 y §18.
+- Datos reales de la suite (Ciclo 11, estado actual): **353 tests, 353 pasan, 0 fallan**, 18 suites;
+  cobertura `src/` 97,12 % de líneas (mínimo por contrato 91,53 % de líneas; D-017/D-042), con el gate
+  `check_coverage.sh` en el pipeline. Ver `metricas_ejecucion.md` §16.3 y §19.
   (Histórico de la auditoría V1, 2026-10-03: 151 declarados, 93 pasan, 5 fallan, 53 no arrancan, coverage 42,86 %.)
 
 ## 8. Backlog priorizado (auditoría V1 — no en este ciclo)

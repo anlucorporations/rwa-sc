@@ -147,7 +147,7 @@ Todos los contratos fijan el pragma `^0.8.20` (RT-007). La columna **Evidencia**
 | `DeployIdentityCloneFactory.s.sol` | Despliega la factory de identidades | `rwa-sc/sc/script/DeployIdentityCloneFactory.s.sol` |
 | `DeployClaimTopicsRegistryCloneFactory.s.sol` | Despliega la factory de registros de topics | `rwa-sc/sc/script/DeployClaimTopicsRegistryCloneFactory.s.sol` |
 | `DeployComplianceAggregator.s.sol` | Despliega el aggregator de compliance | `rwa-sc/sc/script/DeployComplianceAggregator.s.sol` |
-| **CI** | **No existe**: ni `.github/` ni `.gitlab-ci.yml`; el pipeline es el objetivo de RF-009 (§6.5) | `entornos_globales.md:101` |
+| **CI** | **Implementado (Ciclo 11):** `.gitlab-ci.yml` en la raíz con 7 etapas (`validate`, `build`, `fmt`, `test`, `coverage`, `gas`, `ci-checks`), imagen `ghcr.io/foundry-rs/foundry:v1.8.3` fijada y artefactos de conteo real + `lcov.info` (§6.5) | `entornos_globales.md` §13 |
 
 Los 6 `.s.sol` históricos, el nuevo `DeployFullStack.s.sol`, `deploy.sh` y el wrapper `deploy-besu.sh`
 componen la capa de despliegue. Desde el **Ciclo 9**, `DeployFullStack.s.sol` sí persiste un JSON de
@@ -265,7 +265,7 @@ Estos son los puntos que la arquitectura objetivo debe corregir, con evidencia d
 | Gobernanza / custodia de claves | **Roles separados:** `DEFAULT_ADMIN_ROLE` en **multisig 2-de-3**, `AGENT_ROLE` en cuenta operativa con los límites de RF-004, `COMPLIANCE_ROLE` en cuenta propia; **timelock** para acciones sensibles; **custodio de claves designado con rotación** (D-021) | RF-002, RF-004, RF-010 | H-06, H-25, H-27 (auditoría V1); backlog R-7 |
 | Repositorio / toolchain | Compilación reproducible: submódulos `forge-std`, OZ v5.5.0 y OZ-upgradeable v5.5.0 correctos, `forge build` y `forge test` al **100 %**, `solc`/optimizer/`evm_version` fijados | RF-005 | HB-05, HB-11, H-04 (auditoría V1) |
 | Documentación | **Implementado (Ciclo 10):** referencias a archivos/contratos inexistentes corregidas, cifras sustituidas por las medidas, **`SECURITY.md`**, **`CHANGELOG_ABIS.md`** + línea base `sc/abis/` y gates `sc/script/ci/abi_diff.sh` y `check_docs.sh` | RF-006 | HB-07, H-15, H-16, H-23, H-33 |
-| CI / secretos | **Implementado (Ciclo 9):** `sc/script/deploy.sh` lee `RPC_URL`/`CHAIN_ID` y la clave de entorno/Secret Manager GCP (`DS_`), valida `cast chain-id` antes del broadcast y firma con keystore cifrado efímero (`--keystore`+`--password-file`, sin `--private-key`); `deploy-besu.sh` pasa a wrapper. `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` sigue en RF-009 | RF-010, RF-009 | HB-12, HB-10, H-28, H-04 |
+| CI / secretos | **Implementado (Ciclos 9 y 11):** `sc/script/deploy.sh` lee `RPC_URL`/`CHAIN_ID` y la clave de entorno/Secret Manager GCP (`DS_`), valida `cast chain-id` antes del broadcast y firma con keystore cifrado efímero (`--keystore`+`--password-file`, sin `--private-key`); `deploy-besu.sh` pasa a wrapper. **`.gitlab-ci.yml` (Ciclo 11)** materializa los gates en 7 etapas y sin secretos | RF-010, RF-009 | HB-12, HB-10, H-28, H-04 |
 | `TokenCloneable` — storage | Eliminar `_tokenName`/`_tokenSymbol` (HB-06); el *layout* puede moverse por D-009/RT-008 | RF-002/RF-005 | HB-06 |
 | Ciclo de vida del contrato | **Sin proxy actualizable:** se mantiene **EIP-1167** y el ciclo de vida es **redeploy limpio con runbook de migración documentado** (D-019), amparado en D-009/RT-008 | RF-005 | H-07 (auditoría V1); backlog R-6 |
 
@@ -514,7 +514,7 @@ actor↔CU de `diagramas_casos_uso.md:461-497`; cualquier celda dudosa se ha reb
 | RF-006 | Documentación raíz + `SECURITY.md` + `CHANGELOG_ABIS.md` + `sc/abis/` + `sc/script/ci/{abi_diff,check_docs}.sh` | CU-12 | **IMPLEMENTADO** (Ciclo 10) |
 | RF-007 | *(ninguno — zona web)* | — | PAUSADO (D-003) |
 | RF-008 | *(ninguno — zona web)* | — | PAUSADO (D-003) |
-| RF-009 | `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` | CU-11 | A IMPLEMENTAR |
+| RF-009 | `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` + `sc/script/ci/{check_coverage,run_local_ci}.sh` | CU-11 | **IMPLEMENTADO** (Ciclo 11) |
 | RF-010 | `sc/script/deploy.sh`, `sc/script/DeployFullStack.s.sol`, `sc/deployments/`, `deploy-besu.sh` | CU-13 | **IMPLEMENTADO** (Ciclo 9) |
 | RF-011 | `TokenCloneable.isVerified` | CU-15 | **IMPLEMENTADO** (Ciclo 6) |
 | RF-012 | `ComplianceAggregator.canTransfer` + `onlyToken` (con D-023) | CU-16 | **IMPLEMENTADO** (Ciclo 7) |
@@ -523,16 +523,16 @@ actor↔CU de `diagramas_casos_uso.md:461-497`; cualquier celda dudosa se ha reb
 Anclajes de código de este documento (verificados con grep/read): RF-001 `IdentityCloneable.sol:63-98`;
 RF-002 `TokenCloneable.sol:47,212,218`; RF-003 `ICompliance.sol:16`; RF-004 `TokenCloneable.sol:192-201`;
 RF-005 `metricas_ejecucion.md:39-49`; RF-006 `requerimientos.md:59`; RF-007/RF-008 `requerimientos.md:60-61`;
-RF-009 `entornos_globales.md:101`; RF-010 `sc/script/deploy.sh:1-370`, `sc/script/DeployFullStack.s.sol:1-215` y `sc/deployments/31337-20261010T162639Z.json`; RF-011 `TokenCloneable.sol:245-247`;
+RF-009 `.gitlab-ci.yml:1-191`, `sc/script/ci/check_coverage.sh:1-149` y `sc/script/ci/run_local_ci.sh:1-177` (§6.5); RF-010 `sc/script/deploy.sh:1-370`, `sc/script/DeployFullStack.s.sol:1-215` y `sc/deployments/31337-20261010T162639Z.json`; RF-011 `TokenCloneable.sol:245-247`;
 RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:45,79,219,278` (`revoked`, `ClaimRevoked`, `revokeClaim`, `hasValidClaim`), `TokenCloneable.sol:343,398` y `IdentityRegistry.sol:95` (HB-14).
 
 **No funcionales (RNF-001..RNF-006)** — resumen; fuente: `casos_uso.md:1075-1084`:
 
 | RNF | Cómo se materializa (resumen) | CU | Estado | Evidencia |
 |---|---|---|---|---|
-| RNF-001 | Gas EIP-1167 medido y comparado de forma equivalente; `.gas-snapshot` versionado | CU-08 | **IMPLEMENTADO** (medido; gate de CI en RF-009) | `metricas_ejecucion.md:50-61`; `casos_uso.md:1079` |
-| RNF-002 | `forge coverage` ≥ 80 % sobre `src/` excluyendo interfaces y `test/` (D-017) | CU-11 | **IMPLEMENTADO** (96,43 % en src/; gate de CI en RF-009) | `requerimientos.md:117-118`; `casos_uso.md:1080` |
-| RNF-003 | 100 % de tests en CI antes de cada merge | CU-11 | **PARCIAL** (**353/353** en local; CI en RF-009) | `metricas_ejecucion.md` §16.3/§18; `casos_uso.md:1081` |
+| RNF-001 | Gas EIP-1167 medido y comparado de forma equivalente; `.gas-snapshot` versionado | CU-08 | **IMPLEMENTADO** (medido; **gate en CI**: `forge snapshot --check --tolerance 5`, Ciclo 11) | `metricas_ejecucion.md` §19; `casos_uso.md:1079` |
+| RNF-002 | `forge coverage` ≥ 80 % sobre `src/` excluyendo interfaces y `test/` (D-017) | CU-11 | **IMPLEMENTADO** (97,12 % de líneas; **gate en CI** agregado + por contrato, Ciclo 11) | `metricas_ejecucion.md` §19; `requerimientos.md:117-118`; `casos_uso.md:1080` |
+| RNF-003 | 100 % de tests en CI antes de cada merge | CU-11 | **IMPLEMENTADO** (**353/353**; **gate en CI** `forge test` con conteo real como artefacto, Ciclo 11) | `metricas_ejecucion.md` §19; `casos_uso.md:1081` |
 | RNF-004 | Ningún secreto en repo/scripts (Secret Manager GCP `DS_`, `.env` ignorado) | CU-13 | **IMPLEMENTADO** (Ciclo 9) | `sc/script/deploy.sh:1-370`; `casos_uso.md:1082`; `entornos_globales.md:35` |
 | RNF-005 | Reglas de compliance extensibles sin tocar el token (módulos + aggregator) | CU-07, CU-14 | **PARCIALMENTE IMPLEMENTADO** | `ComplianceAggregator.sol:61-135`; `casos_uso.md:1083` |
 | RNF-006 | *(docker compose de las apps web)* | — | **NO APLICA (D-003)** | `requerimientos.md:77`; `casos_uso.md:1084` |
@@ -573,8 +573,8 @@ RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:4
 | Herramienta | Estado real (verificado 2026-10-03) | Nota |
 |---|---|---|
 | Forge / Anvil | **v1.8.3** en `/home/dsh/.foundry/bin/` — **fuera del `PATH`** | Usar `export PATH="$HOME/.foundry/bin:$PATH"` (`entornos_globales.md:95-97`) |
-| `sc/lib/` | **Clonada** para la auditoría: forge-std v1.12.0, OZ v5.5.0, OZ-upgradeable v5.5.0 | `lib/` está en `.gitignore`: el bootstrap reproducible sigue pendiente (H-04/RF-005; `entornos_globales.md:98`) |
-| Solidity | Pragma único `^0.8.20` (RT-001, RT-007) | `foundry.toml` **no** fija `solc_version`, optimizer ni `evm_version` (`INFORME_OPTIMIZACION_V1.md:194`) |
+| `sc/lib/` | **Submódulos git pinneados (Ciclos 1 y 11):** forge-std v1.12.0, OZ v5.5.0, OZ-upgradeable v5.5.0, declarados en `.gitmodules` (`sc/lib/*`) | `lib/` sigue en `.gitignore`, pero el bootstrap es reproducible vía submódulos; `validate` de CI comprueba `git submodule status` sin `-`/`+` |
+| Solidity | `solc 0.8.20` **fijado** en `foundry.toml`, con optimizer 200 y `evm_version = "paris"` (RF-005/D-053) | `foundry.toml` |
 | Node.js / npm | v22.23.2 / 10.9.8 | Solo contexto `rwa-web` (fuera de alcance) |
 
 ### 6.2 Redes
@@ -606,30 +606,34 @@ zona web).
 ### 6.4 Rama de trabajo
 
 - Rama de contratos: **`rwa-sc-DSH-GCP`** (D-005) en `https://gitlab.com/anlucorporations/rwa-sc.git`
-  (`entornos_globales.md:105`).
-- Estado del remoto: **HEAD = 1 commit (`2a4a683`) con solo `README.md`**; todo el árbol real está sin
-  versionar (H-04). `git ls-files` devuelve únicamente `README.md`.
+  (`entornos_globales.md` §10).
+- Estado **local**: la rama ya versiona el árbol completo (103 ficheros en `git ls-files`; el Ciclo 1 cerró el
+  bootstrap reproducible con los 3 submódulos pinneados). H-04 queda resuelto **en local**.
+- Estado del **remoto**: sigue en **HEAD = 1 commit (`2a4a683`) con solo `README.md`** porque **no se ha hecho
+  `push`** (regla del proyecto). Por eso el pipeline del §6.5 aún **no ha corrido en GitLab**.
 - Regla vigente: no se hace `push` sin orden explícita del usuario.
 
-### 6.5 Pipeline CI a crear (RF-009)
+### 6.5 Pipeline CI implementado (RF-009, Ciclo 11)
 
-Hoy **no existe** CI (ni `.github/` ni `.gitlab-ci.yml`; `entornos_globales.md:101`). Pasos exactos
-propuestos para `.gitlab-ci.yml` sobre `rwa-sc-DSH-GCP`, coherentes con `casos_uso.md:705-742` (CU-11) y
-`INFORME_OPTIMIZACION_V1.md:355`:
+El pipeline vive en **`rwa-sc/.gitlab-ci.yml`** y se dispara en *merge requests* y en la rama
+`rwa-sc-DSH-GCP`. Imagen **fijada** `ghcr.io/foundry-rs/foundry:v1.8.3` (tag verificado en `ghcr.io`; misma
+versión que el toolchain local). Sin secretos: el pipeline no despliega. Umbral de cobertura centralizado en
+`COVERAGE_THRESHOLD` / `COVERAGE_CONTRACT_THRESHOLD`.
 
-1. `git submodule update --init --recursive` y comprobación de `git submodule status` sin prefijos `-`/`+`
-   (`ci_check_RF005_submodulos_pinneados`).
-2. `forge build` (con `--deny-warnings` cuando las advertencias estén resueltas).
-3. `forge fmt --check`.
-4. `forge test -vvv` — **gate RNF-003**: cualquier fallo detiene el pipeline; el conteo real se publica como
-   artefacto (no un número escrito a mano).
-5. `forge coverage --report summary` y `--report lcov` — **gate RNF-002**: falla si la cobertura agregada es
-   menor que el umbral leído de una única variable `COVERAGE_THRESHOLD` (**D-017**: sobre `src/` excluyendo
-   `src/ICompliance.sol`, `src/IClaimTopicsRegistry.sol` y `test/`).
-6. Publicación de `lcov.info` como *artifact* del job.
-7. *Gates* adicionales ya especificados en CU-11/CU-12/CU-13: `ci_check_RF002_no_bypassCompliance_storage`
-   (`forge inspect TokenCloneable storage-layout --json`), `ci_check_RF006_*` (referencias rotas,
-   `SECURITY.md`, `CHANGELOG_ABIS.md`, `abi_diff.sh`) y escaneo de secretos.
+| Etapa | Comando | Gate |
+|---|---|---|
+| `validate` | `git submodule update --init --recursive` + `git submodule status` | B-5: 3 submódulos pinneados, sin `-`/`+` (`.gitmodules` con `sc/lib/*`) |
+| `build` | `forge build` | 0 errores |
+| `fmt` | `forge fmt --check` | limpio |
+| `test` | `forge test` | **RNF-003**: cualquier fallo detiene el pipeline; el **conteo real** se publica como artefacto |
+| `coverage` | `forge coverage --report summary --report lcov` + `sc/script/ci/check_coverage.sh` | **RNF-002/D-017/D-042**: agregado de `src/` ≥ 80 % (sin `src/ICompliance.sol` ni `src/IClaimTopicsRegistry.sol`) **y** mínimo por contrato ≥ 80 % |
+| `gas` | `forge snapshot --check --tolerance 5` | **RNF-001/D-039** |
+| `ci-checks` | `check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh` | RF-002 / RF-006 |
+
+Artefactos: `sc/ci-artifacts/test-count.txt` (conteo real + resumen), `sc/ci-artifacts/test-run.log`,
+`sc/ci-artifacts/coverage-summary.txt` y `sc/lcov.info`. El ensayo local equivalente es
+`sc/script/ci/run_local_ci.sh` (mismos comandos, mismo orden, exit 0/1). Detalle en
+`entornos_globales.md` §13 y `metricas_ejecucion.md` §19.
 
 ```mermaid
 flowchart LR
@@ -638,10 +642,13 @@ flowchart LR
     C --> D["forge fmt --check"]
     D --> E["forge test"]
     E --> F["forge coverage"]
-    F --> G{"cobertura mayor o igual al umbral"}
+    F --> G{"cobertura agregada y por contrato mayor o igual al umbral"}
     G -->|"si"| H["publicar lcov y conteo real"]
     G -->|"no"| I["bloquear merge"]
     E -->|"fallo"| I
+    D -->|"diff"| I
+    E --> J["forge snapshot --check y gates RF-002/RF-006"]
+    J -->|"fallo"| I
 ```
 
 ### 6.6 Artefactos de despliegue (implementado, Ciclo 9 / RF-010)
@@ -689,17 +696,17 @@ material sensible). **Besu** se ejecuta con el mismo script cambiando `RPC_URL`/
 
 ### 7.1 Métricas reales
 
-| Métrica | Valor real (Ciclo 10) | Objetivo | Estado | Fuente |
+| Métrica | Valor real (Ciclo 11) | Objetivo | Estado | Fuente |
 |---|---|---|---|---|
 | Tests ejecutados por Forge | **353** (18 suites) | 353 | ✅ | `forge test`; `metricas_ejecucion.md` §16.3 |
 | Tests que pasan | **353** | 100 % | ✅ | `forge test` → `353 tests passed, 0 failed, 0 skipped` |
 | Tests que fallan | **0** | 0 | ✅ | idem |
 | Tests que nunca arrancan | **0** (ninguna suite revierte en `setUp`) | 0 | ✅ | `metricas_ejecucion.md` §16.3 |
-| Cobertura de líneas `src/` (D-017) | **97,11 %** | ≥ 80 % (RNF-002) | ✅ | `metricas_ejecucion.md` §16.3 |
+| Cobertura de líneas `src/` (D-017) | **97,12 %** (674/694; mínimo por contrato 91,53 %) | ≥ 80 % (RNF-002/D-042) | ✅ | `metricas_ejecucion.md` §19 |
 | Cobertura de ramas `src/` (D-017) | **86,13 %** | — | ✅ | `metricas_ejecucion.md` §16.3 |
 | `.gas-snapshot` | **versionado** (`forge snapshot --check --tolerance 5` → exit 0) | RNF-001 | ✅ | `metricas_ejecucion.md` §16.3 |
 | Ahorro de gas (comparación equivalente) | **45–59 %** | sin cifra sin respaldo | ✅ | `README.md`; `metricas_ejecucion.md` §7.3 |
-| CI | **no existe todavía** | RF-009 | ❌ (Ciclo 11) | `entornos_globales.md` |
+| CI | **implementado y validado en local; sin ejecutar en remoto** (no hay `push`) | RF-009 | ✅ (local) | `.gitlab-ci.yml`; `entornos_globales.md` §13 |
 | Repositorio versionado | rama `rwa-sc-DSH-GCP` con el árbol completo | RF-005/RF-009 | ✅ | `git log` |
 
 > **Baseline histórico de la auditoría V1 (2026-10-03), ya superado.** El punto de partida medido fue
@@ -809,9 +816,9 @@ como **D-019..D-024** (mismo texto que en `requerimientos.md:122-139`, donde se 
 |---|---|---|
 | **B-1** | Verificación criptográfica de claims en todas las rutas (sin firmas vacías) + test adversarial del PoC de forja | **RF-001**; concreta el dominio/tipo por **D-020** |
 | **B-2** | Fail-closed de `isVerified` con registry ausente o sin topics + test de regresión | **RF-011** |
-| **B-3** | Las 8 suites en verde con **0 fallos**, conteo real como artefacto, cobertura ≥ 80 % y pipeline por commit/MR | **RF-005, RF-009, RNF-002, RNF-003** |
+| **B-3** | Las 8 suites en verde con **0 fallos**, conteo real como artefacto, cobertura ≥ 80 % y pipeline por commit/MR | **RF-005, RF-009, RNF-002, RNF-003** · **IMPLEMENTADO (Ciclo 11)**: `.gitlab-ci.yml` con `test` (conteo real como artefacto) y `coverage` (agregado + por contrato); 353/353 y 97,12 % medidas |
 | **B-4** | Gobernanza mínima: los tres roles no recaen en una única cuenta **sin decisión documentada**; `burn`/`forcedTransfer` acotados; clave privada fuera de `argv`/`keys.json` | **RF-004, RF-010**; **responsable y reparto por D-021** (multisig 2-de-3, timelock, custodio con rotación) y **tope de `mint` por D-022** |
-| **B-5** | Reproducibilidad del clon limpio y toolchain fijada (`solc`/optimizer/`evm_version`, `foundry.lock`) | **RF-005** |
+| **B-5** | Reproducibilidad del clon limpio y toolchain fijada (`solc`/optimizer/`evm_version`, `foundry.lock`) | **RF-005** · **IMPLEMENTADO (Ciclos 1/1b/11)**: submódulos pinneados y etapa `validate` de CI que los comprueba (sin `-`/`+`) |
 | **B-6** | Claims con vigencia y revocación + test que bloquea transferencias de claim caducado/revocado | **RF-013**; `expiresAt` firmado por **D-020** |
 | **B-7** | RNF-001 operativo: `.gas-snapshot` versionado, umbral y tolerancia explícitos, tests de ahorro equivalentes en verde | **RNF-001** (con RF-005) |
 | **B-8** | Trazabilidad documental, sin referencias inexistentes y sin "production-ready" sin auditoría | **RF-006** · **IMPLEMENTADO (Ciclo 10)**: `SECURITY.md`, `CHANGELOG_ABIS.md`, línea base `sc/abis/` y gates `abi_diff.sh`/`check_docs.sh`; declaración verificable sin "ERC-3643 compliant"; condicionado por **D-024** |

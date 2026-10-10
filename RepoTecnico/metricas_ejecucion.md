@@ -1092,3 +1092,72 @@ El documento `OPTIMIZACION_VERIFICACION.md` queda rotulado como **estimación no
 - `documento_tecnico.md`: `RF-006` → **IMPLEMENTADO (Ciclo 10)**, filas de H-15/H-16/H-23/H-33 y criterios
   **B-8**/**C-10**; §7.1 actualizada a las métricas vigentes; `estado_proyecto.md` con el hito del Ciclo 10.
 - Cierra **HB-07, H-15, H-16, H-23 y H-33** y los criterios **B-8** y **C-10** (H-13/H-14/H-34 permanecen en backlog).
+
+## 19. Ciclo 11 — RF-009: pipeline de CI de GitLab con gates
+
+**Objetivo:** materializar en CI los gates ya decididos (tests, cobertura, gas, documentos y ABIs) sobre la
+rama `rwa-sc-DSH-GCP`. **El ciclo no toca `src/` ni `test/`**: no hay cambios de contrato ni de suite.
+
+### 19.1 Artefactos nuevos
+
+| Artefacto | Contenido |
+|---|---|
+| `rwa-sc/.gitlab-ci.yml` | Pipeline de 7 etapas (`validate`, `build`, `fmt`, `test`, `coverage`, `gas`, `ci-checks`), imagen `ghcr.io/foundry-rs/foundry:v1.8.3` fijada, `rules` en MR y `rwa-sc-DSH-GCP`, artefactos de conteo real y `lcov.info`, sin secretos |
+| `rwa-sc/sc/script/ci/check_coverage.sh` | Gate RNF-002/D-017/D-042: parsea `forge coverage --report summary`, calcula el **agregado de `src/`** (excluyendo `src/ICompliance.sol` y `src/IClaimTopicsRegistry.sol`) y el **mínimo por contrato** (líneas); umbral desde `COVERAGE_THRESHOLD` / `COVERAGE_CONTRACT_THRESHOLD`; falla indicando el contrato y el porcentaje |
+| `rwa-sc/sc/script/ci/run_local_ci.sh` | Ensayo local del pipeline: recorre las 7 etapas con los mismos comandos y devuelve exit 0/1 (resumen por etapa) |
+
+### 19.2 Tests y cobertura — sin regresión
+
+| Métrica | Antes (Ciclo 10) | Después (Ciclo 11) |
+|---|---|---|
+| Tests | 353 | **353** |
+| Fallos | 0 | **0** |
+| `src/` (líneas, D-017) | 97,11 % | **97,12 % (674/694)** |
+| Mínimo por contrato (líneas) | — | **91,53 %** (`src/ClaimTopicsRegistryCloneFactory.sol`) |
+
+`forge build` → 0 errores; `forge fmt --check` → limpio; `forge snapshot --check --tolerance 5` → OK.
+
+### 19.3 Verificaciones del ciclo
+
+| Verificación | Resultado |
+|---|---|
+| `forge build` | 0 errores |
+| `forge test` | **353 tests passed, 0 failed, 0 skipped (353 total)** |
+| `forge fmt --check` | limpio |
+| `python3 -c "import yaml; yaml.safe_load(open('.gitlab-ci.yml'))"` | **YAML OK**; 7 etapas y 7 jobs |
+| `sc/script/ci/check_coverage.sh` (positivo) | **exit 0**: agregado `src/` **97,12 % (674/694)**; mínimo por contrato **91,53 %** (`src/ClaimTopicsRegistryCloneFactory.sol`) |
+| `sc/script/ci/check_coverage.sh` (negativo 1: copia temporal con `TokenCloneable` al 60,00 %) | **exit 1**: `FAIL: contrato src/TokenCloneable.sol con cobertura de líneas 60.00% (108/180) < 80%` |
+| `sc/script/ci/check_coverage.sh` (negativo 2: `COVERAGE_THRESHOLD=99`) | **exit 1**: `FAIL: cobertura agregada de src/ 97.12% < 99%` |
+| `sc/script/ci/run_local_ci.sh` | **exit 0**: `validate OK · build OK · fmt OK · test OK · coverage OK · gas OK · ci-checks OK` |
+| Artefacto de conteo | `sc/ci-artifacts/test-count.txt` → `tests_listed=353` + resumen real de la ejecución |
+| `git status --short` | limpio tras el commit local |
+
+Salida resumida de `run_local_ci.sh` (extracto real):
+
+```text
+== STAGE: validate   -> OK: 3 submódulos declarados y pinneados, sin prefijos -/+
+== STAGE: build      -> OK
+== STAGE: fmt        -> OK
+== STAGE: test       -> Ran 18 test suites: 353 tests passed, 0 failed, 0 skipped (353 total tests)
+== STAGE: coverage   -> agregado src/ 97.12% (674/694); mínimo por contrato 91.53%
+                        OK: cobertura agregada de src/ 97.12% >= 80% y mínimo por contrato 91.53% >= 80%
+== STAGE: gas        -> OK (353 tests; dentro de la tolerancia del 5 %)
+== STAGE: ci-checks  -> OK: sin bypassCompliance; docs RF-006 consistentes (12 docs); 15 ABIs sin deriva
+RESULTADO: OK (pipeline local en verde)
+```
+
+### 19.4 Estado real del pipeline
+
+El pipeline está **listo y validado en local**, pero **no ha corrido en remoto**: no se ha hecho `push`
+(regla del proyecto). Requisitos para ejecutarlo: **(1)** `push` de `rwa-sc-DSH-GCP`; **(2)** runner de
+GitLab registrado. Nota: la imagen oficial de Foundry es no-root y no trae `jq` (que `abi_diff.sh` exige);
+`ci-checks` lo instala si el runner permite root o si el ejecutor es shell, y si no hay que usar una imagen
+propia con `jq`. Detalle en `entornos_globales.md` §13.
+
+### 19.5 Documentación y decisiones
+
+- `README.md` (§Integración Continua), `entornos_globales.md` §9/§11/§13.
+- Decisiones nuevas: **D-062..D-065** en `requerimientos.md` (Bloque 6).
+- `documento_tecnico.md`: `RF-009` → **IMPLEMENTADO (Ciclo 11)**; `RNF-001/RNF-002/RNF-003` con gate en CI;
+  cierra **B-3** y **B-5**.
+- `estado_proyecto.md`: hito del Ciclo 11 y **cierre de la Fase 3** (ciclos 1, 1b, 2..11, 8b y 8c).

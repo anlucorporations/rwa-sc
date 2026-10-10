@@ -2,7 +2,7 @@
 
 > **Proyecto:** Mejora y estabilización de la plataforma RWA (Real World Assets, inspirada en ERC-3643)
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
-> **Versión:** v2.1 · Ciclo 10 (RF-006) cerrado — documentación veraz, `SECURITY.md` y control de deriva de ABIs
+> **Versión:** v2.2 · Ciclo 11 (RF-009) cerrado — pipeline de CI de GitLab y **cierre de la Fase 3**
 
 ## Fases
 
@@ -10,8 +10,8 @@
 |---|---|---|---|
 | 1 | Concepción | ✅ COMPLETADO | Artefactos creados, repos y GCP definidos, entrevista de 3 bloques |
 | 2 | Auditoría | ✅ COMPLETADO (por confirmar) | Auditoría sin issues críticos + CU auditados + gráficos + documento técnico auditado |
-| 3 | Desarrollo | ✅ COMPLETADO — Ciclos 1, 1b, 2, 3, 4, 5, 6, 7, 8, 8b, 8c, 9 y 10 ✅ · Ciclo 11 (RF-009, CI) pendiente | Plan vertical aprobado, ciclos completados y probados |
-| 4 | Pruebas | 🔄 CASI CERRADA — **353/353 tests en verde** y cobertura `src/` **97,11 % líneas / 86,13 % ramas** en local; falta el gate automático de CI (RF-009) | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
+| 3 | Desarrollo | ✅ COMPLETADO — Ciclos 1, 1b, 2, 3, 4, 5, 6, 7, 8, 8b, 8c, 9, 10 y **11** ✅ | Plan vertical aprobado, ciclos completados y probados |
+| 4 | Pruebas | 🔄 CASI CERRADA — **353/353 tests en verde** y cobertura `src/` **97,12 % líneas** con el gate de CI ya definido (`check_coverage.sh`); falta ejecutar el pipeline en remoto (`push` + runner) | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
 | 5 | Manuales | ⬜ Por cerrar | Manuales generados y confirmación final |
 
 ## Hitos de la Fase 2 (completados)
@@ -25,7 +25,7 @@
 - [x] Artefactos de datos sincronizados (diccionario v1.1, E-R v1.1, SQL v0.2) contra el código real.
 - [x] Documento técnico v1.1 (as-is, to-be, datos, trazas, entornos, CI, riesgos y criterios V2) + su auditoría (13 hallazgos DT-01..DT-13).
 
-## Hitos de la Fase 3 (en curso)
+## Hitos de la Fase 3 (completados)
 
 - [x] **Ciclo 1 — RF-005 · Build reproducible y suites en verde** (commit local `d959145`, sin push):
   `solc 0.8.20` + optimizer 200 + `evm_version = "paris"`; submódulos pinneados y un único `.gitmodules`;
@@ -48,7 +48,8 @@
   **0** en `createToken`. Decisiones **D-029..D-032**.
 - [x] **Documentación versionada:** `RepoTecnico/` se movió dentro del repo (`rwa-sc/RepoTecnico/`, commit
   `fb38e4f`), por lo que los ciclos siguientes versionan código **y** documentación. Decisión del usuario.
-- [ ] Ciclo 11 (RF-009): pipeline `.gitlab-ci.yml` con build, `fmt`, test, coverage y los gates de RF-006.
+- [x] **Ciclo 11 (RF-009):** pipeline `.gitlab-ci.yml` con build, `fmt`, test, coverage y los gates de RF-006.
+  **(Ciclo 11 completado — ver más abajo.)**
 
 - [x] **Ciclo 1b — RF-005 · Cobertura ≥ 80 % por contrato en los registries** (commit local `a92cf1d`):
   3 suites nuevas (92 tests: IdentityRegistry 34, TrustedIssuersRegistry 33, ClaimTopicsRegistry 25);
@@ -131,7 +132,24 @@
   `sc/script/ci/check_docs.sh`; la rúbrica de `EJERCICIOS_PRACTICOS.md` pasa a criterios observables (H-23).
   **353/353 tests sin regresión**, `forge fmt --check` limpio, ambos gates en verde. Cierra **HB-07, H-15, H-16,
   H-23 y H-33** y los criterios **B-8** y **C-10** (parcial: quedan H-13/H-14/H-34 en backlog). Decisiones
-  **D-058..D-060**.
+  **D-058..D-061**.
+
+- [x] **Ciclo 11 — RF-009 · Pipeline de CI de GitLab con gates** (commit local, sin push):
+  `.gitlab-ci.yml` en la raíz con 7 etapas (`validate`, `build`, `fmt`, `test`, `coverage`, `gas`, `ci-checks`),
+  imagen `ghcr.io/foundry-rs/foundry:v1.8.3` **fijada** y `rules` en *merge requests* y en `rwa-sc-DSH-GCP`;
+  umbral de cobertura centralizado (`COVERAGE_THRESHOLD` / `COVERAGE_CONTRACT_THRESHOLD`) con el gate
+  `sc/script/ci/check_coverage.sh` (**RNF-002/D-017/D-042**: agregado de `src/` **y** mínimo por contrato) y
+  `sc/script/ci/run_local_ci.sh` como ensayo local del pipeline. El job `test` publica el **conteo real** como
+  artefacto y `coverage` publica `lcov.info`. **353/353 tests sin regresión**, `forge fmt --check` limpio,
+  agregado `src/` **97,12 %** (mínimo por contrato 91,53 %), `forge snapshot --check --tolerance 5` OK y los 3
+  gates de CI (RF-002/RF-006) en verde. **No ha corrido en remoto: no hay `push`.** Cierra **B-3**, **B-5** y
+  **HB-10**. Decisiones **D-062..D-065**.
+
+> **Cierre de la Fase 3.** Con el Ciclo 11 quedan completados **todos** los ciclos de la Fase 3:
+> **1, 1b, 2, 3, 4, 5, 6, 7, 8, 8b, 8c, 9, 10 y 11** (RF-005, RF-001..RF-004, RF-011, RF-012, RF-013, RF-010,
+> RF-006 y RF-009). Los criterios bloqueantes **B-1..B-8** quedan cubiertos y los de calidad aplicables,
+> cerrados. Lo único que resta es **operativo**: `push` de `rwa-sc-DSH-GCP` y un **runner** de GitLab para
+> ejecutar el pipeline en remoto (Fase 4).
 
 ## Acuerdos y decisiones
 
@@ -168,6 +186,11 @@
 | D-058 | **Documentación veraz (RF-006)**: toda cifra publicada se sustituye por la medida y enlaza a su artefacto; se prohíben las referencias a archivos inexistentes y las afirmaciones "production-ready"/"ERC-3643 compliant" sin declaración verificable |
 | D-059 | **`SECURITY.md` como documento vivo**: refleja el estado de los 34 hallazgos V1 (corregido/ciclo o backlog) y los riesgos residuales; cada mitigación cita al menos un `test_*` o un `ci_check_*` |
 | D-060 | **Control de deriva de ABIs**: la línea base vive en `sc/abis/<Contrato>.json`; `sc/script/ci/abi_diff.sh` falla ante cualquier deriva no declarada en `CHANGELOG_ABIS.md`, que debe actualizarse junto con la línea base |
+| D-061 | **Gate de documentación**: `sc/script/ci/check_docs.sh` falla ante referencias rotas, falta de `SECURITY.md`/`CHANGELOG_ABIS.md`, afirmaciones prohibidas sin matizar, HB-01..HB-12 sin cubrir o placeholders (`RepoTecnico/` queda fuera del escaneo por ser registro de auditoría) |
+| D-062 | **Pipeline de CI (RF-009)**: `.gitlab-ci.yml` en la raíz con 7 etapas (`validate`, `build`, `fmt`, `test`, `coverage`, `gas`, `ci-checks`), imagen fijada `ghcr.io/foundry-rs/foundry:v1.8.3`, `rules` en MR y `rwa-sc-DSH-GCP`, sin secretos; el pipeline **no se ejecuta en remoto hasta que haya `push` + runner** |
+| D-063 | **Gate de cobertura por contrato (D-042)**: `check_coverage.sh` exige el **agregado de líneas de `src/` ≥ umbral** (D-017, sin interfaces) **y el mínimo por contrato de líneas ≥ umbral**; las ramas se reportan pero no bloquean (hay contratos por debajo del 80 % de ramas por diseño). Umbral en una única variable `COVERAGE_THRESHOLD` (+ `COVERAGE_CONTRACT_THRESHOLD`) |
+| D-064 | **Conteo real como artefacto**: el job `test` publica `sc/ci-artifacts/test-count.txt` generado con `forge test --list \| grep -cE '^    test'` más el resumen de la ejecución; **prohibido escribir el número a mano** en el pipeline o en los documentos |
+| D-065 | **`jq` en el runner**: la imagen oficial de Foundry es Ubuntu **no-root** y no incluye `jq` (que `abi_diff.sh` exige); el job `ci-checks` lo instala si el runner permite root o si el ejecutor es **shell**, y si no hay que usar una imagen propia `FROM ghcr.io/foundry-rs/foundry:v1.8.3` con `jq` |
 
 ## Plan de la Fase 3 (orden aprobado)
 
@@ -200,7 +223,7 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 
 ## Brechas abiertas (declaradas)
 
-1. **Sin CI**: no existe `.gitlab-ci.yml`; los gates `check_docs.sh`, `abi_diff.sh` y `check_no_bypass_flag.sh` se ejecutan manualmente (RF-009, Ciclo 11).
+1. **Pipeline sin ejecutar en remoto**: `.gitlab-ci.yml` existe, está validado en local (`run_local_ci.sh` en verde) y los gates `check_docs.sh`, `abi_diff.sh` y `check_no_bypass_flag.sh` ya se invocan desde el pipeline; falta **`push`** de `rwa-sc-DSH-GCP` y un **runner** de GitLab (RF-009).
 2. **Sin auditoría externa**: bloqueante para producción con activos reales (D-024; `SECURITY.md` §5).
 3. **Gobernanza en una sola EOA** hasta el multisig/timelock (H-06; D-021, backlog R-7).
 4. **PII/KYC off-chain sin política formal** de base legal, cifrado y retención (H-11, backlog R-3).
@@ -208,9 +231,16 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 
 ## Próximo paso
 
-Ciclo 11 (**RF-009**): crear el pipeline `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` con `forge build`, `fmt --check`,
-`test` (gate RNF-003), `coverage` con `COVERAGE_THRESHOLD` sobre `src/` (D-017), publicación del conteo real y
-los gates de RF-006 (`script/ci/check_docs.sh`, `script/ci/abi_diff.sh`) y RF-002 (`check_no_bypass_flag.sh`).
+**Fase 3 cerrada.** El siguiente paso es **operativo**: cuando el usuario autorice el `push` (`/push`), subir
+`rwa-sc-DSH-GCP` a `https://gitlab.com/anlucorporations/rwa-sc.git` y registrar/activar un **runner** de
+GitLab para que `.gitlab-ci.yml` ejecute las 7 etapas en remoto (Fase 4 — Pruebas). Mientras no haya `push`,
+el ensayo oficial es:
+
+```bash
+cd /home/dsh/workspace/RWA/rwa-sc
+export PATH="$HOME/.foundry/bin:$PATH"
+sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> coverage -> gas -> ci-checks
+```
 - [x] **Ciclo 8b — Revisión del toolchain** (decisión **D-053**, sin cambios de código): se **mantiene
   `solc 0.8.20`** y el **digest EIP-712 propio** (binding de `chainId`/`verifyingContract`/`nonce` cubierto
   por tests, con `ECDSA` de OpenZeppelin). `EIP712Upgradeable` de OZ 5.5.0 exige `^0.8.24`; la subida del

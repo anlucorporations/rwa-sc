@@ -700,7 +700,7 @@ Postcondición · Cobertura (RF/RNF/H) · Criterios Gherkin (funcional) · Restr
 
 - **Actor:** A7 (Desarrollador/CI) sobre la rama `rwa-sc-DSH-GCP` (D-005, D-008).
 - **Objetivo:** Garantizar build reproducible, 151+ tests al 100% y cobertura ≥ 80% en cada commit/MR.
-- **Estado:** **A IMPLEMENTAR (RF-005 y RF-009).** Baseline real medido (2026-10-03): 151 declarados, **98 ejecutados, 93 pasan, 5 fallan, 53 no arrancan**, coverage **42,86%** (`metricas_ejecucion.md:27-35,65-72`).
+- **Estado:** **IMPLEMENTADO (Ciclo 11 / RF-009), validado en local y pendiente de ejecución remota** (no hay `push`). El pipeline `.gitlab-ci.yml` materializa las etapas `validate`→`build`→`fmt`→`test`→`coverage`→`gas`→`ci-checks`; los criterios Gherkin/EARS de este CU se cumplen en la simulación local `sc/script/ci/run_local_ci.sh` (exit 0). Baseline real medido (2026-10-03): 151 declarados, **98 ejecutados, 93 pasan, 5 fallan, 53 no arrancan**, coverage **42,86%**; estado actual: **353 tests, 353 pasan**, cobertura `src/` **97,12 %** de líneas (mínimo por contrato 91,53 %; D-017/D-042). Ver `metricas_ejecucion.md` §19.
 - **Precondición:** `rwa-sc/.gitmodules` (raíz) declara los 3 submódulos con commit pinneado: `sc/lib/forge-std`, `sc/lib/openzeppelin-contracts`, `sc/lib/openzeppelin-contracts-upgradeable`. `rwa-sc/sc/.gitmodules` declara **solo** `lib/openzeppelin-contracts` (M-07). `foundry.toml` con remappings correctos; runner GitLab con Foundry instalado.
 - **Flujo principal:**
   1. El pipeline ejecuta `git submodule update --init --recursive`.

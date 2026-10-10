@@ -15,3 +15,6 @@ yarn-debug.log*
 yarn-error.log*
 *.tsbuildinfo
 cache
+# RF-009 (Ciclo 11): artefactos locales de la simulacion del pipeline
+lcov.info
+ci-artifacts/

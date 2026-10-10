@@ -124,7 +124,7 @@ sc/script/deploy.sh                      # despliega, valida red, verifica on-ch
 | `sc/lib/` (forge-std v1.12.0, OZ v5.5.0, OZ-upgradeable v5.5.0) | **Clonados** para la auditoría | `lib/` está en `.gitignore`: el bootstrap reproducible sigue pendiente (H-04 / RF-005) |
 | Node.js / npm | v22.23.2 / 10.9.8 | Suficiente para `rwa-web` (fuera de alcance) |
 | MongoDB local | por verificar | Necesario solo para `rwa-web` |
-| CI (GitLab) | **no existe** | RF-009: crear `.gitlab-ci.yml` sobre `rwa-sc-DSH-GCP` |
+| CI (GitLab) | **`.gitlab-ci.yml` creado (Ciclo 11 / RF-009)**, validado en local | Aún **sin ejecutar en remoto**: no hay `push`. Ver §13 |
 
 ## 10. Rama y repositorios de trabajo
 
@@ -135,8 +135,10 @@ sc/script/deploy.sh                      # despliega, valida red, verifica on-ch
 
 ## 11. Métricas de referencia (medidas, no declaradas)
 
-Ver `metricas_ejecucion.md`: 151 tests declarados · 93 pasan · 5 fallan · 53 no arrancan · cobertura 42,86 %.
-Ninguna cifra de los documentos originales ("139 tests", "100 % passing", "coverage > 80 %") está respaldada.
+Cifras vigentes (medidas, ver `metricas_ejecucion.md` §16.3 y §19): **353 tests / 353 pasan / 0 fallan**
+(18 suites) y cobertura de `src/` **97,12 % de líneas** (D-017, sin interfaces; mínimo por contrato 91,53 %).
+Las cifras originales ("139 tests", "100 % passing", "coverage > 80 %") no estaban respaldadas; históricamente
+la auditoría V1 midió 98 ejecutados / 93 pasan / 5 fallan / 53 no arrancan / cobertura 42,86 % (2026-10-03).
 
 ## 12. Procedimiento de despliegue (Ciclo 9 / RF-010)
 
@@ -188,3 +190,57 @@ cast call "$AGG" 'getModuleCount(address)(uint256)' "$TOKEN" --rpc-url "$RPC_URL
 ```
 
 > Nota: `cast call` devuelve los `string` entrecomillados; normaliza las comillas al comparar.
+
+## 13. Integración Continua — pipeline de GitLab (Ciclo 11 / RF-009)
+
+### 13.1 Qué es y dónde vive
+
+- Fichero: **`rwa-sc/.gitlab-ci.yml`** (raíz del repositorio), versionado.
+- Rama de CI: **`rwa-sc-DSH-GCP`** (D-005); también se dispara en *merge requests* (`merge_request_event`).
+  Ninguna otra rama dispara pipeline (`workflow.rules` → `when: never`).
+- Imagen **fijada**: `ghcr.io/foundry-rs/foundry:v1.8.3` (tag verificado en `ghcr.io` el 2026-10-10; coincide
+  con el toolchain local: Forge/Anvil **v1.8.3**). Para actualizarla: cambiar el tag en `default.image.name`
+  y en esta sección; volver a medir cobertura y `.gas-snapshot`.
+- Variables (sin secretos): `FOUNDRY_PROFILE=default`, `SOLC_VERSION=0.8.20`,
+  `COVERAGE_THRESHOLD=80`, `COVERAGE_CONTRACT_THRESHOLD=80`, `GIT_SUBMODULE_STRATEGY=recursive`.
+
+### 13.2 Etapas y gates
+
+| Etapa | Comando | Gate | Requisito |
+|---|---|---|---|
+| `validate` | `git submodule update --init --recursive` + `git submodule status` | 3 submódulos pinneados, sin `-`/`+` y `.gitmodules` con `sc/lib/*` | B-5 / RF-005 |
+| `build` | `forge build` | 0 errores | RF-005 |
+| `fmt` | `forge fmt --check` | limpio | RF-005 |
+| `test` | `forge test` | 0 fallos; **conteo real** publicado como artefacto | RNF-003 |
+| `coverage` | `forge coverage --report summary --report lcov` + `check_coverage.sh` | agregado `src/` ≥ 80 % (sin `ICompliance.sol`/`IClaimTopicsRegistry.sol`) y mínimo por contrato ≥ 80 % | RNF-002 / D-017 / D-042 |
+| `gas` | `forge snapshot --check --tolerance 5` | dentro del 5 % del `.gas-snapshot` | RNF-001 / D-039 |
+| `ci-checks` | `check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh` | sin `bypassCompliance`, docs consistentes, sin deriva de ABIs | RF-002 / RF-006 |
+
+Artefactos: `sc/ci-artifacts/test-count.txt` (conteo real + resumen), `sc/ci-artifacts/test-run.log`,
+`sc/ci-artifacts/coverage-summary.txt` y `sc/lcov.info`.
+
+### 13.3 Ensayo local (mismos comandos, mismo orden)
+
+```bash
+cd /home/dsh/workspace/RWA/rwa-sc
+export PATH="$HOME/.foundry/bin:$PATH"
+sc/script/ci/run_local_ci.sh        # exit 0 = pipeline local en verde
+# CI_KEEP_GOING=1 ... para no detenerse en la primera etapa que falle
+```
+
+El script recorre `validate → build → fmt → test → coverage+gate → gas → ci-checks`, imprime un resumen por
+etapa y devuelve exit 0/1. Los umbrales se leen de `COVERAGE_THRESHOLD` / `COVERAGE_CONTRACT_THRESHOLD`.
+
+### 13.4 Estado real: aún no ha corrido en remoto
+
+- **No se ha hecho `push`** (regla del proyecto: solo con orden explícita del usuario; `/push`).
+  El repositorio remoto (`https://gitlab.com/anlucorporations/rwa-sc.git`) sigue con la cabeza antigua
+  `2a4a683` (solo `README.md`); todo el árbol, incluido este pipeline, es **local** (H-04/RF-005).
+- Para que el pipeline corra en GitLab hace falta: **(1)** `push` de `rwa-sc-DSH-GCP`; **(2)** un **runner**
+  registrado para el proyecto (docker o shell).
+- Nota de entorno del runner: la imagen oficial de Foundry es **Ubuntu no-root y no incluye `jq`**, que
+  `abi_diff.sh` necesita. El job `ci-checks` lo instala si el runner permite root (`user = "root"` en el
+  `config.toml` del ejecutor docker) o si el ejecutor es **shell** (donde ya están `forge` y `jq`, según la
+  precondición de CU-11). Si el runner es docker no-root, hay que usar una imagen propia `FROM
+  ghcr.io/foundry-rs/foundry:v1.8.3` con `jq` instalado. No se cachea `~/.svm` (fuera del proyecto): solc
+  0.8.20 se descarga por job.
