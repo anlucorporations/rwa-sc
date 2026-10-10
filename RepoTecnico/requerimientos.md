@@ -323,6 +323,13 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   existentes; igual patrón en `claimDigest`/`claimStructHash`. La suite `RF013_ClaimLifecycle.t.sol` firma
   con el nonce vigente leído de `claimNonce` y añade 5 tests del cierre (replay, incremento, reactivación,
   idempotencia D-018 y digest). Ningún test se borra ni se debilita.
+- **D-053 (Ciclo 8b · toolchain — decisión del usuario):** se **mantiene `solc 0.8.20`** y el **digest EIP-712
+  propio** en `IdentityCloneable` (revisado y cubierto por tests de binding de `chainId`, `verifyingContract`
+  y `nonce`, con `ECDSA` de OpenZeppelin para la recuperación y la maleabilidad). Motivo: cero riesgo de
+  toolchain y baseline de gas estable antes del despliegue; `EIP712Upgradeable` de OZ 5.5.0 exige `^0.8.24`.
+  **Tarea registrada para el ciclo del área web:** subir `solc` (≥ 0.8.24/0.8.26, con `evm_version` explícito
+  para Besu) y adoptar `EIP712Upgradeable`, que además expone `eip712Domain()` (EIP-5267) para que los clientes
+  construyan el digest sin hardcodear el dominio; se re-baselinizará `.gas-snapshot` en ese momento.
 
 ## 7. Mapa RF → casos de uso (Fase 2)
 

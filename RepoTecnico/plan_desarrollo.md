@@ -119,7 +119,7 @@
 | **Criterios de aceptación** | Reintroducir la firma original tras revocar revierte (`"Signature signer mismatch"`) y el claim sigue revocado; reactivar exige firma nueva con el nonce incrementado; reaplicar una firma válida sin revocación sigue siendo idempotente; ninguna métrica de `src/` baja |
 | **Cierra** | Cierra el bypass de D-046 (residual de H-08) |
 
-## Ciclo 8b — Revisión del toolchain (decidido por el usuario)
+## Ciclo 8b — Revisión del toolchain (CERRADO: se mantiene solc 0.8.20 + digest propio, D-053)
 
 | Campo | Detalle |
 |---|---|

@@ -48,10 +48,7 @@
   **0** en `createToken`. Decisiones **D-029..D-032**.
 - [x] **Documentación versionada:** `RepoTecnico/` se movió dentro del repo (`rwa-sc/RepoTecnico/`, commit
   `fb38e4f`), por lo que los ciclos siguientes versionan código **y** documentación. Decisión del usuario.
-- [ ] Ciclo 3 (RF-002) → Ciclo 4 (RF-003) → Ciclo 5 (RF-004) → Ciclo 6 (RF-011)
-  → Ciclo 7 (RF-012) → Ciclo 8 (RF-013) → **Ciclo 8c (nonce firmado anti-replay, hecho)** →
-  **Ciclo 8b (toolchain: solc ≥ 0.8.24 + `EIP712Upgradeable` de OZ,
-  decidido por el usuario antes del despliegue)** → Ciclo 9 (RF-010) → Ciclo 10 (RF-006) → Ciclo 11 (RF-009).
+- [ ] Ciclo 9 (RF-010) → Ciclo 10 (RF-006) → Ciclo 11 (RF-009). (Los Ciclos 3 a 8c y el 8b estan cerrados.)
 
 - [x] **Ciclo 1b — RF-005 · Cobertura ≥ 80 % por contrato en los registries** (commit local `a92cf1d`):
   3 suites nuevas (92 tests: IdentityRegistry 34, TrustedIssuersRegistry 33, ClaimTopicsRegistry 25);
@@ -187,3 +184,8 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 
 Confirmación del usuario para iniciar el **Ciclo 3 (RF-002)**: retirada del flag `bypassCompliance` y
 protección anti-reentrancia (`ReentrancyGuardUpgradeable`) en `TokenCloneable` y `ComplianceAggregator`.
+- [x] **Ciclo 8b — Revisión del toolchain** (decisión **D-053**, sin cambios de código): se **mantiene
+  `solc 0.8.20`** y el **digest EIP-712 propio** (binding de `chainId`/`verifyingContract`/`nonce` cubierto
+  por tests, con `ECDSA` de OpenZeppelin). `EIP712Upgradeable` de OZ 5.5.0 exige `^0.8.24`; la subida del
+  compilador y la adopción de la librería (más `eip712Domain()` de EIP-5267) quedan registradas como tarea
+  del ciclo del área web, donde se re-baselinizará `.gas-snapshot`.
