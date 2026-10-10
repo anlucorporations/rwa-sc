@@ -1,5 +1,4 @@
-Ran 3 tests for test/PoC_H01_H05.t.sol:PoC_Hallazgos
-[PASS] test_H01_claim_con_firma_valida_aceptado() (gas: 625391)
-[PASS] test_H01_claim_forjado_firma_vacia_revierte() (gas: 1148386)
-[PASS] test_H05_isVerified_fail_open() (gas: 772915)
-Ran 1 test suite in 20.56ms (7.80ms CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
+[PASS] test_H01_claim_con_firma_valida_aceptado() (gas: 625413)
+[PASS] test_H01_claim_forjado_firma_vacia_revierte() (gas: 1151150)
+[PASS] test_H05_isVerified_fail_closed_ok() (gas: 775593)
+Ran 1 test suite in 13.10ms (4.89ms CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)

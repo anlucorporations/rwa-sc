@@ -84,8 +84,8 @@ contract PoC_Hallazgos is Test {
         assertTrue(IdentityCloneable(identity).claimExists(1, issuer), "la firma valida debe aceptarse");
     }
 
-    // H-05 (PENDIENTE, RF-011): sin claimTopicsRegistry, isVerified es fail-open (true)
-    function test_H05_isVerified_fail_open() public {
+    // H-05 (CORREGIDO en RF-011 / Ciclo 6): sin claimTopicsRegistry, isVerified es fail-closed (false)
+    function test_H05_isVerified_fail_closed_ok() public {
         address victim = makeAddr("victim");
         IdentityCloneFactory idFactory = new IdentityCloneFactory(admin);
         IdentityRegistry idRegistry = new IdentityRegistry(admin);
@@ -98,6 +98,9 @@ contract PoC_Hallazgos is Test {
         TokenCloneable(token).setIdentityRegistry(address(idRegistry));
         // NO se configura claimTopicsRegistry a proposito
 
-        assertTrue(TokenCloneable(token).isVerified(victim), "H-05 reproducido: fail-open sin registry de topics");
+        assertFalse(
+            TokenCloneable(token).isVerified(victim),
+            "H-05 corregido: fail-closed sin registry de topics (devolvia true antes de RF-011)"
+        );
     }
 }

@@ -351,12 +351,17 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
             return false;
         }
 
-        // Check if all required claim topics are present
+        // RF-011 (Ciclo 6): politica de topics fail-closed. Un token sin `claimTopicsRegistry`
+        // configurado, o con el conjunto de topics requeridos vacio, NO verifica a nadie: antes esta
+        // rama devolvia `true` para cualquier wallet registrada (fail-open, H-05).
         if (address(claimTopicsRegistry) == address(0)) {
-            return true;
+            return false;
         }
 
         uint256[] memory requiredTopics = claimTopicsRegistry.getClaimTopics();
+        if (requiredTopics.length == 0) {
+            return false;
+        }
 
         for (uint256 i = 0; i < requiredTopics.length; i++) {
             bool hasValidClaim = false;

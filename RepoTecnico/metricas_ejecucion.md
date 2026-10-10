@@ -642,3 +642,21 @@ lo que hace viable el gate de gas de la CI (D-039) sobre **todas** las pruebas y
 **Decisiones:** D-038 (vigencia `expiresAt == 0` = sin caducidad), D-039 (gate de gas 5 %), D-040 (despliegue
 sobre Anvil de GCP, Besu como alternativa), D-041 (datos off-chain diferidos), D-042 (gate de cobertura
 agregado + por contrato).
+
+## 13. Ciclo 6 — RF-011: `isVerified` fail-closed
+
+| Métrica | Antes (Ciclo 5) | Después (Ciclo 6) |
+|---|---|---|
+| Tests | 320 | **326** (+6) |
+| Fallos | 0 | 0 |
+| `src/TokenCloneable.sol` (líneas) | 97,71 % | 97,71 % |
+| Gate de gas (`--check --tolerance 5`) | OK | OK (determinista) |
+
+**Cambio:** `isVerified` devuelve `false` cuando `claimTopicsRegistry == address(0)` o cuando el conjunto de
+topics requeridos está vacío (antes devolvía `true`: fail-open H-05). Un token recién creado por factory ya no
+verifica a nadie y `mint`/`transfer` quedan bloqueados hasta configurar la política; al configurarla, la
+verificación vuelve a `true` (no hay bloqueo permanente).
+
+**Suites:** nueva `test/RF011_FailClosed.t.sol` (6 tests `test_RF011_*` de CU-15). Evidencia actualizada:
+`evidencias/PoC_H01_H05.t.sol` invierte el PoC de H-05 (`test_H05_isVerified_fail_closed_ok`) y **ambos**
+hallazgos (H-01 y H-05) quedan verificados como corregidos.

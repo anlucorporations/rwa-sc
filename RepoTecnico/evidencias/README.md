@@ -9,10 +9,9 @@
 | Hallazgo | Qué demuestra el PoC | Resultado |
 |---|---|---|
 | **H-01** (Crítica) | ~~Un claim con **firma vacía** (`""`) es aceptado por `addClaim`~~ **INVERTIDO en el Ciclo 2 (RF-001)**: con la verificación EIP-712, la firma vacía **revierte** y `isVerified()` sigue devolviendo `false`; una firma válida del issuer sí crea el claim. | `[PASS] test_H01_claim_forjado_firma_vacia_revierte` + `[PASS] test_H01_claim_con_firma_valida_aceptado` |
-| **H-05** (Alta) | Sin `claimTopicsRegistry` configurado, `isVerified()` devuelve `true` para una identidad **sin ningún claim** (fail-open). **Pendiente de RF-011 (Ciclo 6).** | `[PASS] test_H05_isVerified_fail_open` |
+| **H-05** (Alta) | Sin `claimTopicsRegistry` configurado, `isVerified()` devolvía `true` para una identidad **sin ningún claim** (fail-open). **INVERTIDO en el Ciclo 6 (RF-011)**: ahora devuelve `false` (fail-closed). | `[PASS] test_H05_isVerified_fail_closed_ok` |
 
-El PoC de H-01 ya **no** reproduce la vulnerabilidad: el caso negativo revierte y el positivo exige
-firma EIP-712 válida. El de H-05 sigue reproduciendo el fail-open, que se corrige en el Ciclo 6/RF-011.
+El PoC de H-01 ya **no** reproduce la vulnerabilidad: el caso negativo revierte y el positivo exige firma EIP-712 válida. El de H-05 **también está corregido** desde el Ciclo 6/RF-011: sin política de topics `isVerified()` devuelve `false`.
 Salida completa en [`salida_poc.txt`](salida_poc.txt).
 
 > **Traza histórica:** la salida **pre-corrección** (claim con firma vacía **aceptado**) quedó registrada en

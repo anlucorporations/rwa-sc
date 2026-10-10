@@ -70,6 +70,13 @@
   **320/320 tests**, `src/` 96,43 % líneas (todos los contratos ≥ 91 %, `TokenCloneable` 97,71 %).
   Hallazgo del ciclo: el gate de gas fallaba por el fuzz no determinista → se fijó `[fuzz] seed` en
   `foundry.toml` y `forge snapshot --check --tolerance 5` pasa de forma estable (D-039 viable).
+- [x] **Ciclo 6 — RF-011 · `isVerified` fail-closed** (implementado): devuelve `false` si
+  `claimTopicsRegistry == address(0)` o si el conjunto de topics requeridos está vacío (antes `true`;
+  fail-open H-05 de la auditoría V1). Un token recién creado por factory no verifica a nadie y
+  `mint`/`transfer` quedan bloqueados hasta configurar la política, que vuelve a habilitarlos.
+  Suite nueva `RF011_FailClosed.t.sol` (6 tests, CU-15); **326/326 tests**; `TokenCloneable` 99,44 % de
+  líneas. La evidencia `evidencias/PoC_H01_H05.t.sol` invierte también el PoC de H-05
+  (`test_H05_isVerified_fail_closed_ok`): **H-01 y H-05 quedan verificados como corregidos**.
 
 ### Corrección de cifras tras el Ciclo 1
 

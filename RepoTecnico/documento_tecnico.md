@@ -255,7 +255,7 @@ Estos son los puntos que la arquitectura objetivo debe corregir, con evidencia d
 |---|---|---|---|
 | `IdentityCloneable` / struct `Claim` | **EIP-712 tipado** en `addClaim` (D-020): dominio `EIP712Domain = {name: "RWA-Identity", version: "1", chainId, verifyingContract: address(this)}` —en clones EIP-1167 `verifyingContract` es la **dirección del clon**, no la implementación— y `CLAIM_TYPEHASH = keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt)")`; `scheme == 1`, `signature.length == 65`, `ecrecover`, `recovered == issuer`, `hasClaimTopic(issuer, topic)` obligatorio; rechazo de firma vacía y sobrescritura solo con firma válida (D-018). La nueva firma de `addClaim` incorpora `expiresAt` y debe propagarse a `createIdentityWithClaim` y al CHANGELOG de ABIs | RF-001 | H-01 (auditoría V1); HB-01 (base) |
 | `IdentityCloneable` / struct `Claim` | **Ciclo de vida del claim:** `expiresAt` + `revoked`; **`expiresAt` forma parte del digest firmado (D-020)** ⇒ renovar la vigencia exige nueva firma del `issuer`; `revokeClaim` firmado por el propio `claim.issuer`; `isVerified` deja de aceptar claims vencidos o revocados; sobrescritura por D-018 | RF-013 | H-08 (auditoría V1) |
-| `TokenCloneable` — `isVerified` | **Fail-closed:** si `claimTopicsRegistry == address(0)` o `getClaimTopics()` está vacío, devuelve `false` (hoy `true`); se exige además claim vigente y no revocado | RF-011 | H-05 (auditoría V1) |
+| `TokenCloneable` — `isVerified` | **Fail-closed:** si `claimTopicsRegistry == address(0)` o `getClaimTopics()` está vacío, devuelve `false` (antes `true`; **implementado en el Ciclo 6**); se exige además claim vigente y no revocado | RF-011 | H-05 (auditoría V1) |
 | `TokenCloneable` — bypass/reentrancia | Se **elimina** `bypassCompliance` del storage; el bypass del agente queda acotado a `forcedTransfer` hacia `authorizedDestinations` con tope `maxForcedPerTx`; `ReentrancyGuardUpgradeable` en `transfer`/`forcedTransfer`/`mint`/`burn` y en las entradas del aggregator | RF-002 | H-03, H-18 (auditoría V1) |
 | `TokenCloneable` — `burn`/`forcedTransfer` | **Whitelist de destinos + límites:** `authorizedDestinations[address]`, `maxBurnPerTx`, `maxForcedPerTx`; administración solo por admin/compliance; guard `from != address(0)`; **tope de suministro** `maxSupply` administrable con evento, que no puede bajarse por debajo de lo ya emitido ni subirse sin evento (D-022) | RF-004 | **HB-02** (análisis base); H-06, H-27 (auditoría V1) |
 | `ICompliance` + 4 contratos de compliance | **Implementado (Ciclo 4):** `ICompliance is IERC165` y `supportsInterface(type(ICompliance).interfaceId) == true` en `MaxBalanceCompliance`, `MaxHoldersCompliance`, `TransferLockCompliance` y `ComplianceAggregator` (todos con `ERC165`); validación ERC-165 al registrar módulos (token y aggregator) con `"Module does not implement ICompliance"` y rechazo de duplicados en el token | RF-003 | H-17 (auditoría V1) |
@@ -513,7 +513,7 @@ actor↔CU de `diagramas_casos_uso.md:461-497`; cualquier celda dudosa se ha reb
 | RF-008 | *(ninguno — zona web)* | — | PAUSADO (D-003) |
 | RF-009 | `.gitlab-ci.yml` en `rwa-sc-DSH-GCP` | CU-11 | A IMPLEMENTAR |
 | RF-010 | `deploy-besu.sh`, `.gitignore` | CU-13 | A IMPLEMENTAR |
-| RF-011 | `TokenCloneable.isVerified` | CU-15 | A IMPLEMENTAR |
+| RF-011 | `TokenCloneable.isVerified` | CU-15 | **IMPLEMENTADO** (Ciclo 6) |
 | RF-012 | `ComplianceAggregator.canTransfer` + `onlyOwnerOrToken` (con D-023) | CU-16 | A IMPLEMENTAR |
 | RF-013 | `IdentityCloneable` / struct `Claim` (con D-020) | CU-17 | A IMPLEMENTAR |
 
@@ -551,7 +551,7 @@ RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:2
 | HB-11 | RF-005 | Cubierto por el plan |
 | HB-12 | RF-010 | Cubierto por el plan |
 | H-01 (auditoría V1) | RF-001 | A IMPLEMENTAR |
-| H-05 (auditoría V1) | RF-011 | A IMPLEMENTAR |
+| H-05 (auditoría V1) | RF-011 | **IMPLEMENTADO** (Ciclo 6) |
 | H-08 (auditoría V1) | RF-013 | A IMPLEMENTAR |
 | H-22 (auditoría V1) | RF-012 | A IMPLEMENTAR |
 | H-02, H-03, H-04, H-06, H-07, H-09..H-21, H-23..H-34 | Cubiertos, parciales o al backlog | Ver `requerimientos.md:169-207` |
