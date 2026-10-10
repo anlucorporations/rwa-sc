@@ -228,6 +228,8 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 3. **Gobernanza en una sola EOA** hasta el multisig/timelock (H-06; D-021, backlog R-7).
 4. **PII/KYC off-chain sin política formal** de base legal, cifrado y retención (H-11, backlog R-3).
 5. **DF3-05..DF3-10**: detalles de diseño que se resuelven dentro de los ciclos de la Fase 3.
+6. **Pipeline en remoto**: RESUELTA — los pipelines `2934202154` y `2934241152` (rama `rwa-sc-DSH-GCP`)
+   terminaron en verde con 7/7 jobs; la brecha anterior ("sin CI ejecutada") queda cerrada.
 
 ## Pipeline en GitLab (cerrado)
 
