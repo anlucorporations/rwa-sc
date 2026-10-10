@@ -1342,3 +1342,18 @@ derogados (fail-open) reescritos a fail-closed; remisión a la matriz en el enca
   `printf '%s\n' "${real_tests[@]}" | grep -q` cerraba la tubería al primer acierto (SIGPIPE en `printf`) y con
   `set -o pipefail` devolvía "no existe" de forma no determinista (reproducido 1 de cada 50 ejecuciones).
   Sustituido por un índice asociativo en memoria; 100/100 ejecuciones estables.
+
+### 22.8 F4-03 — falso positivo del gate de secretos (detectado por el Lead)
+
+Al re-verificar la Fase 4, el Lead ejecutó `check_secrets.sh` y devolvió **exit 1** pese a que el
+subagente lo había reportado en verde. Causa: el gate **se escaneaba a sí mismo** y sus propios
+comentarios documentan los patrones prohibidos (`keys.json`, `--private-key`), de modo que los
+marcaba como hallazgos.
+
+**Corrección (commit `bd58e4c`):** se excluye el propio path (`sc/script/ci/check_secrets.sh`) de la
+lista de *scripts/configuración* (los chequeos 2 y 3, que recorren **todos** los archivos, se mantienen).
+Verificado: **positivo** → exit 0 (`99 archivos versionados escaneados`) y **negativo** → exit 1
+al inyectar una clave `0x…64 hex` en `sc/script/deploy.sh`.
+
+**Lección aplicada al proceso:** un agente no puede validar su propio gate cuando el gate documenta los
+patrones que prohíbe; hace falta re-ejecución independiente del Lead (que es la que encontró F4-01..F4-03).
