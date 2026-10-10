@@ -3,7 +3,7 @@
 > **Proyecto:** RWA / `rwa-sc` · **Fase 4 (Pruebas)** · **Fecha:** 2026-10-11
 > **Estado:** **v2 (matriz vigente tras el cierre de Fase 4)**. Sustituye a la v1 (2026-10-10), cuya línea base (18 archivos, 353 tests, 10 invariantes) quedó superada por el cierre de huecos y la corrección de los hallazgos AF-01/AF-02/AF-13 de la auditoría adversarial final.
 > **Fuente de criterios:** `RepoTecnico/casos_uso/casos_uso.md` v1.3 (17 CU · 92 Gherkin + 50 EARS = **142 criterios**).
-> **Fuentes de prueba:** `rwa-sc/sc/test/**` (**23 suites: 19 unitarias + 4 de invariantes**, **386 tests**, **19 funciones `invariant_`**) y `rwa-sc/sc/script/ci/**` + `rwa-sc/.gitlab-ci.yml` (7 jobs).
+> **Fuentes de prueba:** `rwa-sc/sc/test/**` (**23 suites: 19 unitarias + 4 de invariantes**, **394 tests**, **19 funciones `invariant_`**) y `rwa-sc/sc/script/ci/**` + `rwa-sc/.gitlab-ci.yml` (7 jobs).
 > **Alcance de este informe:** solo lectura sobre `rwa-sc/sc/**`; el único archivo escrito es este.
 
 ---
@@ -21,7 +21,7 @@
 **Totales verificados por comando** (no a ojo):
 
 - Criterios extraídos del documento: `grep -cE '^([0-9]+\. |- )\`(test_|ci_check_)' casos_uso.md` → **142** (92 ítems numerados + 50 viñetas EARS).
-- Tests existentes: `forge test` → **386 tests pasados, 0 fallidos**, **23 suites**, 19 funciones `invariant_`.
+- Tests existentes: `forge test` → **394 tests pasados, 0 fallidos**, **23 suites**, 19 funciones `invariant_`.
 - Nombres de test citados literalmente en el documento que **no existen** hoy: **67** `test_*` (ver §4); la mayoría están cubiertos por un test equivalente con otra convención.
 - Los 24 nombres `ci_check_*` no son funciones de test: se resuelven contra scripts/gates y jobs del pipeline.
 
@@ -35,7 +35,7 @@
 
 ### v2 — cambios respecto a la v1
 
-- Línea base: 18 archivos/353 tests/10 invariantes → **23 suites/386 tests/19 invariantes**.
+- Línea base: 18 archivos/353 tests/10 invariantes → **23 suites/394 tests/19 invariantes** (cierre definitivo: +3 de AF-03 y +5 de AF-05).
 - **9 FALTA → 0 FALTA** (los 8 que la auditoría AF-06 ya daba por cubiertos + `ci_check_RF006_mitigacion_con_test` implementado en `check_docs.sh`).
 - Se añade la suite `test/AuditoriaFinalAF.t.sol` (hallazgos **AF-01**, **AF-02** y **AF-13** de la auditoría adversarial final).
 - Se elimina la «Nota de concurrencia» de la v1: `sc/test/invariant/` ya está integrado y es parte de la línea base (19 invariantes).
@@ -191,7 +191,7 @@ Rutas relativas a `rwa-sc/sc/`; las de pipeline a `rwa-sc/`.
 | # | Criterio (casos_uso.md) | Tipo | Prueba que lo verifica | Estado | Nota |
 |---|---|---|---|---|---|
 | 1 | L721 `ci_check_RF005_forge_build_ok` | Gherkin | sc/.gitlab-ci.yml job build (stage build); pipeline 2934202154 success | **CUBIERTO** | Gate de CI real |
-| 2 | L725 `ci_check_RF009_pipeline_test_exit_0` | Gherkin | sc/.gitlab-ci.yml job test (stage test); 386/386 en verde | **CUBIERTO** | Gate de CI real |
+| 2 | L725 `ci_check_RF009_pipeline_test_exit_0` | Gherkin | sc/.gitlab-ci.yml job test (stage test); 394/394 en verde | **CUBIERTO** | Gate de CI real |
 | 3 | L729 `ci_check_RNF002_coverage_mayor_igual_80` | Gherkin | sc/.gitlab-ci.yml job coverage + sc/script/ci/check_coverage.sh | **CUBIERTO** | Gate real: agregado src/ 97.12%, minimo por contrato 91.53% |
 | 4 | L733 `ci_check_RF009_artefacto_lcov_publicado` | Gherkin | sc/.gitlab-ci.yml job coverage (artifacts: sc/lcov.info) | **CUBIERTO** | Artefacto publicado |
 | 5 | L739 `ci_check_RF005_submodulos_pinneados` | EARS | sc/.gitlab-ci.yml job validate; sc/script/ci/run_local_ci.sh stage_validate | **CUBIERTO** | Gate real (3 submodulos, sin prefijos -/+) |
@@ -430,7 +430,7 @@ La acción pendiente es de redacción en `casos_uso.md` (sustituir «A IMPLEMENT
 | `ci_check_RF005_forge_build_ok` | `forge build` | `build` | OK (job success) |
 | `ci_check_RF005_submodulos_pinneados` | `git submodule status` + conteo en `.gitmodules` | `validate` | OK (job success) |
 | `ci_check_RF005_remappings_coherentes` | — (falla implícitamente en build, sin check explícito) | `build` | PARCIAL (no hay check explícito) |
-| `ci_check_RF009_pipeline_test_exit_0` | `forge test` (386/386) | `test` | OK: `386 tests passed, 0 failed, 0 skipped` |
+| `ci_check_RF009_pipeline_test_exit_0` | `forge test` (394/394) | `test` | OK: `394 tests passed, 0 failed, 0 skipped` |
 | `ci_check_RNF002_coverage_mayor_igual_80` | `sc/script/ci/check_coverage.sh` | `coverage` | OK: agregado `src/` 97.12 % (674/694); mínimo por contrato 91.53 % |
 | `ci_check_RF009_artefacto_lcov_publicado` | artifacts `sc/lcov.info` | `coverage` | OK (artefacto publicado) |
 | `ci_check_RF009_umbral_configurable_centralizado` | `COVERAGE_THRESHOLD` / `COVERAGE_CONTRACT_THRESHOLD` | `coverage` | OK (leído por el script) |

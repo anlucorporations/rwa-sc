@@ -11,7 +11,7 @@
 | 1 | Concepción | ✅ COMPLETADO | Artefactos creados, repos y GCP definidos, entrevista de 3 bloques |
 | 2 | Auditoría | ✅ COMPLETADO (por confirmar) | Auditoría sin issues críticos + CU auditados + gráficos + documento técnico auditado |
 | 3 | Desarrollo | ✅ COMPLETADO — Ciclos 1, 1b, 2, 3, 4, 5, 6, 7, 8, 8b, 8c, 9, 10 y **11** ✅ | Plan vertical aprobado, ciclos completados y probados |
-| 4 | Pruebas | ✅ COMPLETADO — **386/386 tests en verde** (23 suites, 19 funciones `invariant_*`), cobertura `src/` **97,05 % líneas** (690/711; mínimo por contrato 91,53 %), matriz **v2** de **142 criterios** con **0 FALTA**; auditoría adversarial final **AF-01..AF-15** cerrada (AF-01/AF-02/AF-06/AF-07/AF-08/AF-09/AF-10/AF-11/AF-13/AF-15 corregidos; AF-03/AF-04/AF-05/AF-12/AF-14 diferidos, D-082); pipeline 7/7 en verde (`2934202154`, `2934241152`) | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
+| 4 | Pruebas | ✅ COMPLETADO (cierre definitivo) — **394/394 tests en verde** (23 suites, 19 funciones `invariant_*`), cobertura `src/` **97,05 % líneas** (691/712; mínimo por contrato 91,53 %), matriz **v2** de **142 criterios** con **0 FALTA**; auditoría adversarial final **AF-01..AF-15** cerrada (AF-01/AF-02/AF-03/AF-05/AF-06/AF-07/AF-08/AF-09/AF-10/AF-11/AF-13/AF-15 corregidos; **AF-03 y AF-05 por decisión del usuario**, D-083/D-084; AF-04/AF-12/AF-14 diferidos); pipeline 7/7 en verde (`2934202154`, `2934241152`) | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
 | 5 | Manuales | ⬜ Por cerrar | Manuales generados y confirmación final |
 
 ## Hitos de la Fase 2 (completados)
@@ -177,9 +177,11 @@
   cuentas congeladas, `forcedTransfer` operativo en pausa), **AF-06** (matriz v2 con **0 FALTA**),
   **AF-07** (`DeployFullStack` operable + smoke test en `deploy.sh`), **AF-08/AF-09** (scripts de ejemplo y
   aggregator), **AF-10** (`RUNBOOK_MIGRACION.md`), **AF-11/AF-15** (deriva documental y `CLAIM_TYPEHASH` de
-  D-020) y **AF-13** (simetría de `removeModuleThroughAggregator`). Quedan diferidos AF-03/AF-04/AF-05/AF-12/
-  AF-14 (D-082). `forge test` → **386/386** (23 suites, 19 invariantes). Decisiones **D-075..D-082**.
-  Suite nueva `test/AuditoriaFinalAF.t.sol` (18 pruebas). Pipeline en verde: `2934202154` y `2934241152`.
+  D-020) y **AF-13** (simetría de `removeModuleThroughAggregator`). **Cierre definitivo:** se incorporan por
+  decisión del usuario **AF-03** (el digest EIP-712 cubre el `uri` via `uriHash`) y **AF-05** (token
+  fail-closed sin módulos), D-083/D-084; quedan diferidos AF-04/AF-12/AF-14. `forge test` → **394/394**
+  (23 suites, 19 invariantes). Decisiones **D-075..D-085**. Suite `test/AuditoriaFinalAF.t.sol` (23 pruebas).
+  Pipeline en verde: `2934202154` y `2934241152`.
 - [x] **Documentación de operación:** `RUNBOOK_MIGRACION.md` (redeploy limpio D-019/RT-008) creado.
 
 ## Acuerdos y decisiones
@@ -234,6 +236,9 @@
 | D-079 | **AF-08/AF-09:** `CompleteDeploymentExample.s.sol` firma claims EIP-712 reales con `vm.sign` (no revierte al simular); `DeployComplianceAggregator.s.sol` corrige los "Next Steps" a la API real (sin `configureToken()`) |
 | D-080 | **AF-10:** se crea `rwa-sc/RUNBOOK_MIGRACION.md` (redeploy limpio D-019/RT-008: orden, configuración obligatoria, verificación con `cast`, consumidores y rollback) |
 | D-081 | **AF-06/AF-11/AF-15:** matriz `matriz_criterios.md` v2 (386 tests, 23 suites, 19 invariantes, 0 FALTA); `SECURITY.md`/`.gitlab-ci.yml`/`README.md`/`entornos_globales.md`/`run_local_ci.sh` alineados con la CI en verde; `CLAIM_TYPEHASH` de D-020 con `nonce` y línea de D-016 corregida |
+| D-083 | **AF-03 (decisión del usuario):** el `CLAIM_TYPEHASH` gana `bytes32 uriHash` (= `keccak256(bytes(uri))`); el issuer firma la referencia documental y el titular no puede alterarla. Breaking off-chain crítico (documentado en `CHANGELOG_ABIS.md`); sin cambio de ABI (`sc/abis/` no se regenera). `SigUtils` gana `uri` y conserva overloads con `""` |
+| D-084 | **AF-05 (decisión del usuario):** `TokenCloneable.canTransfer` devuelve `false` con `complianceModules.length == 0`; `transfer`/`transferFrom` revierten `"Transfer not compliant"`. `mint`/`burn`/`forcedTransfer` no dependen del array. Sin cambio de ABI; `deploy.sh` verifica `complianceModules(0)` |
+| D-085 | **Cierre definitivo Fase 4:** se adaptan las suites que emitían URIs no firmados (`IdentityCloneable`, `IdentityCloneFactory`, `RF013_ClaimLifecycle`) sin debilitar tests; **394/394**, 23 suites, 19 invariantes; 5 gates + `run_local_ci.sh` en verde; `.gas-snapshot` regenerado |
 | D-082 | **Diferidos (D-024):** AF-03 (`_uri` en el digest), AF-04 (D-027/front-running de `createIdentityWithClaim`), AF-05 (fail-closed del array de módulos del token), AF-12 (`removeClaim`/nonce) y AF-14 (`.md` en el gate de secretos) quedan fuera de este cierre por impacto en consumidores off-chain o rediseño pendiente; se reevalúan antes de producción |
 
 ## Plan de la Fase 3 (orden aprobado)

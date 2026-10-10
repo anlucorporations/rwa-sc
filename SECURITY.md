@@ -34,12 +34,12 @@ identidades y claims (KYC/AML) que habilitan operar; (c) control de acceso a fun
 
 | # | Amenaza | Vector | Control actual | Residual |
 |---|---|---|---|---|
-| T1 | **Forja de claims** | Un titular de identidad se añade un claim de KYC sin firma válida del issuer | Firma **EIP-712** obligatoria en `addClaim` (RF-001); `isVerified` exige claim vigente y no revocado | Firmas EIP-712 propias (no `EIP712Upgradeable`), sin auditoría |
+| T1 | **Forja de claims** | Un titular de identidad se añade un claim de KYC sin firma válida del issuer, o altera `data`/`uri` reutilizando una firma legítima | Firma **EIP-712** obligatoria en `addClaim` (RF-001); el digest cubre `data` y **`uri`** (`uriHash`, AF-03); `isVerified` exige claim vigente y no revocado | Firmas EIP-712 propias (no `EIP712Upgradeable`), sin auditoría |
 | T2 | **Fail-open de verificación** | Token sin `claimTopicsRegistry` (o sin topics) marca a cualquiera como verificado | `isVerified` **fail-closed** (RF-011) | — |
 | T3 | **Módulo de compliance malicioso/incompatible o mal configurado** | Registrar una EOA, un contrato sin `ICompliance` o un módulo de un solo token no vinculado a este token | Validación **ERC-165** en token y aggregator (RF-003) + **vinculación `tokenContract() == token`** (AF-01) + lectura defensiva en los módulos | — |
 | T4 | **Reentrancia** | Callbacks `transferred`/`created`/`destroyed` de un módulo malicioso | `ReentrancyGuardUpgradeable` (`nonReentrant`) en `transfer`/`forcedTransfer`/`mint`/`burn` (RF-002) | — |
 | T5 | **Abuso de poderes del agente** | `burn`/`forcedTransfer` masivos o a destinos arbitrarios; `mint`/`burn` durante una pausa de emergencia | Whitelist `authorizedDestinations` + `maxBurnPerTx`/`maxForcedPerTx` + `maxSupply` (RF-004) + `whenNotPaused` en `mint`/`burn` y `mint` a cuenta congelada rechazado (AF-02) | Gobernanza en una sola EOA hasta el multisig (H-06/R-7) |
-| T6 | **Aggregator fail-open / cross-token** | 0 módulos = permitir todo; owner global gestiona módulos ajenos | `ComplianceAggregator` **fail-closed** y gestión solo por el token (RF-012) | Estado singleton de módulos (H-19, backlog M-10) |
+| T6 | **Compliance fail-open / cross-token** | 0 módulos = permitir todo (en el token o en el aggregator); owner global gestiona módulos ajenos | **Fail-closed en ambos niveles** (RF-012 + AF-05): el token deniega sin módulos y el `ComplianceAggregator` también; gestión solo por el token | Estado singleton de módulos (H-19, backlog M-10) |
 | T7 | **Replay de un claim revocado** | Reintroducir la firma original tras una revocación | `claimNonce` por `(topic, issuer)` dentro del digest; `revokeClaim` lo incrementa (RF-013, Ciclo 8c) | — |
 | T8 | **Fuga de claves de despliegue** | Clave privada en `argv`/`ps` o en `~/.foundry/keys.json` | `deploy.sh` lee la clave de variable de entorno/Secret Manager y firma con keystore efímero (D-054/D-055) | Custodia de claves y rotación pendientes (H-06/R-7) |
 | T9 | **Deriva de ABI no declarada** | Un cambio de interfaz rompe a `rwa-web` sin aviso | `script/ci/abi_diff.sh` contra `sc/abis/` + `CHANGELOG_ABIS.md` (RF-006) | — (pipeline RF-009 en verde: IDs `2934202154` y `2934241152`) |
@@ -55,7 +55,7 @@ test o un gate que lo demuestre.
 | ID | Título breve | Estado | Ciclo / RF | Evidencia (test o gate) |
 |---|---|---|---|---|
 | **H-01** | Claims auto-forjados sin verificación de firma | **Corregido** | Ciclo 2 · RF-001 | `test/RF001_*` en `test/IdentityCloneable.t.sol` (`test_RF001_addClaim_firma_vacia_revierte`, `test_RF001_addClaim_firma_de_otra_clave_revierte`, `test_RF001_addClaim_firma_maleable_s_alto_revierte`, `test_RF001_addClaim_con_firma_valida`) |
-| **H-02** | "139 tests (100 % passing)" falso; suites muertas; cobertura 42,86 % | **Corregido** | Ciclos 1/1b · RF-005, y Ciclo 10 · RF-006 | `forge test` → **386/386**; cobertura `src/` **97,05 % líneas** (690/711; mínimo por contrato 91,53 %; D-017/D-042) |
+| **H-02** | "139 tests (100 % passing)" falso; suites muertas; cobertura 42,86 % | **Corregido** | Ciclos 1/1b · RF-005, y Ciclo 10 · RF-006 | `forge test` → **394/394**; cobertura `src/` **97,05 % líneas** (691/712; mínimo por contrato 91,53 %; D-017/D-042) |
 | **H-04** | Build no reproducible: submódulos, pin de `solc`, sin CI | **Corregido** | Ciclos 1 y 11 · RF-005/RF-009 | `.gitmodules` único + `sc/foundry.lock`; `solc_version = 0.8.20` y `evm_version` en `sc/foundry.toml`; `sc/.gitlab-ci.yml` (7 jobs) en verde (`2934202154`, `2934241152`) |
 | **H-05** | `isVerified()` fail-open sin `claimTopicsRegistry` | **Corregido** | Ciclo 6 · RF-011 | `test/RF011_FailClosed.t.sol` (`test_RF011_isVerified_sin_registry_topics_false`, `test_RF011_mint_transfer_bloqueados_sin_politica`) |
 | **H-08** | Claims sin vigencia ni revocación por el issuer | **Corregido** | Ciclos 8/8c · RF-013 | `test/RF013_ClaimLifecycle.t.sol` (`test_RF013_claim_expirado_isVerified_false`, `test_RF013_claim_revocado_por_issuer_isVerified_false`, `test_RF013_revocacion_replay_firma_original_revierte`) |
@@ -124,11 +124,13 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
 
 ## 4. Controles implementados (con su prueba)
 
-1. **EIP-712 con nonce (RF-001 + RF-013).** `addClaim` exige `scheme == 1`, `signature.length == 65`,
-   recuperación vía `ECDSA` de OpenZeppelin y `recovered == issuer != address(0)`; el digest incluye
-   `walletOwner`, `topic`, `scheme`, `dataHash`, `expiresAt` y `nonce` (D-020, D-050). `revokeClaim` (solo el
-   issuer) incrementa `claimNonce`, invalidando firmas previas. Pruebas: `test/IdentityCloneable.t.sol`
-   (`test_RF001_*`) y `test/RF013_ClaimLifecycle.t.sol`.
+1. **EIP-712 con nonce y `uri` (RF-001 + RF-013 + AF-03).** `addClaim` exige `scheme == 1`,
+   `signature.length == 65`, recuperación vía `ECDSA` de OpenZeppelin y `recovered == issuer != address(0)`;
+   el digest incluye `walletOwner`, `topic`, `scheme`, `dataHash`, `expiresAt`, `nonce` (D-020, D-050) y
+   **`uriHash = keccak256(bytes(uri))`** (AF-03), de modo que el issuer fija la referencia documental
+   off-chain y el titular no puede alterarla después del alta. `revokeClaim` (solo el issuer) incrementa
+   `claimNonce`, invalidando firmas previas. Pruebas: `test/IdentityCloneable.t.sol` (`test_RF001_*`,
+   `test_AF03_*`) y `test/RF013_ClaimLifecycle.t.sol`.
 2. **Fail-closed en `isVerified` (RF-011).** Sin `claimTopicsRegistry`, con topics vacíos o sin claim válido,
    devuelve `false` (`src/TokenCloneable.sol`, `isVerified`). Prueba: `test/RF011_FailClosed.t.sol`.
 3. **Fail-closed en el aggregator (RF-012).** Con cero módulos para un token la operación se deniega y solo
@@ -163,6 +165,11 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
 12. **Ciclo de vida y migración (D-019/RT-008).** Sin proxy actualizable: el redeploy limpio está
     documentado en `RUNBOOK_MIGRACION.md` (orden de despliegue, configuración obligatoria, verificación con
     `cast`, actualización de consumidores y rollback).
+13. **Token fail-closed sin módulos (AF-05).** `TokenCloneable.canTransfer` devuelve `false` cuando
+    `complianceModules.length == 0`, de modo que `transfer`/`transferFrom` revierten `"Transfer not
+    compliant"` hasta que `COMPLIANCE_ROLE` registre un módulo conforme. `mint`/`burn`/`forcedTransfer`
+    no dependen de ese array (ruta privilegiada del agente). El smoke test del despliegue verifica on-chain
+    que el token tiene al menos un módulo. Pruebas: `test/AuditoriaFinalAF.t.sol` (`test_AF05_*`).
 
 ## 5. Riesgos residuales (declaración honesta)
 
@@ -196,4 +203,4 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
 
 ---
 
-*Última revisión: Fase 4 (cierre, hallazgos AF-01/AF-02/AF-06/AF-11 de la auditoría adversarial final). Fuente de los hallazgos: [`RepoTecnico/INFORME_OPTIMIZACION_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_V1.md).*
+*Última revisión: Fase 4 (cierre definitivo: AF-01/AF-02/AF-03/AF-05/AF-06/AF-07/AF-08/AF-09/AF-10/AF-11/AF-13/AF-15 de la auditoría adversarial final; AF-03 y AF-05 por decisión del usuario). Fuente de los hallazgos: [`RepoTecnico/INFORME_OPTIMIZACION_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_V1.md).*

@@ -12,6 +12,7 @@ import {ClaimTopicsRegistry} from "../src/ClaimTopicsRegistry.sol";
 import {ComplianceAggregator} from "../src/compliance/ComplianceAggregator.sol";
 import {MaxBalanceCompliance} from "../src/compliance/MaxBalanceCompliance.sol";
 import {MaxHoldersCompliance} from "../src/compliance/MaxHoldersCompliance.sol";
+import {AllowAllCompliance} from "./mocks/AllowAllCompliance.sol";
 import {SigUtils} from "./helpers/SigUtils.sol";
 
 /**
@@ -26,6 +27,10 @@ import {SigUtils} from "./helpers/SigUtils.sol";
  *   `false`/sin cambios y el token sigue siendo recuperable.
  * - **AF-02 (MEDIA)**: `mint` y `burn` exigen `whenNotPaused`; `mint` rechaza destinos congelados;
  *   `forcedTransfer` (recuperacion de emergencia) sigue operativo en pausa.
+ * - **AF-05 (MEDIA)**: el token es **fail-closed sin modulos**: `canTransfer` devuelve `false` con
+ *   `complianceModules.length == 0` y `transfer` revierte `"Transfer not compliant"`. Con un modulo
+ *   permisivo (`AllowAllCompliance`) la transferencia vuelve a funcionar. `mint` y `forcedTransfer`
+ *   no dependen de `canTransfer`.
  * - **AF-13 (BAJA)**: `removeModuleThroughAggregator` aplica la simetria del alta (aggregator
  *   registrado + modulo activo para este token antes de delegar).
  */
@@ -225,6 +230,92 @@ contract AuditoriaFinalAFTest is Test {
 
         token.burn(user1, 4 ether);
         assertEq(token.balanceOf(user1), 6 ether);
+    }
+
+    // ================= AF-05: token fail-closed sin modulos =================
+
+    /// @notice AF-05: sin ningun modulo registrado, `canTransfer` devuelve `false` (fail-closed).
+    /// Antes esta rama salia del bucle vacio y devolvia `true` ("0 modulos = permitir todo").
+    function test_AF05_canTransfer_false_sin_modulos() public {
+        assertEq(token.getComplianceModules().length, 0, "precondicion: token sin modulos");
+        // Los dos wallets estan verificados y el token no esta pausado ni congelado; el unico
+        // motivo del rechazo es la ausencia de politica de compliance.
+        assertTrue(token.isVerified(user1));
+        assertTrue(token.isVerified(user2));
+        assertFalse(token.paused());
+        assertFalse(token.isFrozen(user1));
+        assertFalse(token.isFrozen(user2));
+
+        assertFalse(token.canTransfer(user1, user2, 1 ether), "sin modulos => false");
+    }
+
+    /// @notice AF-05: sin modulos, `transfer` revierte con el mensaje explicito del token.
+    /// `mint` (operacion privilegiada del agente) sigue operativo para poder fondear.
+    function test_AF05_transfer_revierte_sin_modulos() public {
+        token.mint(user1, 100 ether);
+
+        vm.prank(user1);
+        vm.expectRevert("Transfer not compliant");
+        token.transfer(user2, 1 ether);
+
+        assertEq(token.balanceOf(user1), 100 ether, "el saldo no cambia");
+        assertEq(token.balanceOf(user2), 0);
+    }
+
+    /// @notice AF-05: con **al menos un** modulo permisivo la transferencia vuelve a funcionar,
+    /// de modo que la regla fail-closed no bloquea un token correctamente configurado.
+    function test_AF05_con_modulo_permisivo_transfiere() public {
+        AllowAllCompliance permissive = new AllowAllCompliance();
+        token.addComplianceModule(address(permissive));
+        assertEq(token.getComplianceModules().length, 1);
+
+        token.mint(user1, 100 ether);
+        assertTrue(token.canTransfer(user1, user2, 10 ether), "con modulo => true");
+
+        vm.prank(user1);
+        assertTrue(token.transfer(user2, 10 ether));
+        assertEq(token.balanceOf(user1), 90 ether);
+        assertEq(token.balanceOf(user2), 10 ether);
+    }
+
+    /// @notice AF-05: retirar el ultimo modulo vuelve a bloquear las transferencias; registrar de
+    /// nuevo un modulo conforme recupera la operativa (no hay bloqueo permanente).
+    function test_AF05_retirar_ultimo_modulo_bloquea_y_registrar_recupera() public {
+        AllowAllCompliance permissive = new AllowAllCompliance();
+        token.addComplianceModule(address(permissive));
+
+        token.mint(user1, 100 ether);
+        vm.prank(user1);
+        token.transfer(user2, 10 ether);
+        assertEq(token.balanceOf(user2), 10 ether);
+
+        // Retirada del ultimo modulo: fail-closed inmediato.
+        token.removeComplianceModule(0);
+        assertEq(token.getComplianceModules().length, 0);
+        assertFalse(token.canTransfer(user1, user2, 1 ether));
+        vm.prank(user1);
+        vm.expectRevert("Transfer not compliant");
+        token.transfer(user2, 1 ether);
+
+        // Re-registrar un modulo conforme recupera la operativa.
+        token.addComplianceModule(address(permissive));
+        assertTrue(token.canTransfer(user1, user2, 1 ether));
+        vm.prank(user1);
+        token.transfer(user2, 1 ether);
+        assertEq(token.balanceOf(user2), 11 ether);
+    }
+
+    /// @notice AF-05: `mint` y `forcedTransfer` **no** dependen del array de modulos (la emision y
+    /// la recuperacion son operaciones privilegiadas del agente). Con 0 modulos siguen operativas.
+    function test_AF05_mint_y_forcedTransfer_no_dependen_de_modulos() public {
+        assertEq(token.getComplianceModules().length, 0);
+
+        token.mint(user1, 100 ether);
+        assertEq(token.balanceOf(user1), 100 ether);
+
+        token.forcedTransfer(user1, user2, 40 ether);
+        assertEq(token.balanceOf(user1), 60 ether);
+        assertEq(token.balanceOf(user2), 40 ether);
     }
 
     // ================= AF-13: simetria de removeModuleThroughAggregator =================

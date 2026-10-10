@@ -26,7 +26,9 @@ import {MaxBalanceCompliance} from "../src/compliance/MaxBalanceCompliance.sol";
  *        8. Token                       (token de ejemplo, via `createTokenWithRegistries`)
  *        9. MaxBalanceCompliance        (modulo de compliance dado de alta **por la ruta del token**:
  *                                        `token.addComplianceModule(aggregator)` +
- *                                        `token.addModuleThroughAggregator(aggregator, module)`)
+ *                                        `token.addModuleThroughAggregator(aggregator, module)`).
+ *                                        **Obligatorio (AF-05):** sin modulos el token es fail-closed
+ *                                        y no permite transferencias.
  *       10. Identity                    (clon de identidad de ejemplo, registrado en el IdentityRegistry)
  *
  *      La clave privada la aporta Foundry (keystore efimero gestionado por `deploy.sh`); este script
@@ -106,7 +108,10 @@ contract DeployFullStack is Script {
                 d.claimTopicsRegistry
             );
 
-        // 9. Modulo de compliance + alta por la ruta del token (token -> aggregator -> modulo)
+        // 9. Modulo de compliance + alta por la ruta del token (token -> aggregator -> modulo).
+        //    AF-05: este paso es OBLIGATORIO. El token es fail-closed sin modulos (`canTransfer`
+        //    devuelve `false` con `complianceModules.length == 0`) y quedaria inoperable para
+        //    transferencias. `deploy.sh` verifica on-chain que `complianceModules(0) == aggregator`.
         d.complianceModule = address(new MaxBalanceCompliance(deployer, maxBalance));
         MaxBalanceCompliance(d.complianceModule).setTokenContract(d.token);
 

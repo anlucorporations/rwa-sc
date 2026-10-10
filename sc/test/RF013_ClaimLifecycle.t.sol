@@ -100,7 +100,7 @@ contract RF013_ClaimLifecycleTest is Test {
         IdentityCloneable identity = identities[wallet];
         uint256 nonce = identity.claimNonce(KYC_TOPIC, issuer);
         bytes memory sig =
-            SigUtils.signClaim(ISSUER_PK, address(identity), wallet, KYC_TOPIC, 1, data, expiresAt, nonce);
+            SigUtils.signClaim(ISSUER_PK, address(identity), wallet, KYC_TOPIC, 1, data, expiresAt, nonce, uri);
         vm.prank(wallet);
         identity.addClaim(KYC_TOPIC, 1, issuer, sig, data, uri, expiresAt);
     }
@@ -111,12 +111,14 @@ contract RF013_ClaimLifecycleTest is Test {
     }
 
     /// @dev Firma EIP-712 de `issuer` para un `nonce` explicito.
-    function _sign(address wallet, bytes memory data, uint256 expiresAt, uint256 nonce)
+    function _sign(address wallet, bytes memory data, uint256 expiresAt, uint256 nonce, string memory uri)
         internal
         view
         returns (bytes memory)
     {
-        return SigUtils.signClaim(ISSUER_PK, address(identities[wallet]), wallet, KYC_TOPIC, 1, data, expiresAt, nonce);
+        return SigUtils.signClaim(
+            ISSUER_PK, address(identities[wallet]), wallet, KYC_TOPIC, 1, data, expiresAt, nonce, uri
+        );
     }
 
     function _claimData(address wallet) internal view returns (bytes memory) {
@@ -293,7 +295,7 @@ contract RF013_ClaimLifecycleTest is Test {
         string memory uri = "https://kyc.example.com/history";
         uint256 expiresAt = block.timestamp + 30 days;
         bytes memory sig = SigUtils.signClaim(
-            ISSUER_PK, address(identities[user1]), user1, KYC_TOPIC, 1, data, expiresAt, _nonce(user1)
+            ISSUER_PK, address(identities[user1]), user1, KYC_TOPIC, 1, data, expiresAt, _nonce(user1), uri
         );
 
         // Historico: `ClaimAdded` queda registrado en la cadena y no se borra al revocar.
@@ -346,7 +348,15 @@ contract RF013_ClaimLifecycleTest is Test {
         // (firmada con el nonce vigente para aislar la comprobacion del firmante).
         uint256 forgedExpiry = block.timestamp + 60 days;
         bytes memory forgedSig = SigUtils.signClaim(
-            STRANGER_PK, address(identities[user1]), user1, KYC_TOPIC, 1, _claimData(user1), forgedExpiry, _nonce(user1)
+            STRANGER_PK,
+            address(identities[user1]),
+            user1,
+            KYC_TOPIC,
+            1,
+            _claimData(user1),
+            forgedExpiry,
+            _nonce(user1),
+            "uri"
         );
         vm.prank(user1);
         vm.expectRevert("Signature signer mismatch");
@@ -373,7 +383,7 @@ contract RF013_ClaimLifecycleTest is Test {
         uint256 expiresAt = block.timestamp + 30 days;
 
         // Firma original del issuer (nonce 0) y alta del claim.
-        bytes memory originalSig = _sign(user1, data, expiresAt, 0);
+        bytes memory originalSig = _sign(user1, data, expiresAt, 0, "uri");
         vm.prank(user1);
         identities[user1].addClaim(KYC_TOPIC, 1, issuer, originalSig, data, "uri", expiresAt);
         assertTrue(token.isVerified(user1));
@@ -424,7 +434,7 @@ contract RF013_ClaimLifecycleTest is Test {
 
         // Nueva firma del issuer con el nonce incrementado.
         uint256 newExpiry = block.timestamp + 365 days;
-        bytes memory newSig = _sign(user1, data, newExpiry, 1);
+        bytes memory newSig = _sign(user1, data, newExpiry, 1, "uri-v2");
         vm.prank(user1);
         identities[user1].addClaim(KYC_TOPIC, 1, issuer, newSig, data, "uri-v2", newExpiry);
 
@@ -439,7 +449,7 @@ contract RF013_ClaimLifecycleTest is Test {
     function test_RF013_renovacion_sin_revocar_sigue_idempotente() public {
         bytes memory data = _claimData(user1);
         uint256 expiresAt = block.timestamp + 30 days;
-        bytes memory sig = _sign(user1, data, expiresAt, 0);
+        bytes memory sig = _sign(user1, data, expiresAt, 0, "uri");
 
         vm.prank(user1);
         identities[user1].addClaim(KYC_TOPIC, 1, issuer, sig, data, "uri", expiresAt);
@@ -459,8 +469,10 @@ contract RF013_ClaimLifecycleTest is Test {
         bytes memory data = _claimData(user1);
         uint256 expiresAt = block.timestamp + 30 days;
 
-        bytes32 digestNonce0 = SigUtils.claimDigest(address(identities[user1]), user1, KYC_TOPIC, 1, data, expiresAt, 0);
-        bytes32 digestNonce1 = SigUtils.claimDigest(address(identities[user1]), user1, KYC_TOPIC, 1, data, expiresAt, 1);
+        bytes32 digestNonce0 =
+            SigUtils.claimDigest(address(identities[user1]), user1, KYC_TOPIC, 1, data, expiresAt, 0, "uri");
+        bytes32 digestNonce1 =
+            SigUtils.claimDigest(address(identities[user1]), user1, KYC_TOPIC, 1, data, expiresAt, 1, "uri");
         assertTrue(digestNonce0 != digestNonce1, "el digest cambia con el nonce");
 
         _attest(user1, data, "uri", expiresAt);
@@ -468,7 +480,7 @@ contract RF013_ClaimLifecycleTest is Test {
         identities[user1].revokeClaim(KYC_TOPIC, issuer);
 
         // Firma NUEVA del issuer, pero construida sobre el nonce 0: no verifica cuando el nonce es 1.
-        bytes memory sigNonce0 = _sign(user1, data, expiresAt, 0);
+        bytes memory sigNonce0 = _sign(user1, data, expiresAt, 0, "uri");
         vm.prank(user1);
         vm.expectRevert("Signature signer mismatch");
         identities[user1].addClaim(KYC_TOPIC, 1, issuer, sigNonce0, data, "uri", expiresAt);

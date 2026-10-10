@@ -18,6 +18,7 @@
 | 2026-10-10 | Ciclo 8 | RF-013 (cierra H-08 auditoría V1) | `IdentityCloneable`, `IdentityRegistry` | **Sí** (`getClaim` añade salida; `revokeClaim`/`hasValidClaim`/`ClaimRevoked` son aditivos) |
 | 2026-10-11 | Ciclo 8c | RF-013 (cierra el bypass de revocación por replay) | `IdentityCloneable` | **Sí off-chain**: `CLAIM_TYPEHASH` gana `uint256 nonce`; nueva vista `claimNonce(uint256,address)` (aditiva); el digest firmado cambia |
 | 2026-10-11 | Ciclo 10 | RF-006 (cierra H-15/H-16/H-23/H-33) | — (ningún contrato de `src/`) | **No**: añade la línea base `sc/abis/` (15 ABIs) y el gate `script/ci/abi_diff.sh` |
+| 2026-10-11 | Fase 4 (cierre) | AF-03 y AF-05 (auditoría adversarial final, decisiones del usuario) | `IdentityCloneable` (typehash/digest y `uri`), `TokenCloneable` (fail-closed sin módulos) | **Sí off-chain** (AF-03: el `CLAIM_TYPEHASH` gana `bytes32 uriHash`); **AF-05 sin cambio de ABI/firma** |
 
 ---
 
@@ -388,3 +389,74 @@ Ciclo 8c. Lo relevante para consumidores es el nuevo **control automático de de
 
 > Añadir o regenerar `sc/abis/` sin la entrada correspondiente en este archivo deja el gate en rojo: es el
 > comportamiento buscado (debe acompañarse de una entrada en `CHANGELOG_ABIS.md`).
+
+---
+
+## Fase 4 (cierre) — AF-03: el digest EIP-712 cubre el `uri` (cambio crítico de firma off-chain)
+
+**Motivo:** el `CLAIM_TYPEHASH` vigente (Ciclo 8c) cubría `walletOwner`, `topic`, `scheme`, `dataHash`,
+`expiresAt` y `nonce`, pero **no** el `uri`. El `uri` se almacenaba y se emitía, pero el titular (owner de
+la identidad, `addClaim` es `onlyOwner`) podía publicar **cualquier** referencia documental KYC/AML
+reutilizando una firma legítima del issuer, o renovar el claim con otro `uri` sin consentimiento. La
+referencia off-chain (H-11) quedaba **no autenticada** (hallazgo AF-03 de la auditoría adversarial final).
+
+### Cambio crítico de firma off-chain — `CLAIM_TYPEHASH`
+
+| | |
+|---|---|
+| **Antes** | `keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce)")` |
+| **Después** | `keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce,bytes32 uriHash)")` — valor `0x65c6cda5a06929bfdef28339b542f297fa9c29c42c29dea189fd85441d8301fc` |
+| **Selector `CLAIM_TYPEHASH()`** | `0x6b0509b1` (**sin cambio**: es un getter `constant`; cambia el **valor** devuelto, no la firma) |
+| **Selector `addClaim(...)`** | `0x16cd5ffe` (**sin cambio de firma**; el parámetro `string _uri` ya existía) |
+| **`sc/abis/`** | **Sin regenerar**: `forge inspect abi` no incluye el valor de una constante; `abi_diff.sh` sigue en verde |
+| **Breaking** | **Sí, crítico off-chain.** Un firmante que use el typehash del Ciclo 8c produce un digest distinto y `addClaim` revierte `"Signature signer mismatch"`. |
+
+Nuevo digest firmado por el issuer (EIP-712):
+
+```
+domain     = {name: "RWA-Identity", version: "1", chainId, verifyingContract: <dirección del clon>}
+typeHash   = keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce,bytes32 uriHash)")
+structHash = keccak256(abi.encode(typeHash, walletOwner, topic, scheme, keccak256(data), expiresAt, nonce, keccak256(bytes(uri))))
+digest     = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash))
+```
+
+`uriHash = keccak256(bytes(uri))`; `nonce = claimNonce(topic, issuer)` leído al firmar. `uri == ""` se firma
+como `uriHash = keccak256("")` (los overloads históricos de `SigUtils` sin `uri` hacen exactamente eso).
+
+### Impacto en `rwa-web` (D-003: fuera de alcance, requiere trabajo posterior)
+
+- Todo cliente que firme claims (`signTypedData`) **debe añadir `bytes32 uriHash` como último campo** del
+  mensaje EIP-712. La ABI estática no cambia; sí cambia el mensaje firmado.
+- Si el cliente no pasa `uri` (claims sin documento), debe firmar `uriHash = keccak256(bytes(""))`.
+- Pruebas de regresión: `test/IdentityCloneable.t.sol`
+  (`test_AF03_addClaim_uri_alterado_revierte`, `test_AF03_addClaim_uri_correcto_ok`,
+  `test_AF03_digest_cambia_con_el_uri`).
+
+---
+
+## Fase 4 (cierre) — AF-05: el token es fail-closed sin módulos de compliance (sin cambio de ABI)
+
+**Motivo:** el `ComplianceAggregator` ya era fail-closed con 0 módulos (RF-012), pero el **token** no:
+`canTransfer` recorría `complianceModules` y, con el array vacío, devolvía `true` ("0 módulos = permitir
+todo"). Retirar el último módulo (o el aggregator) desactivaba en silencio toda la política de compliance
+(hallazgo AF-05 de la auditoría adversarial final).
+
+### Regla vigente
+
+- `TokenCloneable.canTransfer(from, to, amount)` devuelve **`false`** cuando `complianceModules.length == 0`.
+  Por tanto `transfer`/`transferFrom` revierten `"Transfer not compliant"` hasta que `COMPLIANCE_ROLE`
+  registre un módulo conforme (ERC-165 y, si es de un solo token, `tokenContract() == token`; AF-01).
+- `mint`/`burn`/`forcedTransfer` **no** dependen de `canTransfer`: la emisión y la recuperación siguen su
+  ruta privilegiada (agente) y **no** se ven afectadas por AF-05. La emisión con 0 módulos sigue operativa.
+- **Sin cambio de ABI:** ninguna firma, selector, salida ni evento cambia; `sc/abis/` no se regenera.
+
+### Impacto en consumidores
+
+- Un token recién creado **no permite transferencias** hasta que se le registre al menos un módulo de
+  compliance. El despliegue canónico (`DeployFullStack.s.sol` + `deploy.sh`) ya registra el
+  `ComplianceAggregator` + `MaxBalanceCompliance`, y el smoke test verifica on-chain que el token tiene
+  **al menos un módulo** (`complianceModules(0)`).
+- Pruebas de regresión: `test/AuditoriaFinalAF.t.sol` (`test_AF05_canTransfer_false_sin_modulos`,
+  `test_AF05_transfer_revierte_sin_modulos`, `test_AF05_con_modulo_permisivo_transfiere`,
+  `test_AF05_retirar_ultimo_modulo_bloquea_y_registrar_recupera`,
+  `test_AF05_mint_y_forcedTransfer_no_dependen_de_modulos`).

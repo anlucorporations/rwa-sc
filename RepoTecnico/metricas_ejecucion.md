@@ -1363,7 +1363,8 @@ patrones que prohíbe; hace falta re-ejecución independiente del Lead (que es l
 ## 23. Fase 4 — Cierre: auditoría adversarial final (AF-01..AF-15)
 
 Corrección de los hallazgos de `RepoTecnico/pruebas/auditoria_final.md` (1 ALTA · 10 MEDIA · 4 BAJA).
-Quedan **fuera** del cierre (D-082): AF-03, AF-04, AF-05, AF-12 y AF-14.
+Quedan **fuera** del cierre (D-082): AF-03, AF-04, AF-05, AF-12 y AF-14. **(Actualizado en §24: por decisión
+del usuario, AF-03 y AF-05 se cierran también en D-083/D-084; siguen diferidos AF-04, AF-12 y AF-14.)**
 
 ### 23.1 Conteo y cobertura — antes / después
 
@@ -1411,3 +1412,67 @@ gas de `mint`/`burn` varía por las comprobaciones nuevas; `.gas-snapshot` se re
 ### 23.6 Decisiones
 
 **D-075..D-082** en `requerimientos.md` (Bloque 6b) y en `estado_proyecto.md`.
+
+---
+
+## 24. Fase 4 — Cierre definitivo: AF-03 (firma del `uri`) y AF-05 (token fail-closed sin módulos)
+
+> **Decisiones del usuario.** Se incorporan al alcance los dos hallazgos MEDIA que D-082 había diferido.
+> Commits: `Fase 4: firma del uri (AF-03) y token fail-closed sin modulos (AF-05)`.
+
+### 24.1 Conteo — antes / después
+
+| Métrica | Antes (§23) | Después |
+|---|---:|---:|
+| Tests (`forge test`, resumen) | 386 | **394** |
+| Suites | 23 | **23** |
+| Funciones `invariant_*` | 19 | **19** |
+| Cobertura `src/` (líneas) | 97,05 % (690/711) | **97,05 % (691/712)** (la rama fail-closed de `canTransfer` queda cubierta por `test_AF05_*`) |
+
+`forge test` → `Ran 23 test suites ... 394 tests passed, 0 failed, 0 skipped` (`+8` pruebas: 3 de AF-03 y 5 de AF-05).
+
+### 24.2 AF-03 — el digest EIP-712 cubre el `uri`
+
+- `CLAIM_TYPEHASH` = `keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce,bytes32 uriHash)")`;
+  `structHash = keccak256(abi.encode(typeHash, owner(), topic, scheme, keccak256(data), expiresAt, nonce, keccak256(bytes(uri))))`.
+- **Breaking off-chain crítico** (documentado en `CHANGELOG_ABIS.md`): el cliente que firme debe añadir
+  `bytes32 uriHash` como último campo. **No** cambia el ABI (constante; `CLAIM_TYPEHASH()` sigue `0x6b0509b1`)
+  y `sc/abis/` no se regenera.
+- `SigUtils.signClaim`/`claimDigest`/`claimStructHash` ganan el parámetro `uri` y conservan overloads sin
+  `uri` que firman con `""` (compatibilidad de las llamadas históricas).
+- Pruebas: `test_AF03_addClaim_uri_alterado_revierte`, `test_AF03_addClaim_uri_correcto_ok`,
+  `test_AF03_digest_cambia_con_el_uri`.
+
+### 24.3 AF-05 — token fail-closed sin módulos
+
+- `TokenCloneable.canTransfer` devuelve `false` si `complianceModules.length == 0`; `transfer`/`transferFrom`
+  revierten `"Transfer not compliant"`. `mint`/`burn`/`forcedTransfer` **no** dependen de ese array.
+- Sin cambio de ABI ni de gas relevante en las rutas con módulos.
+- Pruebas: `test_AF05_canTransfer_false_sin_modulos`, `test_AF05_transfer_revierte_sin_modulos`,
+  `test_AF05_con_modulo_permisivo_transfiere`, `test_AF05_retirar_ultimo_modulo_bloquea_y_registrar_recupera`,
+  `test_AF05_mint_y_forcedTransfer_no_dependen_de_modulos` (módulo `test/mocks/AllowAllCompliance.sol`).
+
+### 24.4 Suites adaptadas (sin debilitarlas)
+
+Ninguna suite transfería con 0 módulos, así que AF-05 no rompió tests existentes. AF-03 sí obligó a que las
+firmas cubrieran el `uri` que se da de alta:
+
+| Suite | Adaptación |
+|---|---|
+| `test/IdentityCloneable.t.sol` | `_sign` recibe el `uri`; los negativos firman el mismo `uri` que `addClaim` (el revert sigue siendo por la manipulación bajo prueba, no por el `uri`) |
+| `test/IdentityCloneFactory.t.sol` | `_sign` recibe el `uri`; cada call site firma la URI que usa `addClaim`/`createIdentityWithClaim` |
+| `test/RF013_ClaimLifecycle.t.sol` | `_attest` y `_sign` firman el `uri`; los digests de `test_RF013_digest_incluye_nonce` usan el mismo `uri` |
+| `test/mocks/AllowAllCompliance.sol` (nuevo) | Módulo permisivo para el camino positivo de AF-05 |
+
+Ningún test se borra, se debilita ni usa `vm.skip`.
+
+### 24.5 Verificaciones del cierre definitivo
+
+`forge build` 0 errores; `forge test` **394/394** (0 fallos, 0 saltados); `forge fmt --check` limpio;
+`check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh`, `check_secrets.sh` y `run_local_ci.sh` en verde;
+`forge snapshot --check --tolerance 5` OK (`.gas-snapshot` regenerado sin `forge coverage` previo).
+
+### 24.6 Decisiones
+
+**D-083** (AF-03), **D-084** (AF-05) y **D-085** (cierre definitivo y adaptación de suites) en
+`requerimientos.md` (Bloque 6b) y en `estado_proyecto.md`.

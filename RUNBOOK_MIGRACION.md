@@ -49,7 +49,7 @@ El camino canónico es `sc/script/DeployFullStack.s.sol` orquestado por `sc/scri
 | 4 | Política de issuers | `TrustedIssuersRegistry.addTrustedIssuer(issuer, topics[])` | Sin esto `isVerified` es fail-closed (RF-011) |
 | 5 | ClaimTopicsRegistry del token | `ClaimTopicsRegistryCloneFactory.createRegistryWithTopics(admin, topics[])` | Fija los topics requeridos del token |
 | 6 | Token | `TokenCloneFactory.createTokenWithRegistries(name, symbol, decimals, admin, identityRegistry, trustedIssuersRegistry, claimTopicsRegistry)` | Registries ya cableados en la creación |
-| 7 | Módulo(s) de compliance | `new MaxBalanceCompliance(admin, max)`; **`module.setTokenContract(address(token))`**; `token.addComplianceModule(address(aggregator))`; `token.addModuleThroughAggregator(address(aggregator), address(module))` | **AF-01:** `addComplianceModule`/`aggregator.addModule` rechazan un módulo que no devuelva `tokenContract() == token`. El `setTokenContract` debe ir **antes** del alta. El aggregator (sin `tokenContract()`) queda exento |
+| 7 | Módulo(s) de compliance | `new MaxBalanceCompliance(admin, max)`; **`module.setTokenContract(address(token))`**; `token.addComplianceModule(address(aggregator))`; `token.addModuleThroughAggregator(address(aggregator), address(module))` | **AF-01:** `addComplianceModule`/`aggregator.addModule` rechazan un módulo que no devuelva `tokenContract() == token`. El `setTokenContract` debe ir **antes** del alta. El aggregator (sin `tokenContract()`) queda exento. **AF-05:** este paso es **obligatorio**: sin ningún módulo registrado el token es fail-closed y `transfer`/`transferFrom` revierten `"Transfer not compliant"` |
 | 8 | Configuración obligatoria del token (AF-07) | `token.setMaxBurnPerTx(v)`, `token.setMaxForcedPerTx(v)`, `token.setAuthorizedDestination(destino, true)`, `token.setMaxSupply(v)` si aplica | Con los topes a `0` la quema/recuperación están **desactivadas**; es lo que verifica el smoke test del `deploy.sh` |
 | 9 | Identidades y claims | `IdentityCloneFactory.createIdentity(owner)`; `IdentityRegistry.registerIdentity(wallet, identity)`; `IdentityCloneable.addClaim(topic, 1, issuer, firma, data, uri, expiresAt)` | La firma es **EIP-712** por el issuer (RF-001): incluye `walletOwner`, `topic`, `scheme`, `dataHash`, `expiresAt` y `nonce` (D-050). Ver `sc/test/helpers/SigUtils.sol` |
 | 10 | Verificación | `token.isVerified(wallet)` por cada wallet operativa | Fail-closed: exige registro, identidad, topics e issuer autorizado con claim vigente y no revocado (RF-011/RF-013) |
@@ -105,6 +105,7 @@ cast call "$TOKEN" 'claimTopicsRegistry()(address)'    --rpc-url "$RPC"
 cast call "$AGG" 'getModuleCount(address)(uint256)' "$TOKEN"                 --rpc-url "$RPC"   # >= 1
 cast call "$AGG" 'isModuleActiveForToken(address,address)(bool)' "$TOKEN" "$MOD" --rpc-url "$RPC" # true
 cast call "$MOD" 'tokenContract()(address)' --rpc-url "$RPC"                 # == TOKEN (AF-01)
+cast call "$TOKEN" 'complianceModules(uint256)(address)' 0 --rpc-url "$RPC"  # == AGG (AF-05: >= 1 módulo)
 
 cast call "$TOKEN" 'maxBurnPerTx()(uint256)'   --rpc-url "$RPC"              # != 0
 cast call "$TOKEN" 'maxForcedPerTx()(uint256)' --rpc-url "$RPC"              # != 0
@@ -152,6 +153,7 @@ Tras verificar el nuevo despliegue:
 - [ ] `deploy.sh` `exit 0` y **smoke test de operatividad** correcto.
 - [ ] `cast code` != `0x` en todas las direcciones; ABIs anexados al artefacto.
 - [ ] `module.tokenContract() == token` (AF-01) y módulo activo en el aggregator.
+- [ ] **Token con al menos un módulo de compliance** (`complianceModules(0) != 0`) — AF-05: sin módulos no hay transferencias.
 - [ ] `maxBurnPerTx` / `maxForcedPerTx` != 0 y destino autorizado.
 - [ ] Identidades registradas y `isVerified(wallet) == true` para las wallets operativas.
 - [ ] Consumidores (`rwa-web`, indexer) reapuntados; direcciones antiguas localizadas y reemplazadas.

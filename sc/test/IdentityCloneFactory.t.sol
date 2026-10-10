@@ -29,13 +29,16 @@ contract IdentityCloneFactoryTest is Test {
         factory = new IdentityCloneFactory(owner);
     }
 
-    /// @dev Firma EIP-712 (RF-001) para una identidad concreta.
-    function _sign(address identity, address walletOwner, uint256 topic, bytes memory data, uint256 expiresAt)
-        internal
-        view
-        returns (bytes memory)
-    {
-        return SigUtils.signClaim(ISSUER_PK, identity, walletOwner, topic, 1, data, expiresAt);
+    /// @dev Firma EIP-712 (RF-001) para una identidad concreta. AF-03: la firma cubre el `uri`.
+    function _sign(
+        address identity,
+        address walletOwner,
+        uint256 topic,
+        bytes memory data,
+        uint256 expiresAt,
+        string memory uri
+    ) internal view returns (bytes memory) {
+        return SigUtils.signClaim(ISSUER_PK, identity, walletOwner, topic, 1, data, expiresAt, 0, uri);
     }
 
     function testDeployment() public view {
@@ -91,7 +94,7 @@ contract IdentityCloneFactoryTest is Test {
 
         // Add claim to identity1 as user1
         bytes memory data = abi.encode(user1, true);
-        bytes memory signature = _sign(identity1, user1, 1, data, EXPIRES_AT);
+        bytes memory signature = _sign(identity1, user1, 1, data, EXPIRES_AT, "https://kyc.example.com/user1");
         vm.startPrank(user1);
         bytes32 claimId = contract1.addClaim(
             1, // KYC topic
@@ -122,7 +125,7 @@ contract IdentityCloneFactoryTest is Test {
         // temporal (necesario para llamar a `addClaim`, onlyOwner), de modo que el
         // `walletOwner` firmado es la factory. La direccion del clon se predice por CREATE.
         address predicted = vm.computeCreateAddress(address(factory), vm.getNonce(address(factory)));
-        bytes memory signature = _sign(predicted, address(factory), 1, data, EXPIRES_AT);
+        bytes memory signature = _sign(predicted, address(factory), 1, data, EXPIRES_AT, uri);
 
         address identity = factory.createIdentityWithClaim(user1, 1, 1, issuer, signature, data, uri, EXPIRES_AT);
         assertEq(identity, predicted, "la direccion del clon debe ser predecible");
@@ -207,7 +210,7 @@ contract IdentityCloneFactoryTest is Test {
 
         // Firma EIP-712 valida para el clon que va a crear la factory (RF-001).
         address predicted = vm.computeCreateAddress(address(factory), vm.getNonce(address(factory)));
-        bytes memory signature = _sign(predicted, address(factory), 1, data, EXPIRES_AT);
+        bytes memory signature = _sign(predicted, address(factory), 1, data, EXPIRES_AT, uri);
 
         gasBefore = gasleft();
         factory.createIdentityWithClaim(user1, 1, 1, issuer, signature, data, uri, EXPIRES_AT);
@@ -239,8 +242,8 @@ contract IdentityCloneFactoryTest is Test {
 
         bytes memory kycData = abi.encode(user1, "KYC approved");
         bytes memory accData = abi.encode(user1, "Accredited investor");
-        bytes memory kycSig = _sign(identity, user1, 1, kycData, EXPIRES_AT);
-        bytes memory accSig = _sign(identity, user1, 2, accData, EXPIRES_AT);
+        bytes memory kycSig = _sign(identity, user1, 1, kycData, EXPIRES_AT, "https://kyc.example.com");
+        bytes memory accSig = _sign(identity, user1, 2, accData, EXPIRES_AT, "https://accreditation.example.com");
 
         vm.startPrank(user1);
 
@@ -262,7 +265,7 @@ contract IdentityCloneFactoryTest is Test {
         IdentityCloneable identityContract = IdentityCloneable(identity);
 
         bytes memory data = abi.encode(user1);
-        bytes memory signature = _sign(identity, user1, 1, data, EXPIRES_AT);
+        bytes memory signature = _sign(identity, user1, 1, data, EXPIRES_AT, "https://example.com");
 
         vm.startPrank(user1);
 

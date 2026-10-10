@@ -298,6 +298,13 @@ MODULE_TOKEN="$("$CAST" call "$MODULE_ADDR" 'tokenContract()(address)' --rpc-url
 [ "$(lower "$MODULE_TOKEN")" = "$(lower "$TOKEN")" ] || fail "module.tokenContract() ($MODULE_TOKEN) != token ($TOKEN)"
 printf '  module.tokenContract()          = %s\n' "$MODULE_TOKEN"
 
+# AF-05: el token es fail-closed sin modulos; el despliegue debe dejar al menos uno registrado o el
+# token queda inoperable para transferencias. Se verifica el indice 0 del array publico del token y
+# que sea exactamente el aggregator configurado.
+TOKEN_MODULE0="$("$CAST" call "$TOKEN" 'complianceModules(uint256)(address)' 0 --rpc-url "$RPC_URL" 2>/dev/null)"
+[ "$(lower "$TOKEN_MODULE0")" = "$(lower "$AGG")" ] || fail "token.complianceModules(0) ($TOKEN_MODULE0) != aggregator ($AGG): token fail-closed (AF-05)"
+printf '  token.complianceModules(0)      = %s\n' "$TOKEN_MODULE0"
+
 # --------------------------------------------------------------------------------------
 # 6b. Smoke test (AF-07): "verde" debe implicar OPERATIVO, no solo desplegado.
 #     Se comprueban los controles de operacion configurados por DeployFullStack y una

@@ -55,19 +55,20 @@ contract IdentityCloneableRF001Test is Test {
     // Helpers
     // ------------------------------------------------------------------
 
-    function _sign(uint256 pk, uint256 topic, uint256 scheme, bytes memory data, uint256 expiresAt)
+    /// @dev AF-03: la firma cubre el `uri` (via `uriHash`), igual que el `data`.
+    function _sign(uint256 pk, uint256 topic, uint256 scheme, bytes memory data, uint256 expiresAt, string memory uri)
         internal
         view
         returns (bytes memory)
     {
-        return SigUtils.signClaim(pk, address(identity), owner, topic, scheme, data, expiresAt);
+        return SigUtils.signClaim(pk, address(identity), owner, topic, scheme, data, expiresAt, 0, uri);
     }
 
     function _add(uint256 topic, address _issuer, uint256 pk, bytes memory data, string memory uri, uint256 expiresAt)
         internal
         returns (bytes32)
     {
-        bytes memory sig = _sign(pk, topic, 1, data, expiresAt);
+        bytes memory sig = _sign(pk, topic, 1, data, expiresAt, uri);
         vm.prank(owner);
         return identity.addClaim(topic, 1, _issuer, sig, data, uri, expiresAt);
     }
@@ -78,7 +79,7 @@ contract IdentityCloneableRF001Test is Test {
 
     function test_RF001_addClaim_con_firma_valida() public {
         bytes memory data = abi.encode("KYC", owner);
-        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT);
+        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT, "https://kyc.example.com");
 
         vm.expectEmit(true, true, true, true, address(identity));
         emit ClaimAdded(1, 1, issuer, sig, data, "https://kyc.example.com", EXPIRES_AT);
@@ -135,7 +136,7 @@ contract IdentityCloneableRF001Test is Test {
 
     function test_RF001_addClaim_only_owner_revierte() public {
         bytes memory data = abi.encode("KYC", owner);
-        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT);
+        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT, "uri");
         address stranger = makeAddr("stranger");
 
         vm.prank(stranger);
@@ -176,7 +177,7 @@ contract IdentityCloneableRF001Test is Test {
 
         // Firma de otra clave para los datos nuevos
         bytes memory newData = abi.encode("KYC manipulado");
-        bytes memory badSig = _sign(ISSUER2_PK, 1, 1, newData, EXPIRES_AT + 1 days);
+        bytes memory badSig = _sign(ISSUER2_PK, 1, 1, newData, EXPIRES_AT + 1 days, "uri-nueva");
 
         vm.prank(owner);
         vm.expectRevert(bytes("Signature signer mismatch"));
@@ -216,7 +217,7 @@ contract IdentityCloneableRF001Test is Test {
 
     function test_RF001_addClaim_firma_de_otra_clave_revierte() public {
         bytes memory data = abi.encode("KYC", owner);
-        bytes memory sig = _sign(ISSUER2_PK, 1, 1, data, EXPIRES_AT); // firma de issuer2
+        bytes memory sig = _sign(ISSUER2_PK, 1, 1, data, EXPIRES_AT, "uri"); // firma de issuer2
 
         vm.prank(owner);
         vm.expectRevert(bytes("Signature signer mismatch"));
@@ -229,7 +230,8 @@ contract IdentityCloneableRF001Test is Test {
         // Firma valida, pero emitida para otro titular: no puede reutilizarse aqui.
         address otherWallet = makeAddr("otherWallet");
         bytes memory data = abi.encode("KYC", owner);
-        bytes memory sig = SigUtils.signClaim(ISSUER_PK, address(identity), otherWallet, 1, 1, data, EXPIRES_AT);
+        bytes memory sig =
+            SigUtils.signClaim(ISSUER_PK, address(identity), otherWallet, 1, 1, data, EXPIRES_AT, 0, "uri");
 
         vm.prank(owner);
         vm.expectRevert(bytes("Signature signer mismatch"));
@@ -240,7 +242,7 @@ contract IdentityCloneableRF001Test is Test {
 
     function test_RF001_addClaim_data_manipulada_revierte() public {
         bytes memory original = abi.encode("KYC original");
-        bytes memory sig = _sign(ISSUER_PK, 1, 1, original, EXPIRES_AT);
+        bytes memory sig = _sign(ISSUER_PK, 1, 1, original, EXPIRES_AT, "uri");
         bytes memory manipulated = abi.encode("KYC manipulado");
 
         vm.prank(owner);
@@ -252,7 +254,7 @@ contract IdentityCloneableRF001Test is Test {
 
     function test_RF001_addClaim_topic_manipulado_revierte() public {
         bytes memory data = abi.encode("KYC");
-        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT);
+        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT, "uri");
 
         vm.prank(owner);
         vm.expectRevert(bytes("Signature signer mismatch"));
@@ -261,7 +263,7 @@ contract IdentityCloneableRF001Test is Test {
 
     function test_RF001_addClaim_expiresAt_manipulado_revierte() public {
         bytes memory data = abi.encode("KYC");
-        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT);
+        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT, "uri");
 
         vm.prank(owner);
         vm.expectRevert(bytes("Signature signer mismatch"));
@@ -270,7 +272,7 @@ contract IdentityCloneableRF001Test is Test {
 
     function test_RF001_addClaim_scheme_no_soportado_revierte() public {
         bytes memory data = abi.encode("KYC", owner);
-        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT);
+        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT, "uri");
 
         vm.prank(owner);
         vm.expectRevert(bytes("Unsupported scheme"));
@@ -305,7 +307,7 @@ contract IdentityCloneableRF001Test is Test {
 
     function test_RF001_addClaim_firma_maleable_s_alto_revierte() public {
         bytes memory data = abi.encode("KYC", owner);
-        bytes32 digest = SigUtils.claimDigest(address(identity), owner, 1, 1, data, EXPIRES_AT);
+        bytes32 digest = SigUtils.claimDigest(address(identity), owner, 1, 1, data, EXPIRES_AT, 0, "uri");
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ISSUER_PK, digest);
 
         // Maleabilidad clasica: (r, n-s, v^1) tambien es valida para ecrecover.
@@ -321,7 +323,7 @@ contract IdentityCloneableRF001Test is Test {
 
     function test_RF001_addClaim_no_escribe_estado_en_fallo() public {
         bytes memory data = abi.encode("KYC", owner);
-        bytes memory badSig = _sign(ISSUER2_PK, 1, 1, data, EXPIRES_AT);
+        bytes memory badSig = _sign(ISSUER2_PK, 1, 1, data, EXPIRES_AT, "uri");
 
         vm.prank(owner);
         vm.expectRevert(bytes("Signature signer mismatch"));
@@ -344,7 +346,8 @@ contract IdentityCloneableRF001Test is Test {
         bytes memory data = abi.encode("KYC", owner);
 
         // Firma generada para OTRA identidad (otro verifyingContract)
-        bytes memory sig = SigUtils.signClaim(ISSUER_PK, address(otherIdentity), owner, 1, 1, data, EXPIRES_AT);
+        bytes memory sig =
+            SigUtils.signClaim(ISSUER_PK, address(otherIdentity), owner, 1, 1, data, EXPIRES_AT, 0, "uri");
 
         vm.prank(owner);
         vm.expectRevert(bytes("Signature signer mismatch"));
@@ -355,7 +358,7 @@ contract IdentityCloneableRF001Test is Test {
 
     function test_RF001_addClaim_digest_vincula_chainId() public {
         bytes memory data = abi.encode("KYC", owner);
-        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT);
+        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT, "uri");
 
         // La firma se creo para el chainId original (31337 en tests)
         vm.chainId(999);
@@ -397,5 +400,52 @@ contract IdentityCloneableRF001Test is Test {
 
         assertTrue(identity.claimExists(1, issuer), "el claim firmado se almacena");
         assertFalse(token.isVerified(owner), "un issuer no autorizado para el topic nunca cuenta");
+    }
+
+    // ------------------------------------------------------------------
+    // AF-03: el digest cubre el `uri` (uriHash)
+    // ------------------------------------------------------------------
+
+    /// @notice AF-03: una firma emitida para un `uri` NO sirve para dar de alta otro distinto.
+    /// Mismo criterio que `data`: el issuer fija la referencia documental off-chain.
+    function test_AF03_addClaim_uri_alterado_revierte() public {
+        bytes memory data = abi.encode("KYC", owner);
+        // El issuer firma la referencia documental "https://kyc.a/1".
+        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT, "https://kyc.a/1");
+
+        // El titular intenta publicar otra distinta reutilizando la firma.
+        vm.prank(owner);
+        vm.expectRevert(bytes("Signature signer mismatch"));
+        identity.addClaim(1, 1, issuer, sig, data, "https://kyc.a/2", EXPIRES_AT);
+
+        assertFalse(identity.claimExists(1, issuer), "no debe persistir el claim con uri no firmado");
+    }
+
+    /// @notice AF-03: con el `uri` correcto (el firmado) el alta es correcta y se almacena tal cual.
+    function test_AF03_addClaim_uri_correcto_ok() public {
+        bytes memory data = abi.encode("KYC", owner);
+        string memory uri = "https://kyc.example.com/claims/42";
+        bytes memory sig = _sign(ISSUER_PK, 1, 1, data, EXPIRES_AT, uri);
+
+        vm.prank(owner);
+        identity.addClaim(1, 1, issuer, sig, data, uri, EXPIRES_AT);
+
+        (,,,,, string memory returnedUri,,) = identity.getClaim(1, issuer);
+        assertEq(returnedUri, uri, "el uri firmado se almacena");
+        assertTrue(identity.claimExists(1, issuer));
+    }
+
+    /// @notice AF-03: el digest EIP-712 cambia si cambia el `uri` (binding explicito).
+    function test_AF03_digest_cambia_con_el_uri() public {
+        bytes memory data = abi.encode("KYC", owner);
+
+        bytes32 digestA = SigUtils.claimDigest(address(identity), owner, 1, 1, data, EXPIRES_AT, 0, "uri-a");
+        bytes32 digestB = SigUtils.claimDigest(address(identity), owner, 1, 1, data, EXPIRES_AT, 0, "uri-b");
+        bytes32 digestEmpty = SigUtils.claimDigest(address(identity), owner, 1, 1, data, EXPIRES_AT, 0, "");
+
+        assertTrue(digestA != digestB, "el uri debe cambiar el digest");
+        assertTrue(digestA != digestEmpty, "uri vacio tambien cambia el digest");
+        // Reproducibilidad: el mismo uri produce el mismo digest.
+        assertEq(digestA, SigUtils.claimDigest(address(identity), owner, 1, 1, data, EXPIRES_AT, 0, "uri-a"));
     }
 }

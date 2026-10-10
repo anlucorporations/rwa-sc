@@ -207,7 +207,13 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
     }
 
     /**
-     * @dev Remove a compliance module
+     * @dev Remove a compliance module.
+     *
+     * AF-05: retirar el ultimo modulo deja el token **fail-closed** para transferencias
+     * (`canTransfer == false`): no hay minimo obligatorio, pero tampoco hay via libre. Recuperar la
+     * operativa exige registrar de nuevo un modulo conforme (ERC-165) y, si es de un solo token,
+     * vinculado a este token (AF-01). La emision (`mint`) y la recuperacion (`forcedTransfer`) no
+     * dependen de este array.
      */
     function removeComplianceModule(uint256 index) external onlyRole(COMPLIANCE_ROLE) {
         require(index < complianceModules.length, "Invalid index");
@@ -453,7 +459,18 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
     }
 
     /**
-     * @dev Check if transfer is compliant
+     * @dev Check if transfer is compliant.
+     *
+     * AF-05 (Fase 4 · `H-22` a nivel del token): política **fail-closed** tambien en el array
+     * `complianceModules` del token. Si no hay **ningun** modulo registrado, `canTransfer` devuelve
+     * `false` y por tanto `transfer`/`transferFrom` revierten `"Transfer not compliant"`. Antes
+     * esta rama salia del bucle vacio y devolvia `true` ("0 modulos = permitir todo"), el mismo
+     * patron que RF-012 declaro vulnerabilidad en el `ComplianceAggregator`. Retirar el ultimo
+     * modulo (o el aggregator) deja el token **sin operativa de transferencia** hasta que
+     * `COMPLIANCE_ROLE` registre uno; es una decision de diseno explicita, no un efecto colateral.
+     *
+     * `mint`/`burn`/`forcedTransfer` **no** dependen de `canTransfer`: la emision y la recuperacion
+     * son operaciones privilegiadas del agente y siguen su ruta propia (AF-02/AF-05).
      */
     function canTransfer(address from, address to, uint256 amount) public view returns (bool) {
         // Check if paused
@@ -468,6 +485,11 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
 
         // Check if verified
         if (!isVerified(from) || !isVerified(to)) {
+            return false;
+        }
+
+        // AF-05: sin modulos de compliance no hay politica que autorice la transferencia.
+        if (complianceModules.length == 0) {
             return false;
         }
 

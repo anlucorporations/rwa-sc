@@ -11,17 +11,19 @@ import {Vm} from "forge-std/Vm.sol";
  * chainId, verifyingContract}` y el `CLAIM_TYPEHASH` de D-020, para que los tests
  * verifiquen el contrato y no una copia de su propia implementacion.
  *
- * Uso: `bytes memory sig = SigUtils.signClaim(pk, address(identity), walletOwner, topic, scheme, data, expiresAt, nonce);`
+ * Uso: `bytes memory sig = SigUtils.signClaim(pk, address(identity), walletOwner, topic, scheme, data, expiresAt, nonce, uri);`
  *
- * Ciclo 8c: el `CLAIM_TYPEHASH` gana `uint256 nonce` (anti-replay de la revocacion). Se conservan
- * overloads sin `nonce` que firman con `0`, para no romper las llamadas historicas.
+ * Ciclo 8c: el `CLAIM_TYPEHASH` gana `uint256 nonce` (anti-replay de la revocacion).
+ * AF-03 (Fase 4): el `CLAIM_TYPEHASH` gana `bytes32 uriHash` al final; el `uri` entra en el
+ * digest como `keccak256(bytes(uri))`. Se conservan overloads sin `uri` que firman con `""`
+ * y overloads sin `nonce` que firman con `0`, para no romper las llamadas historicas.
  */
 library SigUtils {
     address internal constant VM_ADDRESS = 0x7109709ECfa91a80626fF3989D68f67F5b1DD12D;
     Vm internal constant VM = Vm(VM_ADDRESS);
 
     bytes32 internal constant CLAIM_TYPEHASH = keccak256(
-        "Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce)"
+        "Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce,bytes32 uriHash)"
     );
 
     bytes32 internal constant DOMAIN_TYPEHASH =
@@ -38,7 +40,24 @@ library SigUtils {
             );
     }
 
-    /// @notice `structHash` del Claim firmado (Ciclo 8c: incluye `nonce`).
+    /// @notice `structHash` del Claim firmado (Ciclo 8c: `nonce`; AF-03: `uriHash`).
+    function claimStructHash(
+        address walletOwner,
+        uint256 topic,
+        uint256 scheme,
+        bytes memory data,
+        uint256 expiresAt,
+        uint256 nonce,
+        string memory uri
+    ) internal pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                CLAIM_TYPEHASH, walletOwner, topic, scheme, keccak256(data), expiresAt, nonce, keccak256(bytes(uri))
+            )
+        );
+    }
+
+    /// @notice Overload sin `uri` (AF-03): firma con `uri == ""`.
     function claimStructHash(
         address walletOwner,
         uint256 topic,
@@ -47,16 +66,16 @@ library SigUtils {
         uint256 expiresAt,
         uint256 nonce
     ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(CLAIM_TYPEHASH, walletOwner, topic, scheme, keccak256(data), expiresAt, nonce));
+        return claimStructHash(walletOwner, topic, scheme, data, expiresAt, nonce, "");
     }
 
-    /// @notice Overload historico (pre-Ciclo 8c): firma con `nonce == 0`.
+    /// @notice Overload historico (pre-Ciclo 8c): firma con `nonce == 0` y `uri == ""`.
     function claimStructHash(address walletOwner, uint256 topic, uint256 scheme, bytes memory data, uint256 expiresAt)
         internal
         pure
         returns (bytes32)
     {
-        return claimStructHash(walletOwner, topic, scheme, data, expiresAt, 0);
+        return claimStructHash(walletOwner, topic, scheme, data, expiresAt, 0, "");
     }
 
     /// @notice Digest final EIP-712 (`\x19\x01 || domainSeparator || structHash`).
@@ -67,18 +86,32 @@ library SigUtils {
         uint256 scheme,
         bytes memory data,
         uint256 expiresAt,
-        uint256 nonce
+        uint256 nonce,
+        string memory uri
     ) internal view returns (bytes32) {
         return keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 domainSeparator(verifyingContract),
-                claimStructHash(walletOwner, topic, scheme, data, expiresAt, nonce)
+                claimStructHash(walletOwner, topic, scheme, data, expiresAt, nonce, uri)
             )
         );
     }
 
-    /// @notice Overload historico (pre-Ciclo 8c): digest con `nonce == 0`.
+    /// @notice Overload sin `uri` (AF-03): digest con `uri == ""`.
+    function claimDigest(
+        address verifyingContract,
+        address walletOwner,
+        uint256 topic,
+        uint256 scheme,
+        bytes memory data,
+        uint256 expiresAt,
+        uint256 nonce
+    ) internal view returns (bytes32) {
+        return claimDigest(verifyingContract, walletOwner, topic, scheme, data, expiresAt, nonce, "");
+    }
+
+    /// @notice Overload historico (pre-Ciclo 8c): digest con `nonce == 0` y `uri == ""`.
     function claimDigest(
         address verifyingContract,
         address walletOwner,
@@ -87,7 +120,7 @@ library SigUtils {
         bytes memory data,
         uint256 expiresAt
     ) internal view returns (bytes32) {
-        return claimDigest(verifyingContract, walletOwner, topic, scheme, data, expiresAt, 0);
+        return claimDigest(verifyingContract, walletOwner, topic, scheme, data, expiresAt, 0, "");
     }
 
     /// @notice Firma EIP-712 y devuelve `r || s || v` (65 bytes) listo para `addClaim`.
@@ -99,15 +132,30 @@ library SigUtils {
         uint256 scheme,
         bytes memory data,
         uint256 expiresAt,
-        uint256 nonce
+        uint256 nonce,
+        string memory uri
     ) internal view returns (bytes memory) {
         (uint8 v, bytes32 r, bytes32 s) = VM.sign(
-            privateKey, claimDigest(verifyingContract, walletOwner, topic, scheme, data, expiresAt, nonce)
+            privateKey, claimDigest(verifyingContract, walletOwner, topic, scheme, data, expiresAt, nonce, uri)
         );
         return abi.encodePacked(r, s, v);
     }
 
-    /// @notice Overload historico (pre-Ciclo 8c): firma con `nonce == 0`.
+    /// @notice Overload sin `uri` (AF-03): firma con `uri == ""`.
+    function signClaim(
+        uint256 privateKey,
+        address verifyingContract,
+        address walletOwner,
+        uint256 topic,
+        uint256 scheme,
+        bytes memory data,
+        uint256 expiresAt,
+        uint256 nonce
+    ) internal view returns (bytes memory) {
+        return signClaim(privateKey, verifyingContract, walletOwner, topic, scheme, data, expiresAt, nonce, "");
+    }
+
+    /// @notice Overload historico (pre-Ciclo 8c): firma con `nonce == 0` y `uri == ""`.
     function signClaim(
         uint256 privateKey,
         address verifyingContract,
@@ -117,6 +165,6 @@ library SigUtils {
         bytes memory data,
         uint256 expiresAt
     ) internal view returns (bytes memory) {
-        return signClaim(privateKey, verifyingContract, walletOwner, topic, scheme, data, expiresAt, 0);
+        return signClaim(privateKey, verifyingContract, walletOwner, topic, scheme, data, expiresAt, 0, "");
     }
 }

@@ -495,7 +495,38 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   `createIdentityWithClaim`, ligado a D-027), **AF-05** (fail-closed del array de módulos del token), **AF-12**
   (`removeClaim`/nonce) y **AF-14** (`.md` en el gate de secretos). Ninguno es CRÍTICO; AF-03/AF-05 son
   cambios de comportamiento con impacto en consumidores off-chain y AF-04 depende de rediseñar el alta de
-  identidad. Se reevalúan antes de producción (D-024).
+  identidad. Se reevalúan antes de producción (D-024). **Actualización (Fase 4, cierre definitivo):** por
+  decisión explícita del usuario, **AF-03** y **AF-05** se incorporan al alcance y quedan cerrados en
+  **D-083** y **D-084**; AF-04/AF-12/AF-14 siguen diferidos.
+- **D-083 (AF-03 · firma del `uri` del claim · decisión del usuario):** el `CLAIM_TYPEHASH` de
+  `IdentityCloneable` pasa a
+  `keccak256("Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce,bytes32 uriHash)")`
+  y el `structHash` incorpora `uriHash = keccak256(bytes(_uri))`. El issuer firma la referencia documental
+  KYC/AML off-chain (H-11) y el titular **no** puede publicar otra distinta ni renovarla sin una firma nueva:
+  una firma con un `uri` y un alta con otro revierten `"Signature signer mismatch"` (mismo criterio que
+  `data`). `SigUtils` gana el parámetro `uri` en `signClaim`/`claimDigest`/`claimStructHash` y **conserva
+  overloads sin `uri` que firman con `""`**, de modo que las llamadas históricas no cambian de semántica.
+  Cambio **breaking off-chain crítico** documentado en `CHANGELOG_ABIS.md`; **no** cambia el ABI (`forge
+  inspect abi` no expone el valor de la constante: el selector `CLAIM_TYPEHASH()` sigue siendo `0x6b0509b1`)
+  y `sc/abis/` no se regenera (`abi_diff.sh` en verde). Pruebas: `test/IdentityCloneable.t.sol`
+  (`test_AF03_addClaim_uri_alterado_revierte`, `test_AF03_addClaim_uri_correcto_ok`,
+  `test_AF03_digest_cambia_con_el_uri`).
+- **D-084 (AF-05 · token fail-closed sin módulos · decisión del usuario):** `TokenCloneable.canTransfer`
+  devuelve **`false`** cuando `complianceModules.length == 0`, de modo que `transfer`/`transferFrom` (vía
+  `_update`) revierten `"Transfer not compliant"`: un token sin política de compliance no permite
+  transferencias. Antes el bucle vacío devolvía `true` ("0 módulos = permitir todo"), el mismo patrón que
+  RF-012 declaró vulnerabilidad en el aggregator. `mint` **no cambia** (la emisión es una operación
+  privilegiada del agente y ya respeta pausa/congelación por AF-02) y `forcedTransfer` sigue su ruta
+  explícita. Sin cambio de ABI. Se documenta en el NatSpec, en `SECURITY.md` (nuevo invariante «sin módulos
+  = sin transferencias») y en `RUNBOOK_MIGRACION.md`; `deploy.sh` verifica on-chain que el token tiene al
+  menos un módulo (`complianceModules(0)`). Pruebas: `test/AuditoriaFinalAF.t.sol` (`test_AF05_*`) con el
+  módulo permisivo de test `test/mocks/AllowAllCompliance.sol`.
+- **D-085 (cierre definitivo de la Fase 4 y adaptación de suites):** se adaptan las suites que emitían URIs
+  no cubiertos por la firma (`test/IdentityCloneable.t.sol`, `test/IdentityCloneFactory.t.sol`,
+  `test/RF013_ClaimLifecycle.t.sol`) para que `SigUtils` firme exactamente el `uri` que se da de alta; **no
+  se debilita, borra ni salta ningún test**. Estado final: `forge test` → **394/394** (23 suites, 19
+  funciones `invariant_*`), `forge build` 0 errores, `forge fmt --check` limpio, los 5 gates de
+  `ci-checks` + `run_local_ci.sh` en verde y `.gas-snapshot` regenerado. Cierra la Fase 4 (Pruebas).
 
 ## 7. Mapa RF → casos de uso (Fase 2)
 
@@ -507,8 +538,8 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
   (`ComplianceAggregator` fail-closed y administración por token) → **CU-16**; RF-013 (vigencia y revocación de
   claims) → **CU-17**. Los tres están implementados y con etiqueta `IMPLEMENTADO (Ciclo N)` en los casos de uso.
 - Sin cobertura por alcance (D-003): RF-007, RF-008, RNF-006.
-- Datos reales de la suite (Fase 4, estado actual): **386 tests, 386 pasan, 0 fallan**, 23 suites (19 funciones
-  `invariant_*`); cobertura `src/` 97,05 % de líneas (690/711; mínimo por contrato 91,53 % de líneas; D-017/D-042), con
+- Datos reales de la suite (Fase 4, estado actual): **394 tests, 394 pasan, 0 fallan**, 23 suites (19 funciones
+  `invariant_*`); cobertura `src/` 97,05 % de líneas (691/712; mínimo por contrato 91,53 % de líneas; D-017/D-042), con
   el gate `check_coverage.sh` en el pipeline. Ver `metricas_ejecucion.md` §21 y §22.
   (Histórico de la auditoría V1, 2026-10-03: 151 declarados, 93 pasan, 5 fallan, 53 no arrancan, coverage 42,86 %.)
 

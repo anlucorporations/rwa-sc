@@ -41,9 +41,9 @@ contract CompleteDeploymentExample is Script {
     /// @dev Clave privada de prueba del issuer (misma que los tests: `ISSUER_PK = 0xB0B`).
     uint256 public issuerPk;
 
-    /// @dev Tipo EIP-712 firmado por el issuer (D-020 + D-050: incluye `nonce`).
+    /// @dev Tipo EIP-712 firmado por el issuer (D-020 + D-050 + AF-03: incluye `nonce` y `uriHash`).
     bytes32 private constant CLAIM_TYPEHASH = keccak256(
-        "Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce)"
+        "Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce,bytes32 uriHash)"
     );
 
     /// @dev `keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")`
@@ -212,7 +212,7 @@ contract CompleteDeploymentExample is Script {
         identity.addClaim(topic, 1, issuer, abi.encodePacked(r, s, v), data, "", expiresAt);
     }
 
-    /// @dev Reproduce el digest EIP-712 de `IdentityCloneable` (D-020/D-026/D-050) sin depender de
+    /// @dev Reproduce el digest EIP-712 de `IdentityCloneable` (D-020/D-026/D-050 + AF-03) sin depender de
     /// `sc/test/**`, para que el script de despliegue compile y se simule de forma autonoma.
     function _claimDigest(
         address verifyingContract,
@@ -231,8 +231,11 @@ contract CompleteDeploymentExample is Script {
                 verifyingContract
             )
         );
-        bytes32 structHash =
-            keccak256(abi.encode(CLAIM_TYPEHASH, walletOwner, topic, uint256(1), keccak256(data), expiresAt, nonce));
+        bytes32 structHash = keccak256(
+            abi.encode(
+                CLAIM_TYPEHASH, walletOwner, topic, uint256(1), keccak256(data), expiresAt, nonce, keccak256(bytes(""))
+            )
+        );
         return keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
     }
 

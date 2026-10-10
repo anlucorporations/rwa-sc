@@ -59,8 +59,14 @@ contract IdentityCloneable is OwnableUpgradeable {
     /// vigente de `(topic, issuer)`. Como `revokeClaim` lo incrementa, la firma original
     /// deja de verificar tras la revocacion y el titular no puede reactivar el claim
     /// reintroduciendola.
+    ///
+    /// AF-03 (Fase 4 · cierre del hallazgo): el digest cubre tambien el `uri` como
+    /// `bytes32 uriHash` (`keccak256(bytes(_uri))`). Asi el issuer fija la referencia
+    /// documental KYC/AML off-chain (H-11) y el titular no puede publicar una distinta
+    /// despues del alta: cambiar el `uri` invalida la firma y `addClaim` revierte
+    /// `"Signature signer mismatch"`.
     bytes32 public constant CLAIM_TYPEHASH = keccak256(
-        "Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce)"
+        "Claim(address walletOwner,uint256 topic,uint256 scheme,bytes32 dataHash,uint256 expiresAt,uint256 nonce,bytes32 uriHash)"
     );
 
     /// @dev `keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")`
@@ -132,7 +138,9 @@ contract IdentityCloneable is OwnableUpgradeable {
      * @param _issuer Address of the claim issuer (must equal the recovered signer)
      * @param _signature 65-byte ECDSA signature (r || s || v, v in {27,28})
      * @param _data Claim data (committed as keccak256(_data) inside the digest)
-     * @param _uri URI for additional claim information
+     * @param _uri URI for additional claim information. **AF-03:** tambien va dentro del digest
+     *        como `uriHash = keccak256(bytes(_uri))`. El issuer firma la referencia documental;
+     *        el titular no puede alterarla ni publicar otra distinta sin una firma nueva.
      * @param _expiresAt Expiration timestamp, signed and stored (enforced by `hasValidClaim`)
      * @return claimId Deterministic id: keccak256(abi.encode(issuer, topic))
      */
@@ -155,8 +163,11 @@ contract IdentityCloneable is OwnableUpgradeable {
         // (Se precalcula `dataHash` y el `nonce` para no desbordar la pila del compilador.)
         bytes32 dataHash = keccak256(_data);
         uint256 nonce = claimNonce[_topic][_issuer];
-        bytes32 structHash =
-            keccak256(abi.encode(CLAIM_TYPEHASH, owner(), _topic, _scheme, dataHash, _expiresAt, nonce));
+        // AF-03: el `uri` entra en el digest como hash; el issuer lo fija y el titular no puede
+        // cambiarlo despues del alta (mismo criterio que `data`).
+        bytes32 structHash = keccak256(
+            abi.encode(CLAIM_TYPEHASH, owner(), _topic, _scheme, dataHash, _expiresAt, nonce, keccak256(bytes(_uri)))
+        );
         bytes32 digest = _hashTypedDataV4(structHash);
 
         // ECDSA.tryRecover aplica las comprobaciones de maleabilidad de OpenZeppelin
