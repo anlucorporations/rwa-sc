@@ -59,9 +59,11 @@ default:
   interruptible: true
   # La imagen corre como usuario no-root (`foundry`, uid 1000) sobre un checkout
   # propiedad de otro UID: sin esto, git aborta con "detected dubious ownership"
-  # (fallo real observado en el pipeline 2934157857, job `validate`).
+  # (fallo real observado en los pipelines 2934157857 y 2934190160). Se usa el
+  # comodín porque el problema también aparece en los submódulos anidados
+  # (`sc/lib/forge-std`, `sc/lib/openzeppelin-contracts`, ...).
   before_script:
-    - git config --global --add safe.directory "${CI_PROJECT_DIR}"
+    - git config --global --add safe.directory '*'
   cache:
     key:
       files:
