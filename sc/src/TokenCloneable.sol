@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IdentityRegistry} from "./IdentityRegistry.sol";
 import {TrustedIssuersRegistry} from "./TrustedIssuersRegistry.sol";
 import {IClaimTopicsRegistry} from "./IClaimTopicsRegistry.sol";
@@ -14,8 +15,22 @@ import {ComplianceAggregator} from "./compliance/ComplianceAggregator.sol";
  * @title TokenCloneable
  * @dev ERC-3643 compliant security token that can be cloned using EIP-1167 minimal proxy pattern
  * Uses Initializable pattern instead of constructor for clone compatibility
+ *
+ * Anti-reentrancy design (RF-002 / H-18):
+ * - Inherits `ReentrancyGuard` from the OpenZeppelin `contracts` package. In OpenZeppelin v5.5.0 this guard is
+ *   stateless (ERC-7201 namespaced storage, `StorageSlot` based) and `ReentrancyGuardUpgradeable` was
+ *   removed from `contracts-upgradeable` (see its CHANGELOG); the stateless version is clone-safe
+ *   because the guard lives in a fixed namespaced slot that is not part of the linear layout and
+ *   defaults to `0 != ENTERED`, so it needs no `initialize` call.
+ * - `nonReentrant` is applied to the **external state-changing entry points** that reach external
+ *   compliance modules (`transfer`, `transferFrom`, `mint`, `burn`, `forcedTransfer`). A guard on the
+ *   internal `_update` would only cover the `transferred` callback but would leave the post-update
+ *   `created`/`destroyed` loops of `mint`/`burn` and the `transferred` loop of `forcedTransfer`
+ *   unguarded; adding it there *and* on `mint`/`burn` would revert with a nested guard. Guarding the
+ *   entry points covers every reentrant path without nesting.
+ * - `canTransfer` stays `view` and therefore needs no guard.
  */
-contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableUpgradeable {
+contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableUpgradeable, ReentrancyGuard {
     bytes32 public constant AGENT_ROLE = keccak256("AGENT_ROLE");
     bytes32 public constant COMPLIANCE_ROLE = keccak256("COMPLIANCE_ROLE");
 
@@ -42,9 +57,6 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
 
     // Frozen accounts mapping
     mapping(address => bool) private frozen;
-
-    // Flag to bypass compliance for forced transfers
-    bool private bypassCompliance;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -170,8 +182,10 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
 
     /**
      * @dev Mint new tokens
+     * @dev `nonReentrant` covers the whole path: the compliance pre-check (external `canTransfer`),
+     * the `_mint` -> `_update` balance write and the trailing `created` notification loop.
      */
-    function mint(address to, uint256 amount) external onlyRole(AGENT_ROLE) {
+    function mint(address to, uint256 amount) external nonReentrant onlyRole(AGENT_ROLE) {
         require(isVerified(to), "Recipient not verified");
 
         // Check compliance before minting
@@ -189,8 +203,9 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
 
     /**
      * @dev Burn tokens
+     * @dev `nonReentrant` covers `_burn` -> `_update` and the trailing `destroyed` notification loop.
      */
-    function burn(address from, uint256 amount) external onlyRole(AGENT_ROLE) {
+    function burn(address from, uint256 amount) external nonReentrant onlyRole(AGENT_ROLE) {
         _burn(from, amount);
 
         // Notify compliance modules
@@ -201,19 +216,24 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
 
     /**
      * @dev Forced transfer by agent (for recovery)
-     * Bypasses compliance checks but still requires verification
+     * Bypasses compliance checks but still requires verification. This is the **explicit** bypass
+     * route (RF-002): it no longer flips a mutable storage flag; instead it calls the internal
+     * `_forcedUpdate`, which performs the balance update through `super._update` (skipping the
+     * compliance check in the `_update` override) and then notifies the modules here.
+     *
+     * `from == address(0)` is rejected: before RF-002 that input silently minted through the
+     * forced (unchecked) path (CU-04 A4.6 / B-05).
+     *
+     * NOTE: destination whitelist (`authorizedDestinations`) and per-tx caps (`maxForcedPerTx`)
+     * are deferred to RF-004 (Ciclo 5); this function is currently bounded only by `AGENT_ROLE`
+     * and `isVerified(to)`.
      */
-    function forcedTransfer(address from, address to, uint256 amount) external onlyRole(AGENT_ROLE) {
+    function forcedTransfer(address from, address to, uint256 amount) external nonReentrant onlyRole(AGENT_ROLE) {
+        require(from != address(0), "Invalid from address");
         require(isVerified(to), "Recipient not verified");
 
-        // Set bypass flag
-        bypassCompliance = true;
-
-        // Perform transfer
-        _update(from, to, amount);
-
-        // Reset bypass flag
-        bypassCompliance = false;
+        // Perform the balance update through the explicit internal bypass route (no storage flag).
+        _forcedUpdate(from, to, amount);
 
         // Notify compliance modules
         for (uint256 i = 0; i < complianceModules.length; i++) {
@@ -308,18 +328,48 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
     }
 
     /**
-     * @dev Override transfer to add compliance checks
+     * @dev Override ERC-20 `transfer` to apply the reentrancy guard at the entry point.
+     * The guard stays held while `_update` notifies the compliance modules, so a module that tries
+     * to re-enter `transfer`/`transferFrom`/`mint`/`burn`/`forcedTransfer` from its callback reverts
+     * with `ReentrancyGuardReentrantCall`.
+     */
+    function transfer(address to, uint256 value) public virtual override nonReentrant returns (bool) {
+        return super.transfer(to, value);
+    }
+
+    /**
+     * @dev Override ERC-20 `transferFrom` for the same reason as `transfer`.
+     */
+    function transferFrom(address from, address to, uint256 value) public virtual override nonReentrant returns (bool) {
+        return super.transferFrom(from, to, value);
+    }
+
+    /**
+     * @dev Explicit internal bypass route for `forcedTransfer` (RF-002).
+     * Calls `super._update` directly, so it skips both the compliance check and the `transferred`
+     * notification of the `_update` override. It is only reachable from `forcedTransfer`, which is
+     * `onlyRole(AGENT_ROLE)` and `nonReentrant`, and it writes **no** storage flag.
+     */
+    function _forcedUpdate(address from, address to, uint256 amount) internal virtual {
+        super._update(from, to, amount);
+    }
+
+    /**
+     * @dev Override transfer to add compliance checks.
+     * No guard here on purpose: the five external entry points that reach it (`transfer`,
+     * `transferFrom`, `mint`, `burn`, `forcedTransfer`) are guarded, which covers the trailing
+     * notification loops as well. A guard here would nest with the guards on `mint`/`burn`.
      */
     function _update(address from, address to, uint256 amount) internal virtual override {
-        // Skip compliance for minting, burning, or forced transfers
-        if (from != address(0) && to != address(0) && !bypassCompliance) {
+        // Skip compliance for minting and burning (regular transfers only)
+        if (from != address(0) && to != address(0)) {
             require(canTransfer(from, to, amount), "Transfer not compliant");
         }
 
         super._update(from, to, amount);
 
-        // Notify compliance modules (only for transfers, not mint/burn, and not forced transfers)
-        if (from != address(0) && to != address(0) && !bypassCompliance) {
+        // Notify compliance modules (only for transfers, not mint/burn)
+        if (from != address(0) && to != address(0)) {
             for (uint256 i = 0; i < complianceModules.length; i++) {
                 complianceModules[i].transferred(from, to, amount);
             }

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ICompliance} from "../ICompliance.sol";
 
 /**
@@ -19,8 +20,14 @@ import {ICompliance} from "../ICompliance.sol";
  * - Centralized: Manage multiple tokens' compliance from one contract
  * - Efficient: One aggregator for all tokens instead of N*M modules
  * - Extensible: Add new compliance rules without redeploying
+ *
+ * Anti-reentrancy (RF-002 / H-18): the state-changing entry points that call external contracts
+ * (`addModule`, `removeModule`, `transferred`, `created`, `destroyed`) are `nonReentrant`. The guard
+ * is the stateless OpenZeppelin `ReentrancyGuard` (ERC-7201 namespaced storage), independent from the
+ * token's own guard, so a malicious module cannot re-enter the aggregator during a notification loop.
+ * `canTransfer` is `view` and needs no guard.
  */
-contract ComplianceAggregator is ICompliance, Ownable {
+contract ComplianceAggregator is ICompliance, Ownable, ReentrancyGuard {
     // Mapping: token address => array of compliance modules
     mapping(address => ICompliance[]) private tokenModules;
 
@@ -57,7 +64,7 @@ contract ComplianceAggregator is ICompliance, Ownable {
      * @param token Token address
      * @param module Compliance module address
      */
-    function addModule(address token, address module) external onlyOwnerOrToken(token) {
+    function addModule(address token, address module) external nonReentrant onlyOwnerOrToken(token) {
         require(token != address(0), "Invalid token address");
         require(module != address(0), "Invalid module address");
         require(!isModuleActive[token][module], "Module already added");
@@ -83,7 +90,7 @@ contract ComplianceAggregator is ICompliance, Ownable {
      * @param token Token address
      * @param module Compliance module address
      */
-    function removeModule(address token, address module) external onlyOwnerOrToken(token) {
+    function removeModule(address token, address module) external nonReentrant onlyOwnerOrToken(token) {
         require(isModuleActive[token][module], "Module not active");
 
         uint256 index = moduleIndex[token][module];
@@ -135,7 +142,7 @@ contract ComplianceAggregator is ICompliance, Ownable {
      * @param to Recipient address
      * @param amount Transfer amount
      */
-    function transferred(address from, address to, uint256 amount) external override {
+    function transferred(address from, address to, uint256 amount) external override nonReentrant {
         address token = msg.sender;
 
         // Notify all modules
@@ -149,7 +156,7 @@ contract ComplianceAggregator is ICompliance, Ownable {
      * @param to Recipient address
      * @param amount Mint amount
      */
-    function created(address to, uint256 amount) external override {
+    function created(address to, uint256 amount) external override nonReentrant {
         address token = msg.sender;
 
         // Notify all modules
@@ -163,7 +170,7 @@ contract ComplianceAggregator is ICompliance, Ownable {
      * @param from Address from which tokens are burned
      * @param amount Burn amount
      */
-    function destroyed(address from, uint256 amount) external override {
+    function destroyed(address from, uint256 amount) external override nonReentrant {
         address token = msg.sender;
 
         // Notify all modules

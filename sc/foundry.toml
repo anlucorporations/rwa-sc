@@ -8,6 +8,9 @@ solc_version = "0.8.20"
 optimizer = true
 optimizer_runs = 200
 evm_version = "paris"
+# RF-002: el artefacto compilado incluye el storage layout para que el test
+# `test_RF002_storage_layout_sin_bypassCompliance` pueda verificar que el flag retirado no reaparece.
+extra_output = ["storageLayout"]
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
     "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/"

@@ -4,18 +4,22 @@ pragma solidity ^0.8.20;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title TokenBenchmark
  * @notice LÍNEA BASE DE GAS — NO es un doble funcional de `TokenCloneable`.
  *
  * Representa el coste de "despliegue completo + inicialización" que el clon EIP-1167
- * evita: ERC20 + AccessControl + Pausable con las mismas asignaciones de roles que
- * `TokenCloneable.initialize` (DEFAULT_ADMIN, AGENT, COMPLIANCE) y los mismos valores
- * de nombre/símbolo/decimales. Solo existe para medir gas en `test_GasSavings`; no se
- * despliega en producción ni se usa como sustituto en otros tests.
+ * evita: ERC20 + AccessControl + Pausable + ReentrancyGuard con las mismas asignaciones
+ * de roles que `TokenCloneable.initialize` (DEFAULT_ADMIN, AGENT, COMPLIANCE) y los
+ * mismos valores de nombre/símbolo/decimales. El `ReentrancyGuard` se añadió en el
+ * Ciclo 3 (RF-002) para que la comparación siga siendo equivalente: `TokenCloneable`
+ * hereda el mismo guard stateless (ERC-7201) de OpenZeppelin v5.5.0. Solo existe para
+ * medir gas en `test_GasSavings`; no se despliega en producción ni se usa como
+ * sustituto en otros tests.
  */
-contract TokenBenchmark is ERC20, AccessControl, Pausable {
+contract TokenBenchmark is ERC20, AccessControl, Pausable, ReentrancyGuard {
     bytes32 public constant AGENT_ROLE = keccak256("AGENT_ROLE");
     bytes32 public constant COMPLIANCE_ROLE = keccak256("COMPLIANCE_ROLE");
 
