@@ -1196,3 +1196,27 @@ El resto de jobs quedaron `skipped`.
 5. Documentación de la imagen y del comando de diagnóstico del pipeline.
 
 Tras las correcciones, `run_local_ci.sh` sigue en verde (7/7 etapas) y el YAML valida.
+
+### 20.1 Resultado final: pipeline en verde en GitLab
+
+Tras el segundo arreglo (`097c221`, comodín `safe.directory '*'`), el **pipeline 2934202154** de
+`rwa-sc-DSH-GCP` terminó en **verde con los 7 jobs**:
+
+| Job | Estado | Duración |
+|---|---|---|
+| `validate` | ✅ success | 29 s |
+| `build` | ✅ success | 48 s |
+| `fmt` | ✅ success | 29 s |
+| `test` | ✅ success | 36 s |
+| `coverage` | ✅ success | 40 s |
+| `gas` | ✅ success | 31 s |
+| `ci-checks` | ✅ success | 33 s |
+
+Evidencia del runner (logs públicos):
+- `test`: sube los artefactos `sc/ci-artifacts/test-count.txt` y `test-run.log` (conteo real, no escrito a mano).
+- `coverage`: `agregado src/ : 97.12% (674/694)` · `umbral agregado / por contrato : 80% / 80%` ·
+  `OK: cobertura agregada de src/ 97.12% >= 80% y mínimo por contrato 91.53% >= 80%`.
+- `ci-checks`: sin `bypassCompliance`, documentación consistente y 15 ABIs sin deriva.
+
+Con esto, **RNF-002, RNF-003 y RNF-001 pasan a estar verificados por un pipeline real**, no solo por
+mediciones locales, y los criterios **B-3 y B-5** del informe V1 quedan cubiertos.

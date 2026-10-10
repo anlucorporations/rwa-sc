@@ -229,6 +229,16 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 4. **PII/KYC off-chain sin política formal** de base legal, cifrado y retención (H-11, backlog R-3).
 5. **DF3-05..DF3-10**: detalles de diseño que se resuelven dentro de los ciclos de la Fase 3.
 
+## Pipeline en GitLab (cerrado)
+
+- **Pipeline 2934202154 en `rwa-sc-DSH-GCP`: verde, 7/7 jobs** (`validate`, `build`, `fmt`, `test`, `coverage`,
+  `gas`, `ci-checks`). Evidencia: artefactos de conteo real de tests y gate de cobertura
+  (`agregado src/ 97.12 %`, mínimo por contrato `91.53 %`, umbrales 80 %/80 %).
+- Incidencias reales resueltas durante el primer push: *dubious ownership* en el runner no-root (arreglado con
+  `git config --global --add safe.directory '*'`, que cubre también los submódulos anidados) y eliminación de la
+  dependencia de `jq` en el gate de ABIs (la imagen oficial solo trae `git`).
+- Quedan **subidos a GitLab** todos los commits de la Fase 3 (rama `rwa-sc-DSH-GCP`; `main` intacta).
+
 ## Próximo paso
 
 **Fase 3 cerrada.** El siguiente paso es **operativo**: cuando el usuario autorice el `push` (`/push`), subir
