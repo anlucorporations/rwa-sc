@@ -10,7 +10,7 @@
 |---|---|---|---|
 | 1 | Concepción | ✅ COMPLETADO | Artefactos creados, repos y GCP definidos, entrevista de 3 bloques |
 | 2 | Auditoría | ✅ COMPLETADO (por confirmar) | Auditoría sin issues críticos + CU auditados + gráficos + documento técnico auditado |
-| 3 | Desarrollo | 🔄 EN CURSO — Ciclos 1, 1b y 2 ✅ · Ciclo 3 en marcha | Plan vertical aprobado, ciclos completados y probados |
+| 3 | Desarrollo | 🔄 EN CURSO — Ciclos 1, 1b, 2 y 3 ✅ · Ciclos 4–8 autorizados en bloque | Plan vertical aprobado, ciclos completados y probados |
 | 4 | Pruebas | ⬜ Por cerrar | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
 | 5 | Manuales | ⬜ Por cerrar | Manuales generados y confirmación final |
 
@@ -39,6 +39,15 @@
   autorización de topic delegada al token (D-025). `createIdentityWithClaim` propaga `expiresAt`.
   **264/264 tests** (21 nuevos `test_RF001_*`), `src/` 96,08 % de líneas y `IdentityCloneable` 100 %;
   PoC H-01 **invertido** (firma vacía → revert). Cierra **H-01** y el bloqueante **B-1**.
+- [x] **Ciclo 3 — RF-002 · Retirada del flag de bypass y anti-reentrancia** (commit local `45496cf`):
+  `bypassCompliance` **eliminado** del storage (sustituido por la ruta interna `_forcedUpdate`); `nonReentrant`
+  en los 5 puntos de entrada (`transfer`, `transferFrom`, `mint`, `burn`, `forcedTransfer`) y en las entradas
+  con estado del `ComplianceAggregator`; gate `check_no_bypass_flag.sh`; `forcedTransfer` rechaza `from == 0`
+  (cerraba una vía de acuñación). **281/281 tests** (17 nuevos, 7 de reentrancia que revierten con
+  `ReentrancyGuardReentrantCall`), `src/` 96,28 % líneas / 82,90 % ramas, +3.074 gas por transferencia y
+  **0** en `createToken`. Decisiones **D-029..D-032**.
+- [x] **Documentación versionada:** `RepoTecnico/` se movió dentro del repo (`rwa-sc/RepoTecnico/`, commit
+  `fb38e4f`), por lo que los ciclos siguientes versionan código **y** documentación. Decisión del usuario.
 - [ ] Ciclo 3 (RF-002) → Ciclo 4 (RF-003) → Ciclo 5 (RF-004) → Ciclo 6 (RF-011)
   → Ciclo 7 (RF-012) → Ciclo 8 (RF-013) → **Ciclo 8b (toolchain: solc ≥ 0.8.24 + `EIP712Upgradeable` de OZ,
   decidido por el usuario antes del despliegue)** → Ciclo 9 (RF-010) → Ciclo 10 (RF-006) → Ciclo 11 (RF-009).
