@@ -12,7 +12,7 @@
 | 2 | Auditoría | ✅ COMPLETADO (por confirmar) | Auditoría sin issues críticos + CU auditados + gráficos + documento técnico auditado |
 | 3 | Desarrollo | ✅ COMPLETADO — Ciclos 1, 1b, 2, 3, 4, 5, 6, 7, 8, 8b, 8c, 9, 10 y **11** ✅ | Plan vertical aprobado, ciclos completados y probados |
 | 4 | Pruebas | ✅ COMPLETADO (cierre definitivo) — **394/394 tests en verde** (23 suites, 19 funciones `invariant_*`), cobertura `src/` **97,05 % líneas** (691/712; mínimo por contrato 91,53 %), matriz **v2** de **142 criterios** con **0 FALTA**; auditoría adversarial final **AF-01..AF-15** cerrada (AF-01/AF-02/AF-03/AF-05/AF-06/AF-07/AF-08/AF-09/AF-10/AF-11/AF-13/AF-15 corregidos; **AF-03 y AF-05 por decisión del usuario**, D-083/D-084; AF-04/AF-12/AF-14 diferidos); pipeline 7/7 en verde (`2934202154`, `2934241152`) | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
-| 5 | Manuales | ⬜ Por cerrar | Manuales generados y confirmación final |
+| 5 | Manuales | ⏸️ APLAZADA por decisión del usuario (D-086) | Manuales generados y confirmación final |
 
 ## Hitos de la Fase 2 (completados)
 
@@ -309,3 +309,14 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
   por tests, con `ECDSA` de OpenZeppelin). `EIP712Upgradeable` de OZ 5.5.0 exige `^0.8.24`; la subida del
   compilador y la adopción de la librería (más `eip712Domain()` de EIP-5267) quedan registradas como tarea
   del ciclo del área web, donde se re-baselinizará `.gas-snapshot`.
+
+## Cierre de la Fase 4 y decisión sobre la Fase 5
+
+- **Fase 4 (Pruebas) COMPLETADA**: 394/394 tests, 23 suites, 19 invariantes con estado; cobertura `src/`
+  97,05 % líneas (mínimo por contrato 91,53 %); 5 gates + pipeline de GitLab en verde (7/7 jobs,
+  pipeline `2935871780`); matriz de 142 criterios sin huecos; auditoría adversarial con 15 hallazgos
+  (11 corregidos + 2 por decisión del usuario + 3 diferidos).
+- **D-086 (decisión del usuario):** la **Fase 5 (Manuales) queda aplazada**; puede retomarse en cualquier
+  momento con el skill `@manuales` (los insumos ya están: arquitectura, despliegue, datos, runbook y métricas).
+- **Estado del repositorio remoto (`rwa-sc-DSH-GCP`)**: 22 commits, pipelines `2934202154`, `2934241152` y
+  `2935871780` en verde; `main` intacta en `2a4a683`.

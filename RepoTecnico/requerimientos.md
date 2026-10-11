@@ -669,3 +669,10 @@ tests en CI (RNF-003), secretos (RNF-004) y extensibilidad (RNF-005); RNF-006 es
 
 > **Fiabilidad, mantenibilidad, portabilidad y backup/DR** derivan además de **H-09** (catálogo RNF incompleto);
 > **observabilidad** de **H-12/H-21**; **backup/DR** de **H-30**; **usabilidad** se marca N/A con justificación (H-09).
+- **D-086 (Fase 5 · decisión del usuario):** los **manuales quedan aplazados** ("sin manuales por los
+  momentos"). El proceso de 5 fases se cierra con las Fases 1–4 completadas; la Fase 5 puede retomarse con
+  `@manuales` (skill `equipo-manuales`), cuyos insumos ya existen: arquitectura y flujos
+  (`documento_tecnico.md`), despliegue (`entornos_globales.md`, `RUNBOOK_MIGRACION.md`), datos
+  (`diccionario_datos.md`, `diagrama_er.md`), seguridad (`SECURITY.md`) y métricas (`metricas_ejecucion.md`).
+  Nota técnica: en este entorno no hay `mmdc`, ni PDF (Chromium sin librerías), ni `pandoc`; los gráficos
+  deberían generarse como SVG escritos a mano y el PDF como HTML imprimible.
