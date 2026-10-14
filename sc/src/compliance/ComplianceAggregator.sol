@@ -307,4 +307,51 @@ contract ComplianceAggregator is ICompliance, ERC165, Ownable, ReentrancyGuard {
         require(index < tokenModules[token].length, "Index out of bounds");
         return address(tokenModules[token][index]);
     }
+
+    /**
+     * @dev H-20: vista paginada de los modulos de un token. `offset >= count` o `limit == 0`
+     * devuelve un array vacio.
+     * @param token Token address
+     * @param offset Indice inicial (0-based)
+     * @param limit Numero maximo de elementos
+     */
+    function getModulesPaginated(address token, uint256 offset, uint256 limit)
+        external
+        view
+        returns (address[] memory page)
+    {
+        uint256 total = tokenModules[token].length;
+        if (offset >= total || limit == 0) {
+            return new address[](0);
+        }
+        uint256 end = offset + limit;
+        if (end > total) {
+            end = total;
+        }
+        page = new address[](end - offset);
+        for (uint256 i = offset; i < end; i++) {
+            page[i - offset] = address(tokenModules[token][i]);
+        }
+    }
+
+    /**
+     * @dev H-20: vista paginada de los tokens registrados. `offset >= count` o `limit == 0`
+     * devuelve un array vacio.
+     * @param offset Indice inicial (0-based)
+     * @param limit Numero maximo de elementos
+     */
+    function getTokensPaginated(uint256 offset, uint256 limit) external view returns (address[] memory page) {
+        uint256 total = tokens.length;
+        if (offset >= total || limit == 0) {
+            return new address[](0);
+        }
+        uint256 end = offset + limit;
+        if (end > total) {
+            end = total;
+        }
+        page = new address[](end - offset);
+        for (uint256 i = offset; i < end; i++) {
+            page[i - offset] = tokens[i];
+        }
+    }
 }

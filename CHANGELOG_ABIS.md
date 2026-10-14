@@ -513,3 +513,53 @@ regeneran con `script/ci/abi_diff.sh --update`; los `.methods` no cambian (no ha
 `test/RF013_ClaimLifecycle.t.sol`: `test_AF12_removeClaim_incrementa_nonce_y_borra`,
 `test_AF12_removeClaim_firma_previa_no_reactiva`, `test_AF12_removeClaim_reactivacion_con_nonce_nuevo_ok`,
 `test_AF12_removeClaim_emite_evento_de_traza`.
+
+---
+
+## Cierre de deuda (H-20) — indices O(1) y vistas paginadas (ABI **aditiva**)
+
+**Motivo:** H-20 (auditoria V1 / plan M-11) — la pertenencia y el borrado en los arrays de
+enumeracion eran O(n), y las vistas materializaban el array completo. H-20 anade mappings de indice
+y vistas paginadas **sin retirar** los arrays ni sus getters (ABI solo aditiva).
+
+### API nueva (aditiva)
+
+| Contrato | Firma nueva |
+|---|---|
+| `TokenCloneable` | `removeComplianceModuleByAddress(address)` |
+| `TokenCloneable` | `getComplianceModulesPaginated(uint256,uint256) returns (address[])` |
+| `IdentityRegistry` | `getRegisteredAddressesPaginated(uint256,uint256) returns (address[])` |
+| `TrustedIssuersRegistry` | `getTrustedIssuersPaginated(uint256,uint256) returns (address[])` |
+| `ClaimTopicsRegistry` | `getClaimTopicsPaginated(uint256,uint256) returns (uint256[])` |
+| `ClaimTopicsRegistryCloneable` | `getClaimTopicsPaginated(uint256,uint256) returns (uint256[])` |
+| `ComplianceAggregator` | `getModulesPaginated(address,uint256,uint256) returns (address[])` |
+| `ComplianceAggregator` | `getTokensPaginated(uint256,uint256) returns (address[])` |
+
+### Firmas existentes: sin cambios
+
+Se conservan `complianceModules(uint256)`, `getComplianceModules()`, `getRegisteredAddress(uint256)`,
+`getTrustedIssuers()`, `getClaimTopics()`, `getModules(address)`, etc. `hasClaimTopic(address,uint256)`
+y `claimTopicExists(uint256)` mantienen su firma: solo cambia su implementacion interna (mapping O(1)).
+
+### Storage (redeploy limpio D-009/RT-008)
+
+Nuevos mappings (no hay proxy actualizable):
+`TokenCloneable.moduleIndex`, `IdentityRegistry.addressIndex`,
+`TrustedIssuersRegistry.issuerIndex` y `issuerHasTopic`, `ClaimTopicsRegistry.topicIndex` y
+`topicExistsFlag` (idem en `ClaimTopicsRegistryCloneable`). Los slots previos no se reordenan: los
+mappings nuevos se declaran al final.
+
+### Impacto en consumidores
+
+Ninguno obligatorio (aditivo). Los consumidores pueden migrar a las vistas paginadas para no traer
+listas completas; los getters historicos siguen disponibles con la misma semantica.
+
+---
+
+## Cierre de deuda (H-19) — vinculacion unica modulo→token (sin cambio de ABI)
+
+`setTokenContract` de `MaxBalanceCompliance`, `MaxHoldersCompliance` y `TransferLockCompliance` ahora
+revierte `"Module already bound to another token"` si el modulo ya estaba vinculado a otro token
+(idempotente si se repite el mismo). Cierra la contaminacion de estado entre tokens de H-19 (los
+contenedores `isHolder`/`holderCount` y `lockEndTime` no estan indexados por token). AF-01 ya impedia
+registrar un modulo sin vincular; H-19 cierra la re-vinculacion posterior. **Sin cambio de ABI.**

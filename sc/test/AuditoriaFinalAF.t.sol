@@ -153,25 +153,20 @@ contract AuditoriaFinalAFTest is Test {
         assertEq(aggregator.getModuleCount(address(token)), 0);
     }
 
-    /// @notice AF-01 (regresion): un modulo vinculado y despues mal configurado NO revierte con un
-    /// `abi.decode` opaco; el token deniega de forma explicita y sigue siendo recuperable.
+    /// @notice AF-01 (regresion): la lectura defensiva de un modulo **sin token vinculado**
+    /// (`tokenContract == address(0)`) degrada a `false` sin revertir, en vez de un `abi.decode`
+    /// opaco que bloquearia el token. H-19 impide re-vincular un modulo ya usado a un token ajeno,
+    /// que era la via original de dejar un modulo mal configurado.
     function test_AF01_modulo_mal_configurado_no_revierte_de_forma_opaca() public {
         MaxBalanceCompliance module = new MaxBalanceCompliance(admin, MAX_BALANCE);
+        assertEq(module.tokenContract(), address(0), "precondicion: modulo sin vincular");
+
+        // `canTransfer` publico no revierte: el `staticcall` no responde y devuelve false (fail-closed).
+        assertFalse(module.canTransfer(user1, user2, 1 ether), "debe degradar a false sin revertir");
+
+        // El token sigue operativo con un modulo correctamente vinculado y registrado.
         module.setTokenContract(address(token));
         token.addComplianceModule(address(module));
-
-        // El modulo estaba bien vinculado, pero se reapunta a una cuenta sin `balanceOf`.
-        module.setTokenContract(makeAddr("eoaSinBalanceOf"));
-
-        // `canTransfer` publico no revierte: devuelve false (fail-closed).
-        assertFalse(token.canTransfer(user1, user2, 1 ether), "debe degradar a false sin revertir");
-
-        // La operacion deniega con el mensaje explicito del token, no con un Panic de decodificacion.
-        vm.expectRevert("Mint not compliant");
-        token.mint(user1, 1 ether);
-
-        // Recuperacion: se reapunta el modulo al token y la emision vuelve a funcionar.
-        module.setTokenContract(address(token));
         token.mint(user1, 1 ether);
         assertEq(token.balanceOf(user1), 1 ether, "el token no queda inoperable de forma permanente");
     }

@@ -59,27 +59,38 @@
 |---|---|---|---|---|
 | `identities` | `mapping(address => IdentityCloneable)` private | PK (wallet) | existe (`IdentityRegistry.sol:14`) | Contrato Identity de cada wallet |
 | `registered` | `mapping(address => bool)` private | — | existe (`IdentityRegistry.sol:17`) | Bandera de registro |
-| `registeredAddresses` | `address[]` private | — | existe (`IdentityRegistry.sol:20`) | Índice de wallets registradas (**H-20:** array O(n) con borrado O(n), `:73-79`) |
+| `registeredAddresses` | `address[]` private | — | existe (`IdentityRegistry.sol:20`) | Enumeración de wallets registradas |
+| `addressIndex` | `mapping(address => uint256)` private | — | existe (`IdentityRegistry.sol`) | **H-20:** índice 1-based en `registeredAddresses` (`0` = ausente); borrado O(1) |
+
+> **H-20 corregido:** la pertenencia y el borrado ya **no** recorren el array; se usa `addressIndex`.
+> El swap-and-pop se conserva, así que el array sigue sin huecos. Vista paginada
+> `getRegisteredAddressesPaginated(offset, limit)`.
 
 ### Entidad: `TrustedIssuersRegistry` (compartido)
 | Campo | Tipo | Clave | Estado | Descripción |
 |---|---|---|---|---|
 | `trustedIssuers` | `mapping(address => bool)` private | PK (issuer) | existe (`TrustedIssuersRegistry.sol:16`) | Si el emisor es confiable |
-| `issuerClaimTopics` | `mapping(address => uint256[])` private | — | existe (`TrustedIssuersRegistry.sol:13`) | Topics autorizados por emisor (array, no mapping por topic) |
-| `trustedIssuersList` | `address[]` private | — | existe (`TrustedIssuersRegistry.sol:19`) | Índice de emisores (**H-20:** borrado O(n), `:55-61`) |
+| `issuerClaimTopics` | `mapping(address => uint256[])` private | — | existe (`TrustedIssuersRegistry.sol:13`) | Topics autorizados por emisor (enumeración) |
+| `trustedIssuersList` | `address[]` private | — | existe (`TrustedIssuersRegistry.sol:19`) | Enumeración de emisores |
+| `issuerIndex` | `mapping(address => uint256)` private | — | existe (`TrustedIssuersRegistry.sol`) | **H-20:** índice 1-based; borrado O(1) |
+| `issuerHasTopic` | `mapping(address => mapping(uint256 => bool))` private | PK lógica (issuer, topic) | existe (`TrustedIssuersRegistry.sol`) | **H-20:** pertenencia `(issuer, topic)` en O(1) |
 
-> **H-14 corregido:** **no** existe `issuerTopics[issuer][topic]` (mapping booleano). La autorización por
-> topic se calcula iterando `issuerClaimTopics` en `hasClaimTopic()` (`TrustedIssuersRegistry.sol:101-113`).
+> **H-20 corregido:** la autorización por topic ya **no** itera `issuerClaimTopics`; `hasClaimTopic()`
+> consulta `issuerHasTopic[issuer][topic]` en O(1) (se mantiene sincronizado en alta/actualización/baja).
+> Vista paginada `getTrustedIssuersPaginated(offset, limit)`.
 
 ### Entidad: `ClaimTopicsRegistryCloneable` (por token)
 | Campo | Tipo | Clave | Estado | Descripción |
 |---|---|---|---|---|
 | `claimTopics` | `uint256[]` private | — | existe (`ClaimTopicsRegistryCloneable.sol:14`) | Topics requeridos por el token |
-| `claimTopicExists` | `function (uint256) public view returns (bool)` | — | existe (`ClaimTopicsRegistryCloneable.sol:73-80`) | **Es una función**, no un mapping; itera `claimTopics` |
+| `topicIndex` | `mapping(uint256 => uint256)` private | — | existe (`ClaimTopicsRegistryCloneable.sol`) | **H-20:** índice 1-based; borrado O(1) |
+| `topicExistsFlag` | `mapping(uint256 => bool)` private | PK lógica (topic) | existe (`ClaimTopicsRegistryCloneable.sol`) | **H-20:** pertenencia O(1) que responde a `claimTopicExists()` |
+| `claimTopicExists` | `function (uint256) public view returns (bool)` | — | existe (`ClaimTopicsRegistryCloneable.sol`) | **Es una función**, no un mapping; ahora lee `topicExistsFlag` (O(1)) |
 
 > **H-14 corregido:** **no** existe el campo `token` en este registro (la relación token–registro se guarda
-> en `TokenCloneable.claimTopicsRegistry`), ni un mapping índice `claimTopicExists[topic]`.
-> La variante no clonable `ClaimTopicsRegistry` (`ClaimTopicsRegistry.sol:16-81`) tiene el mismo storage.
+> en `TokenCloneable.claimTopicsRegistry`). **H-20:** `claimTopicExists` dejó de iterar `claimTopics` y usa
+> `topicExistsFlag`; el borrado usa `topicIndex`. Vista paginada `getClaimTopicsPaginated(offset, limit)`.
+> La variante no clonable `ClaimTopicsRegistry` tiene el mismo storage y las mismas vistas.
 
 ### Entidad: `TokenCloneable`
 | Campo | Tipo | Clave | Estado | Descripción |
@@ -94,13 +105,16 @@
 | `maxBurnPerTx` | `uint256` public | — | existe (`TokenCloneable.sol:69`) | Tope de `burn` por transacción; `0` desactiva (RF-004) |
 | `maxForcedPerTx` | `uint256` public | — | existe (`TokenCloneable.sol:72`) | Tope de `forcedTransfer`; `0` desactiva (RF-004) |
 | `maxSupply` | `uint256` public | — | existe (`TokenCloneable.sol:75`) | Tope de suministro; `0` = sin tope (D-022) |
+| `moduleIndex` | `mapping(address => uint256)` private | PK lógica (module) | existe (`TokenCloneable.sol`) | **H-20:** índice 1-based en `complianceModules`; pertenencia y borrado O(1) |
 | roles `DEFAULT_ADMIN_ROLE`, `AGENT_ROLE`, `COMPLIANCE_ROLE` | `bytes32 public constant` | — | existe (`TokenCloneable.sol:35-36` + `AccessControlUpgradeable`) | `DEFAULT_ADMIN_ROLE` heredado de OZ |
 | balances / allowances / totalSupply | ERC-20 | — | existe (`ERC20Upgradeable`) | State estándar ERC-20 |
 
 > **H-14 corregido (TokenCloneable):** **no** existen `_tokenName` ni `_tokenSymbol` (storage muerto
 > eliminado en D-070) ni el flag `bypassCompliance` (retirado en RF-002); en su lugar están los 4 campos
 > de RF-004 (`authorizedDestinations`, `maxBurnPerTx`, `maxForcedPerTx`, `maxSupply`). El layout real
-> (slots 0..9) se verifica con `forge inspect TokenCloneable storage-layout`.
+> (slots 0..10) se verifica con `forge inspect TokenCloneable storage-layout`.
+> **H-20:** `moduleIndex` hace O(1) `_isComplianceModule` y el alta duplicada; vistas paginadas
+> `getComplianceModulesPaginated` y borrado por dirección `removeComplianceModuleByAddress`.
 
 ### Entidad: `ComplianceAggregator`
 | Campo | Tipo | Clave | Estado | Descripción |
@@ -120,14 +134,18 @@
 
 > **H-14 corregido (módulos):** el identificador del token es **`tokenContract`**, no `token`. En
 > `MaxHoldersCompliance` el estado por cuenta es **`isHolder`** (mapping, **no** `holders[]` +
-> `holderIndex[]`) y se añade **`holderCount`** (contador) y **`authorizedCallers`**. En
-> `TransferLockCompliance` el lock por cuenta es **`lockEndTime`** (**no** `firstReceiveTime`).
+> `holderIndex[]`) y se añade **`holderCount`** (contador) y **`authorizedCallers`**. En> `TransferLockCompliance` el lock por cuenta es **`lockEndTime`** (**no** `firstReceiveTime`).
 
 ### Estado de eventos de compliance
 Los tres módulos **sí** emiten `TokenContractSet(address indexed tokenContract)` al fijar `tokenContract`
 (QW-8, cierra **H-34**). El resto de eventos son los documentados en cada `.sol`
 (`MaxHoldersSet`, `HolderAdded`, `HolderRemoved`, `LockPeriodSet`, `TransferLocked`, `MaxBalanceSet`,
 `ModuleAdded`, `ModuleRemoved`, `TokenRegistered`).
+
+> **H-19:** `tokenContract` es **bind-once**: solo se puede fijar a un token (idempotente con el mismo;
+> revert `"Module already bound to another token"` para otro). Así el estado por cuenta de
+> `MaxHoldersCompliance` (`isHolder`/`holderCount`) y `TransferLockCompliance` (`lockEndTime`), que **no**
+> está indexado por token, no se mezcla entre tokens.
 
 ## 2. Modelo off-chain (rwa-web → **PostgreSQL**, esquema `rwa`)
 

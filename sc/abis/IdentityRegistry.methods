@@ -1,5 +1,6 @@
 getIdentity(address)
 getRegisteredAddress(uint256)
+getRegisteredAddressesPaginated(uint256,uint256)
 getRegisteredCount()
 isRegistered(address)
 owner()

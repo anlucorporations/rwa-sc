@@ -1526,3 +1526,57 @@ Sin cambio de ABI (`claimNonce` ya era público). Pruebas: `test_AF12_*` (4) en 
 `check_coverage.sh` → agregado `src/` **97,07 %** y mínimo por contrato **91,53 %** (umbrales 80 %/80 %);
 `abi_diff.sh` → 15 ABIs, deriva declarada en `CHANGELOG_ABIS.md` y línea base regenerada; `.gas-snapshot`
 regenerado (`forge snapshot`), `check_no_bypass_flag.sh` y `check_secrets.sh` sin hallazgos.
+
+---
+
+## 26. Cierre de deuda — H-19 (vinculación única) y H-20 (O(1) + paginación)
+
+### 26.1 Conteo — antes / después
+
+| Métrica | Antes (§25) | Después |
+|---|---:|---:|
+| Tests (`forge test`) | 401 | **413** |
+| Suites | 23 | **24** |
+| Funciones `invariant_*` | 19 | **19** |
+| Cobertura `src/` (líneas) | 97,07 % (695/716) | **96,94 % (791/816)** |
+| Mínimo por contrato (líneas) | 91,53 % | **91,53 %** |
+
+`forge test` → `Ran 24 test suites ... 413 tests passed, 0 failed, 0 skipped` (`+12` pruebas: 6 de H-19,
+2 por módulo, y 6 de H-20 en la suite nueva). El denominador sube 100 líneas ejecutables (mantenimiento de
+los índices y 6 paginadores) y el porcentaje baja 0,13 pp, muy por encima del umbral 80 %.
+
+### 26.2 H-19 — vinculación única módulo→token
+
+`setTokenContract` en los 3 módulos es *bind-once*: revierte `"Module already bound to another token"` si
+el módulo ya apuntaba a otro token, e es idempotente con el mismo. Cierra la reutilización del estado por
+cuenta (`isHolder`/`holderCount`, `lockEndTime`) entre tokens; AF-01 ya bloqueaba registrar un módulo sin
+vincular. **Sin cambio de ABI.** Pruebas: `test_H19_SetTokenContract_revinculacion_revierte` y
+`test_H19_SetTokenContract_mismo_token_idempotente` en las 3 suites de módulos.
+
+### 26.3 H-20 — índices O(1) y vistas paginadas
+
+Sin retirar los arrays ni sus getters (ABI aditiva):
+
+| Contrato | Índice O(1) | Vista paginada / borrado O(1) |
+|---|---|---|
+| `TokenCloneable` | `moduleIndex` | `getComplianceModulesPaginated`, `removeComplianceModuleByAddress` |
+| `IdentityRegistry` | `addressIndex` | `getRegisteredAddressesPaginated` |
+| `TrustedIssuersRegistry` | `issuerIndex`, `issuerHasTopic` | `getTrustedIssuersPaginated`; `hasClaimTopic` O(1) |
+| `ClaimTopicsRegistry` / `Cloneable` | `topicIndex`, `topicExistsFlag` | `getClaimTopicsPaginated`; `claimTopicExists` O(1) |
+| `ComplianceAggregator` | *(ya tenía `moduleIndex`)* | `getModulesPaginated`, `getTokensPaginated` |
+
+Se eliminan los escaneos en `addModuleThroughAggregator` (ahora `_isComplianceModule`) y en
+`hasClaimTopic` (llamada en bucle por `isVerified`). Pruebas: `test/H20_Escalabilidad.t.sol` (6).
+
+### 26.4 ABI y storage
+
+ABI **aditiva**: 8 funciones nuevas (ver `CHANGELOG_ABIS.md`); `sc/abis/*.json` y `*.methods` regenerados
+para 6 contratos. Nuevos mappings de storage (redeploy limpio D-009/RT-008), declarados al final para no
+reordenar los slots previos. `IdentityRegistry` conserva `registered` en el slot 2 (tests HB-14 con
+`vm.store` intactos).
+
+### 26.5 Verificaciones
+
+`forge build` 0 errores; `forge test` **413/413**; `forge fmt --check` limpio; `check_coverage.sh` →
+agregado `src/` **96,94 %** y mínimo **91,53 %**; `abi_diff.sh` con deriva declarada y línea base
+regenerada; `.gas-snapshot` regenerado.

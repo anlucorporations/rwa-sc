@@ -59,6 +59,10 @@ contract TransferLockCompliance is ICompliance, ERC165, Ownable {
      */
     function setTokenContract(address _token) external onlyOwner {
         require(_token != address(0), "Invalid token address");
+        // H-19: `lockEndTime` NO esta indexado por token. Vincular el modulo a un segundo token
+        // reutilizaria los locks del primero, asi que la vinculacion es unica e inmutable
+        // (idempotente si se repite el mismo token).
+        require(tokenContract == address(0) || tokenContract == _token, "Module already bound to another token");
         tokenContract = _token;
         emit TokenContractSet(_token);
     }

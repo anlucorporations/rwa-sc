@@ -38,18 +38,36 @@ contract TransferLockComplianceTest is Test {
     }
 
     function test_SetTokenContract() public {
+        // H-19: la vinculacion es unica; se prueba sobre un modulo sin vincular.
+        TransferLockCompliance fresh = new TransferLockCompliance(owner, LOCK_PERIOD);
         address newToken = makeAddr("newToken");
-        compliance.setTokenContract(newToken);
-        assertEq(compliance.tokenContract(), newToken);
+        fresh.setTokenContract(newToken);
+        assertEq(fresh.tokenContract(), newToken);
     }
 
     /// QW-8 (H-34): `setTokenContract` emite `TokenContractSet` con el token vinculado.
     function test_QW8_SetTokenContract_emite_evento() public {
+        TransferLockCompliance fresh = new TransferLockCompliance(owner, LOCK_PERIOD);
         address newToken = makeAddr("newTokenQW8");
         vm.expectEmit(true, true, true, true);
         emit TokenContractSet(newToken);
-        compliance.setTokenContract(newToken);
-        assertEq(compliance.tokenContract(), newToken);
+        fresh.setTokenContract(newToken);
+        assertEq(fresh.tokenContract(), newToken);
+    }
+
+    /// H-19: un modulo ya vinculado **no** puede re-vincularse a otro token (`lockEndTime` no
+    /// esta indexado por token).
+    function test_H19_SetTokenContract_revinculacion_revierte() public {
+        address otherToken = makeAddr("otherTokenH19");
+        vm.expectRevert("Module already bound to another token");
+        compliance.setTokenContract(otherToken);
+        assertEq(compliance.tokenContract(), tokenContract, "la vinculacion no cambia");
+    }
+
+    /// H-19: re-fijar el mismo token es idempotente.
+    function test_H19_SetTokenContract_mismo_token_idempotente() public {
+        compliance.setTokenContract(tokenContract);
+        assertEq(compliance.tokenContract(), tokenContract);
     }
 
     function test_RevertWhen_SetTokenContractInvalidAddress() public {

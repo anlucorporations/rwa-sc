@@ -44,6 +44,10 @@ contract MaxBalanceCompliance is ICompliance, ERC165, Ownable {
      */
     function setTokenContract(address _token) external onlyOwner {
         require(_token != address(0), "Invalid token address");
+        // H-19: un modulo de un solo token solo puede vincularse a UN token. Re-vincularlo
+        // reutilizaria su estado entre tokens; al no tener estado por cuenta aqui, la regla se
+        // aplica igual por coherencia con los modulos con estado (isHolder/holderCount, lockEndTime).
+        require(tokenContract == address(0) || tokenContract == _token, "Module already bound to another token");
         tokenContract = _token;
         emit TokenContractSet(_token);
     }

@@ -18,6 +18,14 @@ contract TrustedIssuersRegistry is Ownable {
     // Array of all trusted issuer addresses
     address[] private trustedIssuersList;
 
+    /// @dev H-20: indice 1-based de `_issuer` en `trustedIssuersList` (`0` = no presente) para
+    /// borrado O(1) en lugar del escaneo lineal.
+    mapping(address => uint256) private issuerIndex;
+
+    /// @dev H-20: pertenencia `(issuer, topic)` en O(1). Sustituye el recorrido de
+    /// `issuerClaimTopics` que hacia `hasClaimTopic` (llamada en bucle por `isVerified`).
+    mapping(address => mapping(uint256 => bool)) private issuerHasTopic;
+
     event TrustedIssuerAdded(address indexed issuer, uint256[] claimTopics);
     event TrustedIssuerRemoved(address indexed issuer);
     event ClaimTopicsUpdated(address indexed issuer, uint256[] claimTopics);
@@ -36,7 +44,11 @@ contract TrustedIssuersRegistry is Ownable {
 
         trustedIssuers[_issuer] = true;
         issuerClaimTopics[_issuer] = _claimTopics;
+        for (uint256 i = 0; i < _claimTopics.length; i++) {
+            issuerHasTopic[_issuer][_claimTopics[i]] = true;
+        }
         trustedIssuersList.push(_issuer);
+        issuerIndex[_issuer] = trustedIssuersList.length;
 
         emit TrustedIssuerAdded(_issuer, _claimTopics);
     }
@@ -49,16 +61,26 @@ contract TrustedIssuersRegistry is Ownable {
         require(trustedIssuers[_issuer], "Issuer not trusted");
 
         trustedIssuers[_issuer] = false;
+
+        // H-20: limpia la pertenencia (issuer, topic) antes de borrar el array de topics.
+        uint256[] storage oldTopics = issuerClaimTopics[_issuer];
+        for (uint256 j = 0; j < oldTopics.length; j++) {
+            issuerHasTopic[_issuer][oldTopics[j]] = false;
+        }
         delete issuerClaimTopics[_issuer];
 
-        // Remove from list
-        for (uint256 i = 0; i < trustedIssuersList.length; i++) {
-            if (trustedIssuersList[i] == _issuer) {
-                trustedIssuersList[i] = trustedIssuersList[trustedIssuersList.length - 1];
-                trustedIssuersList.pop();
-                break;
-            }
+        // Remove from list en O(1) via `issuerIndex` (swap-and-pop)
+        uint256 idx = issuerIndex[_issuer];
+        require(idx != 0, "Issuer not in list");
+        uint256 i = idx - 1;
+        uint256 lastIndex = trustedIssuersList.length - 1;
+        if (i != lastIndex) {
+            address moved = trustedIssuersList[lastIndex];
+            trustedIssuersList[i] = moved;
+            issuerIndex[moved] = idx;
         }
+        trustedIssuersList.pop();
+        delete issuerIndex[_issuer];
 
         emit TrustedIssuerRemoved(_issuer);
     }
@@ -72,7 +94,15 @@ contract TrustedIssuersRegistry is Ownable {
         require(trustedIssuers[_issuer], "Issuer not trusted");
         require(_claimTopics.length > 0, "Must specify at least one claim topic");
 
+        // H-20: mantiene sincronizada la pertenencia O(1) al reemplazar los topics.
+        uint256[] storage oldTopics = issuerClaimTopics[_issuer];
+        for (uint256 i = 0; i < oldTopics.length; i++) {
+            issuerHasTopic[_issuer][oldTopics[i]] = false;
+        }
         issuerClaimTopics[_issuer] = _claimTopics;
+        for (uint256 i = 0; i < _claimTopics.length; i++) {
+            issuerHasTopic[_issuer][_claimTopics[i]] = true;
+        }
 
         emit ClaimTopicsUpdated(_issuer, _claimTopics);
     }
@@ -102,14 +132,8 @@ contract TrustedIssuersRegistry is Ownable {
         if (!trustedIssuers[_issuer]) {
             return false;
         }
-
-        uint256[] memory topics = issuerClaimTopics[_issuer];
-        for (uint256 i = 0; i < topics.length; i++) {
-            if (topics[i] == _claimTopic) {
-                return true;
-            }
-        }
-        return false;
+        // H-20: pertenencia O(1); antes se recorria `issuerClaimTopics` en cada consulta.
+        return issuerHasTopic[_issuer][_claimTopic];
     }
 
     /**
@@ -124,5 +148,26 @@ contract TrustedIssuersRegistry is Ownable {
      */
     function getTrustedIssuersCount() external view returns (uint256) {
         return trustedIssuersList.length;
+    }
+
+    /**
+     * @dev H-20: vista paginada de `trustedIssuersList`. `offset >= length` o `limit == 0`
+     * devuelve un array vacio.
+     * @param offset Indice inicial (0-based)
+     * @param limit Numero maximo de elementos
+     */
+    function getTrustedIssuersPaginated(uint256 offset, uint256 limit) external view returns (address[] memory page) {
+        uint256 total = trustedIssuersList.length;
+        if (offset >= total || limit == 0) {
+            return new address[](0);
+        }
+        uint256 end = offset + limit;
+        if (end > total) {
+            end = total;
+        }
+        page = new address[](end - offset);
+        for (uint256 i = offset; i < end; i++) {
+            page[i - offset] = trustedIssuersList[i];
+        }
     }
 }

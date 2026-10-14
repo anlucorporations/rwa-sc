@@ -341,6 +341,30 @@
   },
   {
     "type": "function",
+    "name": "getComplianceModulesPaginated",
+    "inputs": [
+      {
+        "name": "offset",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "limit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "page",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getRoleAdmin",
     "inputs": [
       {
@@ -601,6 +625,19 @@
         "name": "index",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "removeComplianceModuleByAddress",
+    "inputs": [
+      {
+        "name": "module",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],

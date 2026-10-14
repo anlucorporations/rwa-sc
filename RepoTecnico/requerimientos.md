@@ -12,7 +12,7 @@
 
 Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
 
-- **`rwa-sc`** (Zona Contratos): 15 contratos Solidity 0.8.20 (11 en `src/` + 4 en `src/compliance/`) + 23 suites de test Forge (401 tests)
+- **`rwa-sc`** (Zona Contratos): 15 contratos Solidity 0.8.20 (11 en `src/` + 4 en `src/compliance/`) + 24 suites de test Forge (413 tests)
   + 7 scripts `.s.sol` de deploy + `deploy.sh` + gates de CI. Patrones: EIP-1167 clones, Compliance modular, Registry de identidades/claims.
 - **`rwa-web`** (Zona WEB): 5 micro-apps Next.js 16 / React 19 / TS / Tailwind v4 sobre Anvil + MongoDB
   (GridFS para documentos). Ethers v6 (viem en `web-registry-trusted2`). **Fuera de alcance de este ciclo (D-003).**
@@ -362,7 +362,7 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   Quedan **prohibidas** las referencias a archivos/contratos inexistentes (`Token.sol`, `Identity.sol`,
   `TOKEN_CLONE_FACTORY.md`, `COMPLIANCE_AGGREGATOR_FINAL.md`, `COMPLIANCE_AGGREGATOR_V2.md`,
   `DeployIdentityRegistry.s.sol`) y las afirmaciones "production-ready"/"ERC-3643 compliant" sin declaración
-  verificable. Cifras canónicas: **401 tests / 401 pasan** (23 suites), cobertura `src/` **97,07 % líneas**
+  verificable. Cifras canónicas: **413 tests / 413 pasan** (24 suites), cobertura `src/` **96,94 % líneas**
   (mínimo por contrato 91,53 %; D-017/D-042), ahorro de gas **45–59 %** con comparación equivalente.
 - **D-059 (Ciclo 10 · `SECURITY.md`):** el documento de seguridad es **vivo** y refleja el estado de los 34
   hallazgos de la auditoría V1 (corregido + ciclo, parcial o backlog), los hallazgos base HB-01..HB-12, los
@@ -485,7 +485,7 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   actualización de consumidores y plan de rollback. Cierra AF-10 (MEDIA) y materializa el runbook exigido por
   D-019/RT-008.
 - **D-081 (AF-06/AF-11/AF-15 · evidencia y deriva documental a cero):** se regenera
-  `RepoTecnico/pruebas/matriz_criterios.md` como **v2 (vigente)**: 386 tests, 23 suites, 19 invariantes,
+  `RepoTecnico/pruebas/matriz_criterios.md` como **v2 (vigente)**: 386 tests, 24 suites, 19 invariantes,
   **0 FALTA** (los 9 huecos cerrados); `SECURITY.md`, `.gitlab-ci.yml`, `README.md`, `entornos_globales.md` y
   `run_local_ci.sh` se alinean con el estado real de la CI (pipelines `2934202154` y `2934241152`, 7/7);
   se corrige el `CLAIM_TYPEHASH` de D-020 (incluye `nonce`, superado por D-050) y la referencia de línea de
@@ -524,7 +524,7 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
 - **D-085 (cierre definitivo de la Fase 4 y adaptación de suites):** se adaptan las suites que emitían URIs
   no cubiertos por la firma (`test/IdentityCloneable.t.sol`, `test/IdentityCloneFactory.t.sol`,
   `test/RF013_ClaimLifecycle.t.sol`) para que `SigUtils` firme exactamente el `uri` que se da de alta; **no
-  se debilita, borra ni salta ningún test**. Estado final: `forge test` → **394/394** (23 suites, 19
+  se debilita, borra ni salta ningún test**. Estado final: `forge test` → **394/394** (24 suites, 19
   funciones `invariant_*`), `forge build` 0 errores, `forge fmt --check` limpio, los 5 gates de
   `ci-checks` + `run_local_ci.sh` en verde y `.gas-snapshot` regenerado. Cierra la Fase 4 (Pruebas).
 
@@ -538,7 +538,7 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
   (`ComplianceAggregator` fail-closed y administración por token) → **CU-16**; RF-013 (vigencia y revocación de
   claims) → **CU-17**. Los tres están implementados y con etiqueta `IMPLEMENTADO (Ciclo N)` en los casos de uso.
 - Sin cobertura por alcance (D-003): RF-007, RF-008, RNF-006.
-- Datos reales de la suite (Fase 4, estado actual): **394 tests, 394 pasan, 0 fallan**, 23 suites (19 funciones
+- Datos reales de la suite (Fase 4, estado actual): **394 tests, 394 pasan, 0 fallan**, 24 suites (19 funciones
   `invariant_*`); cobertura `src/` 97,05 % de líneas (691/712; mínimo por contrato 91,53 % de líneas; D-017/D-042), con
   el gate `check_coverage.sh` en el pipeline. Ver `metricas_ejecucion.md` §21 y §22.
   (Histórico de la auditoría V1, 2026-10-03: 151 declarados, 93 pasan, 5 fallan, 53 no arrancan, coverage 42,86 %.)
@@ -567,13 +567,13 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-11 | PII/KYC sin custodio, base legal, cifrado ni retención | Backlog | R-3 |
 | H-12 | Sin RNF de observabilidad ni indexación de eventos | Backlog | R-4 (ver §8.3) |
 | H-13 | Catálogo de claim topics divergente | Backlog | M-8 |
-| H-14 | `diccionario_datos.md` describe storage inexistente | Backlog | QW-6 |
+| H-14 | `diccionario_datos.md` describe storage inexistente | **Corregido** | QW-6/H-14: sección on-chain contra `forge inspect storage-layout` |
 | H-15 | Docs y contratos citados como existentes que no existen | **Cubierto** | RF-006 / D-058 (`script/ci/check_docs.sh`) |
 | H-16 | "ERC-3643 compliant"/"production-ready" sin criterio | **Cubierto** | RF-006 / D-058 (declaración verificable en `SECURITY.md`); `LICENSE` en R-8 |
 | H-17 | `addComplianceModule` no valida `ICompliance` (ERC-165) | **Cubierto** | RF-003 |
 | H-18 | Reentrancia en callbacks / flag `bypassCompliance` | **Cubierto** | RF-002 |
-| H-19 | Estado singleton cross-token en módulos de compliance | Backlog | M-10 |
-| H-20 | Arrays no acotados O(n) y vistas sin paginación | Backlog | M-11 |
+| H-19 | Estado singleton cross-token en módulos de compliance | **Corregido** | `setTokenContract` bind-once + AF-01; `test_H19_*` (6) |
+| H-20 | Arrays no acotados O(n) y vistas sin paginación | **Corregido** | Índices O(1) + 6 vistas paginadas; `test/H20_Escalabilidad.t.sol` (6) |
 | H-21 | Sin indexación de eventos ni artefactos de despliegue | **Cubierto (parcial)** | Ciclo 9 persiste `sc/deployments/<chainId>-<timestamp>.json`; indexer en R-4 |
 | H-22 | `ComplianceAggregator` fail-open y owner global | **Cubierto** | RF-012 (D-014) |
 | H-23 | Rúbrica de evaluación no operacional | **Cubierto** | RF-006 / D-058 (rúbrica con comandos y umbrales en `EJERCICIOS_PRACTICOS.md`) |
@@ -587,10 +587,10 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-31 | Éxito del deploy decidido por `grep` de logs | **Cubierto** | Ciclo 9 · D-056 (verificación on-chain con `cast code`/`cast call`) |
 | H-32 | Exactitud documental (`DEPENDENCIAS_CONTRATOS`, `metricas_ejecucion`) | **Cubierto (parcial)** | RF-006 corrige el import inexistente de `IdentityCloneable`; `diccionario_datos.md` sigue en QW-6 |
 | H-33 | Estado de fases/rama contradictorio entre docs | **Cubierto** | RF-006 / D-058 (`estado_proyecto.md` y `entornos_globales.md` alineados) |
-| H-34 | Los cambios de `tokenContract` no emiten evento | Backlog | QW-8 |
+| H-34 | Los cambios de `tokenContract` no emiten evento | **Corregido** | QW-8: evento `TokenContractSet` en los 3 módulos |
 
-**Resumen (tras los Ciclos 9 y 10):** 16 hallazgos **cubiertos** (H-01, H-02, H-04, H-05, H-08, H-15, H-16, H-17, H-18, H-22, H-23, H-24, H-26, H-28, H-31, H-33),
-6 **parcialmente cubiertos** (H-03, H-06, H-21, H-27, H-29, H-32) y 12 **en backlog**.
+**Resumen (tras el cierre de deuda QW-8/AF-12/H-14/H-19/H-20):** 20 hallazgos **cubiertos** (H-01, H-02, H-04, H-05, H-08, H-14, H-15, H-16, H-17, H-18, H-19, H-20, H-22, H-23, H-24, H-26, H-28, H-31, H-33, H-34),
+6 **parcialmente cubiertos** (H-03, H-06, H-21, H-27, H-29, H-32) y 8 **en backlog** (H-07, H-09, H-10, H-11, H-12, H-13, H-25, H-30).
 
 ### 8.2 Agrupación por el plan del informe V1 (§8) — esfuerzo S/M/L
 

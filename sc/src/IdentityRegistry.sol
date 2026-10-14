@@ -19,6 +19,10 @@ contract IdentityRegistry is Ownable {
     // Array of all registered addresses for iteration
     address[] private registeredAddresses;
 
+    /// @dev H-20: indice 1-based de `_wallet` en `registeredAddresses` (`0` = no presente).
+    /// Convierte el borrado de O(n) (escaneo) en O(1), manteniendo el swap-and-pop.
+    mapping(address => uint256) private addressIndex;
+
     event IdentityRegistered(address indexed wallet, address indexed identity);
     event IdentityRemoved(address indexed wallet, address indexed identity);
     event IdentityUpdated(address indexed wallet, address indexed oldIdentity, address indexed newIdentity);
@@ -43,6 +47,7 @@ contract IdentityRegistry is Ownable {
         identities[_wallet] = IdentityCloneable(_identity);
         registered[_wallet] = true;
         registeredAddresses.push(_wallet);
+        addressIndex[_wallet] = registeredAddresses.length;
 
         emit IdentityRegistered(_wallet, _identity);
     }
@@ -82,17 +87,20 @@ contract IdentityRegistry is Ownable {
         delete identities[_wallet];
         registered[_wallet] = false;
 
-        // Remove from registered addresses array (swap-and-pop), verificando pertenencia (HB-14)
-        bool found = false;
-        for (uint256 i = 0; i < registeredAddresses.length; i++) {
-            if (registeredAddresses[i] == _wallet) {
-                registeredAddresses[i] = registeredAddresses[registeredAddresses.length - 1];
-                registeredAddresses.pop();
-                found = true;
-                break;
-            }
+        // Remove from registered addresses array (swap-and-pop) en O(1) via `addressIndex`
+        // (HB-14: se verifica la pertenencia con el indice, no con un escaneo).
+        uint256 idx = addressIndex[_wallet];
+        require(idx != 0, "Wallet not in registered addresses");
+
+        uint256 i = idx - 1;
+        uint256 lastIndex = registeredAddresses.length - 1;
+        if (i != lastIndex) {
+            address moved = registeredAddresses[lastIndex];
+            registeredAddresses[i] = moved;
+            addressIndex[moved] = idx; // indice 1-based del movido = i + 1
         }
-        require(found, "Wallet not in registered addresses");
+        registeredAddresses.pop();
+        delete addressIndex[_wallet];
 
         emit IdentityRemoved(_wallet, identityAddress);
     }
@@ -126,5 +134,30 @@ contract IdentityRegistry is Ownable {
     function getRegisteredAddress(uint256 index) external view returns (address) {
         require(index < registeredAddresses.length, "Index out of bounds");
         return registeredAddresses[index];
+    }
+
+    /**
+     * @dev H-20: vista paginada de `registeredAddresses`. `offset >= length` o `limit == 0`
+     * devuelve un array vacio.
+     * @param offset Indice inicial (0-based)
+     * @param limit Numero maximo de elementos
+     */
+    function getRegisteredAddressesPaginated(uint256 offset, uint256 limit)
+        external
+        view
+        returns (address[] memory page)
+    {
+        uint256 total = registeredAddresses.length;
+        if (offset >= total || limit == 0) {
+            return new address[](0);
+        }
+        uint256 end = offset + limit;
+        if (end > total) {
+            end = total;
+        }
+        page = new address[](end - offset);
+        for (uint256 i = offset; i < end; i++) {
+            page[i - offset] = registeredAddresses[i];
+        }
     }
 }

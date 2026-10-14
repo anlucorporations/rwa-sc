@@ -13,6 +13,12 @@ contract ClaimTopicsRegistryCloneable is OwnableUpgradeable, IClaimTopicsRegistr
     // Array of required claim topics
     uint256[] private claimTopics;
 
+    /// @dev H-20: indice 1-based del topic en `claimTopics` (`0` = no presente) para borrado O(1).
+    mapping(uint256 => uint256) private topicIndex;
+
+    /// @dev H-20: pertenencia O(1); antes `claimTopicExists` recorria el array.
+    mapping(uint256 => bool) private topicExistsFlag;
+
     event ClaimTopicAdded(uint256 indexed claimTopic);
     event ClaimTopicRemoved(uint256 indexed claimTopic);
 
@@ -37,9 +43,11 @@ contract ClaimTopicsRegistryCloneable is OwnableUpgradeable, IClaimTopicsRegistr
      */
     function addClaimTopic(uint256 _claimTopic) external onlyOwner {
         require(_claimTopic != 0, "Invalid claim topic");
-        require(!claimTopicExists(_claimTopic), "Claim topic already exists");
+        require(!topicExistsFlag[_claimTopic], "Claim topic already exists");
 
         claimTopics.push(_claimTopic);
+        topicIndex[_claimTopic] = claimTopics.length;
+        topicExistsFlag[_claimTopic] = true;
 
         emit ClaimTopicAdded(_claimTopic);
     }
@@ -49,15 +57,20 @@ contract ClaimTopicsRegistryCloneable is OwnableUpgradeable, IClaimTopicsRegistr
      * @param _claimTopic Claim topic ID
      */
     function removeClaimTopic(uint256 _claimTopic) external onlyOwner {
-        require(claimTopicExists(_claimTopic), "Claim topic does not exist");
+        require(topicExistsFlag[_claimTopic], "Claim topic does not exist");
 
-        for (uint256 i = 0; i < claimTopics.length; i++) {
-            if (claimTopics[i] == _claimTopic) {
-                claimTopics[i] = claimTopics[claimTopics.length - 1];
-                claimTopics.pop();
-                break;
-            }
+        // H-20: borrado O(1) por indice (swap-and-pop), sin escanear el array.
+        uint256 idx = topicIndex[_claimTopic];
+        uint256 i = idx - 1;
+        uint256 lastIndex = claimTopics.length - 1;
+        if (i != lastIndex) {
+            uint256 moved = claimTopics[lastIndex];
+            claimTopics[i] = moved;
+            topicIndex[moved] = idx;
         }
+        claimTopics.pop();
+        delete topicIndex[_claimTopic];
+        topicExistsFlag[_claimTopic] = false;
 
         emit ClaimTopicRemoved(_claimTopic);
     }
@@ -74,12 +87,7 @@ contract ClaimTopicsRegistryCloneable is OwnableUpgradeable, IClaimTopicsRegistr
      * @param _claimTopic Claim topic ID
      */
     function claimTopicExists(uint256 _claimTopic) public view returns (bool) {
-        for (uint256 i = 0; i < claimTopics.length; i++) {
-            if (claimTopics[i] == _claimTopic) {
-                return true;
-            }
-        }
-        return false;
+        return topicExistsFlag[_claimTopic];
     }
 
     /**
@@ -87,6 +95,26 @@ contract ClaimTopicsRegistryCloneable is OwnableUpgradeable, IClaimTopicsRegistr
      */
     function getClaimTopicsCount() external view returns (uint256) {
         return claimTopics.length;
+    }
+
+    /**
+     * @dev H-20: vista paginada de `claimTopics`. `offset >= length` o `limit == 0` devuelve vacio.
+     * @param offset Indice inicial (0-based)
+     * @param limit Numero maximo de elementos
+     */
+    function getClaimTopicsPaginated(uint256 offset, uint256 limit) external view returns (uint256[] memory page) {
+        uint256 total = claimTopics.length;
+        if (offset >= total || limit == 0) {
+            return new uint256[](0);
+        }
+        uint256 end = offset + limit;
+        if (end > total) {
+            end = total;
+        }
+        page = new uint256[](end - offset);
+        for (uint256 i = offset; i < end; i++) {
+            page[i - offset] = claimTopics[i];
+        }
     }
 }
 

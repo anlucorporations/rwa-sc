@@ -325,7 +325,7 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
 - **Estado del repositorio remoto (`rwa-sc-DSH-GCP`)**: rama replicada en GitLab.com, GitHub y CodeCrypto;
   pipelines `2934202154`, `2934241152` y `2935871780` en verde; `main` intacta en `2a4a683`.
 
-## Cierre de deuda de bajo riesgo (QW-8 · AF-12 · H-14)
+## Cierre de deuda (QW-8 · AF-12 · H-14 · H-19 · H-20)
 
 - [x] **QW-8 (cierra H-34):** evento `TokenContractSet(address indexed tokenContract)` en los 3 módulos de
   compliance; antes la vinculación módulo→token no dejaba traza. Tests: `test_QW8_SetTokenContract_emite_evento`
@@ -338,9 +338,20 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
 - [x] **H-14:** `diccionario_datos.md` §1 (modelo on-chain) se corrige contra el storage real verificado con
   `forge inspect <C> storage-layout`: fuera `_tokenName`/`_tokenSymbol`/`bypassCompliance`, dentro `claimNonce`,
   `expiresAt`/`revoked` y los 4 campos de RF-004; líneas y eventos actualizados (incluye `TokenContractSet`).
-- **Pendiente relacionado:** **H-19** (estado singleton cross-token de los módulos) exige cambiar el modelo de
-  storage de los módulos (clave por token) y se evalúa aparte por su impacto en ABI/tests; **AF-04** (front-running
-  de `createIdentityWithClaim`) y **AF-14** (`check_secrets.sh` no escanea `.md`) siguen diferidos.
+- [x] **H-19 (M-10):** `setTokenContract` es *bind-once* en los 3 módulos: revierte
+  `"Module already bound to another token"` si ya apuntaban a otro token (idempotente con el mismo). AF-01 ya
+  bloqueaba registrar un módulo sin vincular; con esto el estado por cuenta (`isHolder`/`holderCount`,
+  `lockEndTime`) no puede mezclarse entre tokens. **Sin cambio de ABI.** Tests: `test_H19_*` (6).
+- [x] **H-20 (M-11):** índices O(1) (`moduleIndex`, `addressIndex`, `issuerIndex`, `issuerHasTopic`,
+  `topicIndex`, `topicExistsFlag`) y 6 vistas paginadas, **sin retirar** arrays ni getters (ABI aditiva).
+  `hasClaimTopic` y `claimTopicExists` dejan de recorrer arrays; `removeComplianceModuleByAddress` permite
+  borrar por dirección en O(1); `addModuleThroughAggregator` ya no escanea. Suite nueva
+  `test/H20_Escalabilidad.t.sol` (6 tests).
+- **Estado actual medido:** **413/413 tests en 24 suites**, cobertura `src/` **96,94 %** (791/816; mínimo
+  91,53 %), CI local 7/7. Detalle en `metricas_ejecucion.md` §25–§26 y `CHANGELOG_ABIS.md`.
+- **Pendiente relacionado:** **AF-04** (front-running de `createIdentityWithClaim`) y **AF-14**
+  (`check_secrets.sh` no escanea `.md`) siguen diferidos; **H-13** (catálogo de topics en 5 fuentes) y
+  **H-07** (factories permissionless) permanecen en backlog.
 
 ## Cierre del proyecto (Fase 5 omitida)
 

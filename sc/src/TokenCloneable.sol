@@ -74,6 +74,11 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
     /// @dev Tope de suministro (RF-004 / D-022). `0` = sin tope.
     uint256 public maxSupply;
 
+    /// @dev H-20: indice 1-based de cada modulo en `complianceModules` (`0` = no presente).
+    /// Hace O(1) la pertenencia (`_isComplianceModule`), el alta/duplicado y el borrado por
+    /// direccion, en vez del escaneo lineal del array.
+    mapping(address => uint256) private moduleIndex;
+
     event DestinationAuthorized(address indexed destination, bool authorized);
     event LimitsUpdated(uint256 maxBurnPerTx, uint256 maxForcedPerTx);
     event MaxSupplyUpdated(uint256 maxSupply);
@@ -161,6 +166,7 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
         require(_implementsCompliance(module), "Module does not implement ICompliance");
         require(_isLinkedToToken(module, address(this)), "Module not linked to this token");
         complianceModules.push(ICompliance(module));
+        moduleIndex[module] = complianceModules.length;
         emit ComplianceModuleAdded(module);
     }
 
@@ -185,14 +191,11 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
 
     /**
      * @dev Checks whether `module` is already registered.
+     *
+     * H-20: consulta el indice `moduleIndex` (O(1)) en lugar de recorrer `complianceModules`.
      */
     function _isComplianceModule(address module) private view returns (bool) {
-        for (uint256 i = 0; i < complianceModules.length; i++) {
-            if (address(complianceModules[i]) == module) {
-                return true;
-            }
-        }
-        return false;
+        return moduleIndex[module] != 0;
     }
 
     /**
@@ -218,8 +221,41 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
     function removeComplianceModule(uint256 index) external onlyRole(COMPLIANCE_ROLE) {
         require(index < complianceModules.length, "Invalid index");
         address module = address(complianceModules[index]);
-        complianceModules[index] = complianceModules[complianceModules.length - 1];
+        uint256 lastIndex = complianceModules.length - 1;
+
+        // H-20: al mover el ultimo modulo a `index`, su indice 1-based pasa a `index + 1`.
+        if (index != lastIndex) {
+            address moved = address(complianceModules[lastIndex]);
+            complianceModules[index] = complianceModules[lastIndex];
+            moduleIndex[moved] = index + 1;
+        }
+
         complianceModules.pop();
+        delete moduleIndex[module];
+        emit ComplianceModuleRemoved(module);
+    }
+
+    /**
+     * @dev H-20: borra un modulo por direccion en O(1) usando `moduleIndex`, sin exigir que el
+     * llamante conozca la posicion en `complianceModules`. Equivalente a `removeComplianceModule`
+     * con el indice correcto; mantiene la misma semantica y evento.
+     * @param module Direccion del modulo a retirar
+     */
+    function removeComplianceModuleByAddress(address module) external onlyRole(COMPLIANCE_ROLE) {
+        uint256 idx = moduleIndex[module];
+        require(idx != 0, "Module not added");
+
+        uint256 index = idx - 1;
+        uint256 lastIndex = complianceModules.length - 1;
+
+        if (index != lastIndex) {
+            address moved = address(complianceModules[lastIndex]);
+            complianceModules[index] = complianceModules[lastIndex];
+            moduleIndex[moved] = index + 1;
+        }
+
+        complianceModules.pop();
+        delete moduleIndex[module];
         emit ComplianceModuleRemoved(module);
     }
 
@@ -563,6 +599,31 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
         return modules;
     }
 
+    /**
+     * @dev H-20: vista paginada de `complianceModules` para no materializar el array completo
+     * cuando el numero de modulos crece. `offset >= length` o `limit == 0` devuelve un array vacio.
+     * @param offset Indice inicial (0-based)
+     * @param limit Numero maximo de elementos
+     */
+    function getComplianceModulesPaginated(uint256 offset, uint256 limit)
+        external
+        view
+        returns (address[] memory page)
+    {
+        uint256 total = complianceModules.length;
+        if (offset >= total || limit == 0) {
+            return new address[](0);
+        }
+        uint256 end = offset + limit;
+        if (end > total) {
+            end = total;
+        }
+        page = new address[](end - offset);
+        for (uint256 i = offset; i < end; i++) {
+            page[i - offset] = address(complianceModules[i]);
+        }
+    }
+
     // ============ ComplianceAggregator Integration ============
 
     /**
@@ -575,14 +636,8 @@ contract TokenCloneable is ERC20Upgradeable, AccessControlUpgradeable, PausableU
         require(module != address(0), "Invalid module address");
 
         // Check that the aggregator is already added as a compliance module
-        bool aggregatorFound = false;
-        for (uint256 i = 0; i < complianceModules.length; i++) {
-            if (address(complianceModules[i]) == aggregator) {
-                aggregatorFound = true;
-                break;
-            }
-        }
-        require(aggregatorFound, "Aggregator not added as compliance module");
+        // H-20: consulta O(1) via `moduleIndex` en lugar de recorrer `complianceModules`.
+        require(_isComplianceModule(aggregator), "Aggregator not added as compliance module");
 
         // Call aggregator to add the module
         ComplianceAggregator(aggregator).addModule(address(this), module);
