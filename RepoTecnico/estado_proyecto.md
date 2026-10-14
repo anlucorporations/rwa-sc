@@ -12,7 +12,7 @@
 | 2 | Auditoría | ✅ COMPLETADO (por confirmar) | Auditoría sin issues críticos + CU auditados + gráficos + documento técnico auditado |
 | 3 | Desarrollo | ✅ COMPLETADO — Ciclos 1, 1b, 2, 3, 4, 5, 6, 7, 8, 8b, 8c, 9, 10 y **11** ✅ | Plan vertical aprobado, ciclos completados y probados |
 | 4 | Pruebas | ✅ COMPLETADO (cierre definitivo) — **394/394 tests en verde** (23 suites, 19 funciones `invariant_*`), cobertura `src/` **97,05 % líneas** (691/712; mínimo por contrato 91,53 %), matriz **v2** de **142 criterios** con **0 FALTA**; auditoría adversarial final **AF-01..AF-15** cerrada (AF-01/AF-02/AF-03/AF-05/AF-06/AF-07/AF-08/AF-09/AF-10/AF-11/AF-13/AF-15 corregidos; **AF-03 y AF-05 por decisión del usuario**, D-083/D-084; AF-04/AF-12/AF-14 diferidos); pipeline 7/7 en verde (`2934202154`, `2934241152`) | 100 % de tests en verde (Forge) + cobertura ≥ 80 % |
-| 5 | Manuales | ⏸️ APLAZADA por decisión del usuario (D-086) | Manuales generados y confirmación final |
+| 5 | Manuales | ⛔ **OMITIDA** por decisión del usuario (D-087) | No aplica: el usuario decidió no generar manuales |
 
 ## Hitos de la Fase 2 (completados)
 
@@ -320,3 +320,13 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
   momento con el skill `@manuales` (los insumos ya están: arquitectura, despliegue, datos, runbook y métricas).
 - **Estado del repositorio remoto (`rwa-sc-DSH-GCP`)**: 22 commits, pipelines `2934202154`, `2934241152` y
   `2935871780` en verde; `main` intacta en `2a4a683`.
+
+## Cierre del proyecto (Fase 5 omitida)
+
+- **D-087 (decisión del usuario):** se **omite la Fase 5 (Manuales)**. El proceso de 5 fases queda
+  cerrado con las **Fases 1–4 completadas** y la Fase 5 explícitamente omitida.
+- **Entregable final**: rama `rwa-sc-DSH-GCP` (30 commits) replicada y sincronizada en **GitLab**,
+  **GitHub** y **CodeCrypto** (`0fa22f0`), con 5 pipelines verdes (7/7 jobs).
+- Si en el futuro se quieren manuales, pueden generarse con `@manuales` (skill `equipo-manuales`) a partir
+  de los insumos ya versionados: `documento_tecnico.md`, `entornos_globales.md`, `RUNBOOK_MIGRACION.md`,
+  `diccionario_datos.md`, `diagrama_er.md`, `SECURITY.md` y `metricas_ejecucion.md`.

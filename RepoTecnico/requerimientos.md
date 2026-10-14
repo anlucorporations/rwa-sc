@@ -676,3 +676,6 @@ tests en CI (RNF-003), secretos (RNF-004) y extensibilidad (RNF-005); RNF-006 es
   (`diccionario_datos.md`, `diagrama_er.md`), seguridad (`SECURITY.md`) y métricas (`metricas_ejecucion.md`).
   Nota técnica: en este entorno no hay `mmdc`, ni PDF (Chromium sin librerías), ni `pandoc`; los gráficos
   deberían generarse como SVG escritos a mano y el PDF como HTML imprimible.
+- **D-087 (Fase 5 · decisión del usuario):** se **omite definitivamente la Fase 5 (Manuales)** ("omite la
+  fase 5"), que sustituye al aplazamiento de D-086. El proyecto cierra con las Fases 1 a 4 completadas;
+  los insumos para una eventual generación futura quedan versionados en `RepoTecnico/`.
