@@ -330,3 +330,12 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
 - Si en el futuro se quieren manuales, pueden generarse con `@manuales` (skill `equipo-manuales`) a partir
   de los insumos ya versionados: `documento_tecnico.md`, `entornos_globales.md`, `RUNBOOK_MIGRACION.md`,
   `diccionario_datos.md`, `diagrama_er.md`, `SECURITY.md` y `metricas_ejecucion.md`.
+
+## Entregables de comunicación (2026-10-13)
+
+- **Informe de optimización antes/después** → `RepoTecnico/informe_optimizacion_antes_despues.md`
+  (dimensiones **lógica**, **administrativa** y **característica**, con trazabilidad de cada afirmación).
+- **Infografía del proyecto** → `RepoTecnico/imagenes/infografia_proyecto.png` (1400×1390) y su fuente
+  `infografia_proyecto.html`; render reproducible con `imagenes/render_infografia.sh`
+  (usa el Chromium de Playwright del host + `LD_LIBRARY_PATH` a `/home/dsh/tools/libs`, ya que el sistema
+  no tiene `mmdc`, `pandoc`, ImageMagick ni librerías de Chromium instaladas).
