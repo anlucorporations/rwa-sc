@@ -53,6 +53,15 @@
 | `web-rwa` | (sin puerto asignado) | Landing/portal | Next puro |
 | `web-token` | 4003 | Creadores de token | ethers v6, MongoDB |
 
+> **Etapa de optimización (2026-10-14, D-088/D-089/D-095/D-096):** `rwa-web` pasa a estar **en alcance**. La
+> BD off-chain es **PostgreSQL** (Cloud SQL, esquema `rwa`) y la red on-chain canónica es el **Anvil de GCP**
+> (chain 31337). Estado final objetivo: **3 apps** (`identity`, `issuer`, `token`) sobre monorepo pnpm +
+> `packages/shared`; `web-rwa` y `web-registry-trusted2` se absorben o se retiran (RF-W-18). Detalles en
+> `rwa-web/RepoTecnico/requerimientos_web.md` y `rwa-web/RepoTecnico/plan_desarrollo_web.md`; variables en §14.
+> **Reorganización de líneas (2026-10-14):** la documentación propia de la línea `@web` vive en
+> `rwa-web/RepoTecnico/`; los artefactos de datos compartidos (`base_datos.sql`, `diccionario_datos.md`,
+> `diagrama_er.md`) y este documento permanecen en `rwa-sc/RepoTecnico/`.
+
 ## 6. Cuentas (solo red local Anvil — keys por defecto)
 
 | Rol | Dirección |
@@ -122,8 +131,9 @@ sc/script/deploy.sh                      # despliega, valida red, verifica on-ch
 |---|---|---|
 | Forge / Anvil | **Instalados** v1.8.3 en `/home/dsh/.foundry/bin/` | No estaban en el `PATH`: usar `export PATH="$HOME/.foundry/bin:$PATH"` |
 | `sc/lib/` (forge-std v1.12.0, OZ v5.5.0, OZ-upgradeable v5.5.0) | **Clonados** para la auditoría | `lib/` está en `.gitignore`: el bootstrap reproducible sigue pendiente (H-04 / RF-005) |
-| Node.js / npm | v22.23.2 / 10.9.8 | Suficiente para `rwa-web` (fuera de alcance) |
-| MongoDB local | por verificar | Necesario solo para `rwa-web` |
+| Node.js / npm | v22.23.2 / 10.9.8 | Suficiente para `rwa-web` (en alcance desde 2026-10-14) |
+| PostgreSQL (Cloud SQL `truekeate-db-dev`) | Documentado vía Auth Proxy `127.0.0.1:5433` | BD **oficial** de la plataforma; usada por la etapa web (D-095). Verificar instancia/región antes del ciclo O0 |
+| MongoDB local | **En retirada** | Sustituido por PostgreSQL en la etapa web (D-095); solo necesario para reproducir el sistema anterior |
 | CI (GitLab) | **`.gitlab-ci.yml` creado (Ciclo 11 / RF-009)**, validado en local | Aún **sin ejecutar en remoto**: no hay `push`. Ver §13 |
 
 ## 10. Rama y repositorios de trabajo
@@ -132,6 +142,15 @@ sc/script/deploy.sh                      # despliega, valida red, verifica on-ch
 - Estado del repo remoto: HEAD = 1 commit (`2a4a683`) con solo `README.md`; el árbol real de `rwa-sc`
   (contratos, tests, scripts y docs) sigue **sin versionar** → H-04 / RF-005.
 - No se hace `push` sin orden explícita del usuario.
+- **Repo del frontend (etapa de optimización, D-094):** ✅ **creado en local** el 2026-10-14 — `rwa-web/.git`,
+  rama **`rwa-web-DSH`**, commit inicial `cd97c7d` («chore(web): commit inicial — separación de líneas @sc/@web»),
+  **229 ficheros rastreados**, `git status` limpio y **sin remoto configurado** todavía. Destino previsto:
+  `https://gitlab.com/anlucorporations/rwa-web.git`. `push` solo con `/push`.
+- **Estructura de documentación por líneas:** cada línea tiene su `RepoTecnico/` (`rwa-sc/RepoTecnico/` para `@sc`,
+  `rwa-web/RepoTecnico/` para `@web`). Los tres artefactos de datos (`base_datos.sql`, `diccionario_datos.md`,
+  `diagrama_er.md`) existen en las dos líneas: **canónico en `rwa-sc/RepoTecnico/` + espejo en
+  `rwa-web/RepoTecnico/`**, con gate de sincronización
+  (`rwa-web/RepoTecnico/check_sincronizacion_datos.sh --check` → exit 0).
 
 ## 11. Métricas de referencia (medidas, no declaradas)
 
@@ -245,3 +264,87 @@ etapa y devuelve exit 0/1. Los umbrales se leen de `COVERAGE_THRESHOLD` / `COVER
   precondición de CU-11). Si el runner es docker no-root, hay que usar una imagen propia `FROM
   ghcr.io/foundry-rs/foundry:v1.8.3` con `jq` instalado. No se cachea `~/.svm` (fuera del proyecto): solc
   0.8.20 se descarga por job.
+
+## 14. Entorno del frontend — etapa de optimización (2026-10-14)
+
+### 14.1 Red y datos (D-095/D-096)
+
+| Elemento | Valor canónico |
+|---|---|
+| Red on-chain | **Anvil de GCP** · `MCC_ANVIL_RPC_URL` = `https://mcc-foundry-anvil-1095249147821.europe-west1.run.app` · **chain 31337** (verificado: `0x7a69`, `anvil/v1.5.1`) — D-096 |
+| Anvil local | `http://localhost:8545` (31337) — alternativa de desarrollo offline; misma cadena |
+| Fuente de direcciones | `rwa-sc/sc/deployments/31337-20261010T162639Z.json` (**nunca literales en el código**); verificado on-chain: 9/9 contratos con código, EIP-712 + RF-004 + AF-01 presentes |
+| Fuente de ABIs | `rwa-sc/sc/abis/*.json` (con gate de deriva en CI) |
+| BD off-chain | **PostgreSQL en GCP** (Cloud SQL **`truekeate-db-dev`**, **PG 15.18**, usuario `app`, proyecto `truekeate-main`, región **`southamerica-east1-a`**, IP pública **`34.39.180.101`**) — esquema **`rwa`** ✅ aplicado (D-095/D-097) |
+| Esquema | `RepoTecnico/base_datos.sql` v1.0 — **aplicado y verificado**: 10 tablas + 1 vista + 29 índices + catálogo (5 topics) + `schema_migrations` 1.0; **idempotente** (2ª ejecución sin errores). **Arranque limpio, sin ETL** (D-099) |
+| Acceso de red | ACL de Cloud SQL = `35.232.138.181/32`, **la IP de salida de este host**; `requireSsl=false`; canónico por socket (`/cloudsql/…`, Cloud Run/Auth Proxy), local por TCP |
+| Sistema sustituido | MongoDB `rwa` + GridFS `claim_documents` (transcripción en Anexo A de `base_datos.sql`) |
+| Besu CodeCrypto (81234) | Alternativa documentada; **no** canónica |
+
+### 14.2 Variables de entorno del frontend
+
+| Variable | Ámbito | Origen | Uso |
+|---|---|---|---|
+| `NEXT_PUBLIC_CHAIN_ID` | público | `31337` | Red canónica (Anvil de GCP) |
+| `NEXT_PUBLIC_RPC_URL` | público | `$RPC_URL` (`gcp-env.sh`) / `localhost:8545` | RPC |
+| `NEXT_PUBLIC_DEPLOYMENT_JSON` | público | `sc/deployments/*.json` | Direcciones de contratos |
+| `DATABASE_URL` | servidor | `DATABASE_URL` de `gcp-env.sh` (Secret Manager) | **PostgreSQL** (sustituye a `MONGODB_URI`) |
+| `SIWE_SESSION_SECRET` | servidor | Secret Manager `DS_*` | Firma de cookie de sesión (RF-W-01) |
+| `KYC_ENCRYPTION_KEY` | servidor | Secret Manager `DS_*` | AES-256-GCM de documentos (RNF-W-02) |
+| `LOG_LEVEL` | servidor | `info` por defecto | Logging estructurado (RT-W-10) |
+| `ALLOW_DEBUG_ENDPOINTS` | servidor | ausente en producción | Habilita `/api/test-*` solo en local (RF-W-07) |
+
+> **Regla:** ningún secreto en el repositorio. `.env.local` ignorado y `.env.example` versionado por app
+> (HW-15: el fichero `web-registry-trusted2/env.local` actual **no** está cubierto por el patrón `.env*`).
+
+### 14.3 Comandos de la etapa
+
+```bash
+# Repositorio del frontend (se crea en O3; git local puede adelantarse en O1/O2)
+cd /home/dsh/workspace/RWA/rwa-web
+git init -b rwa-web-DSH        # solo si el usuario lo autoriza
+# git remote add origin https://gitlab.com/anlucorporations/rwa-web.git   # en O3
+
+# Gates de la etapa (se implementan en O2/O3)
+pnpm -r install
+pnpm -r lint && pnpm -r typecheck && pnpm -r build && pnpm -r test
+sc/script/ci/check_secrets.sh  # patrón reutilizado de contratos
+# gates nuevos: check-abi-drift (ABIs vs sc/abis) y check-network-literals (0 literales de red)
+
+# Entorno reproducible (O5)
+docker compose up -d          # 3 apps + PostgreSQL + nodo Anvil local, con healthchecks
+
+# Esquema de datos (O0.1) — ✅ APLICADO en Cloud SQL el 2026-10-14
+source rwa-web/scripts/gcp-env.sh --tcp     # exporta DATABASE_URL + RPC y VERIFICA ambos servicios
+psql "host=34.39.180.101 port=5432 dbname=truekeate user=app sslmode=disable" -f RepoTecnico/base_datos.sql
+psql "$CONN" -c '\dt rwa.*'                 # 10 tablas + 1 vista
+```
+
+### 14.5 Conexión verificada a los servicios GCP (2026-10-14)
+
+| Aspecto | Valor real |
+|---|---|
+| Script de entorno | `rwa-web/scripts/gcp-env.sh` (`source … --tcp` para este host; sin flag = socket canónico) |
+| Plantilla | `rwa-web/.env.example` (sin secretos) |
+| Comprobación integrada | El script consulta `eth_chainId` (espera `0x7a69`) y `select 1` + nº de tablas de `rwa`; **aborta si fallan** |
+| `gcloud` | El de snap (`/snap/bin/gcloud`) **está roto** en este host: usar `$HOME/bin/gcloud` (SDK 582.0.0) |
+| Secreto de BD | Proyecto **`truekeate-main`**, secreto **`DATABASE_URL`** (socket unix). `DS_DATABASE_URL` de `mcc-ecommerce` está **vacío** |
+| Auth Proxy | **No instalado**; en local se usa TCP a la IP pública (host ya autorizado). En Cloud Run se usa el socket |
+| Cloud Run `mcc-postgres-…` | Devuelve **503**; no usar como pasarela SQL |
+
+> Acta completa con la evidencia: `rwa-web/RepoTecnico/pruebas/verificacion_gcp_o0.md`.
+
+### 14.4 Estado actual verificado del frontend (línea base, 2026-10-14)
+
+| Métrica | Valor |
+|---|---|
+| Apps / líneas / ficheros | 5 / 16.648 / 181 |
+| Rutas de API | 16 (0 con autenticación) |
+| Tests · CI · VCS | 0 · 0 · ninguno |
+| Versiones de `next` / `react` | 4 (16.0.1, 16.1.1, 16.1.3, 16.1.6) / 2 (19.2.0, 19.2.3) |
+| Stacks web3 | 2 (`ethers` v6 ×3, `viem`+`wagmi` ×1) |
+| `ignoreBuildErrors: true` | 3 apps |
+| `console.log` · `any` · `window.ethereum` | 161 · 67 · 96 |
+| BD off-chain actual | MongoDB `rwa` + GridFS `claim_documents` → **objetivo: PostgreSQL esquema `rwa`** (D-095) |
+| Red on-chain | configuraciones divergentes (Besu 81234 en `web-identity`, Anvil local en el resto) → **objetivo: Anvil de GCP, 31337** (D-096) |
+| Flujo end-to-end contra contratos | **roto** (deriva de ABI + `claimTopicsRegistry = 0x0`) |

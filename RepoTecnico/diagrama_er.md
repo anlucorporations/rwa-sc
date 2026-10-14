@@ -1,9 +1,20 @@
 # 📐 Diagrama Entidad-Relación — RWA
 
-> **Versión: v1.1 · 2026-10-03.** Cubre el modelo de datos del proyecto: on-chain (contratos de
-> `rwa-sc/sc/src/`) y off-chain (MongoDB `rwa`).
-> **Sincronizado con `diccionario_datos.md`** (mismo nombre para cada entidad, campo y topic) y con
-> `base_datos.sql`.
+> **🔗 Artefacto de datos compartido — copia espejo sincronizada (2026-10-14).** Existe en las dos líneas
+> de desarrollo: **canónico** `rwa-sc/RepoTecnico/diagrama_er.md` · **espejo** `rwa-web/RepoTecnico/diagrama_er.md`.
+> Deben ser **idénticos byte a byte**: edita solo el canónico y ejecuta `rwa-web/RepoTecnico/check_sincronizacion_datos.sh --sync`
+> (regla de sincronización en `rwa-web/RepoTecnico/ARTEFACTOS_DATOS_SINCRONIZADOS.md`).
+>
+> **Versión: v1.2 · 2026-10-14.** Cubre el modelo de datos del proyecto: on-chain (contratos de
+> `rwa-sc/sc/src/`) y off-chain (**PostgreSQL**, esquema `rwa`).
+> **Sincronizado con `diccionario_datos.md` v1.2** (mismo nombre para cada entidad, campo y topic) y con
+> `base_datos.sql` v1.0.
+>
+> **Changelog v1.2 (2026-10-14):** **Q6 resuelta (D-095):** el modelo off-chain pasa de MongoDB a
+> **PostgreSQL**; §2 se reescribe con entidades del esquema `rwa` (nuevas `CLAIM_TOPICS`, `SESSIONS`,
+> `AUDIT_LOG`; `DOCUMENT_FILES` con contenido cifrado; tablas puente `TOKEN_REQUIRED_CLAIMS` y
+> `TOKEN_COMPLIANCE_MODULES`). Red on-chain canónica del frontend: **Anvil de GCP** (D-096). §3 pasa a
+> referencia histórica (los cambios que figuraban como planificados **se implementaron** en la Fase 3).
 >
 > **Changelog v1.1:** regenerado contra el storage real (H-14); se eliminan `holders[]`, `holderIndex[]`,
 > `firstReceiveTime`, `issuerTopics` y el campo `token` de los módulos/registro de topics; se añade el
@@ -98,80 +109,139 @@ erDiagram
 > `issuerTopics`. El estado por cuenta de holders es `isHolder` + `holderCount`; el lock es `lockEndTime`;
 > la autorización por topic es `issuerClaimTopics`; el token en los módulos es `tokenContract`.
 
-## 2. Modelo off-chain (MongoDB `rwa`) — EXISTENTE hoy
+## 2. Modelo off-chain (**PostgreSQL**, esquema `rwa`) — v1.2
+
+> **Q6 RESUELTA (D-095):** la BD off-chain es **PostgreSQL**, no MongoDB. Entidades, campos y claves son
+> **idénticos** a `base_datos.sql` v1.0 y a `diccionario_datos.md` §2 (sincronizados en el mismo turno).
 
 ```mermaid
 erDiagram
-    CLAIM_REQUEST }o--|| ISSUER : "destinada_a"
-    CLAIM_REQUEST }o--o| DOCUMENT_FILE : "adjunta"
-    CLAIM_REQUEST ||--o| CLAIM : "produce_si_aprobada"
+    CLAIM_TOPICS ||--o{ CLAIM_REQUESTS : "clasifica"
+    CLAIM_REQUESTS ||--o{ DOCUMENT_FILES : "adjunta"
+    CLAIM_REQUESTS }o--|| ISSUERS : "destinada_a (logica, sin FK)"
+    TOKENS ||--o{ TOKEN_REQUIRED_CLAIMS : "exige"
+    CLAIM_TOPICS ||--o{ TOKEN_REQUIRED_CLAIMS : "es_exigido_en"
+    TOKENS ||--o{ TOKEN_COMPLIANCE_MODULES : "usa"
 
-    CLAIM_REQUEST {
-        objectid _id PK
-        string requesterAddress
-        string issuerAddress "filtro en consulta"
-        string claimTopic
-        string message "opcional"
-        string documentFileId "ref GridFS"
-        string documentName "opcional"
-        string documentContentType "opcional"
-        number documentSize "opcional"
-        string status "pending|approved|rejected"
-        string signedMessage
-        string signature
-        date createdAt
-        date updatedAt
-        date reviewedAt "opcional"
-        string reviewNote "opcional"
-        string issuerSignedMessage "opcional"
-        string issuerSignature "opcional"
+    CLAIM_TOPICS {
+        smallint id PK "1=KYC, 7=Accreditation, 9=Jurisdiction"
+        text code UK
+        text name
+        text description "opcional"
+        boolean active "false = reservado (5, 6)"
+        timestamptz created_at
     }
-    ISSUER {
-        objectid _id PK
-        string address "minusculas"
-        string name
-        date createdAt
-        date updatedAt
+    ISSUERS {
+        uuid id PK
+        text address UK "CHECK 0x[0-9a-f]{40}"
+        text name
+        boolean verified "cache del estado on-chain"
+        timestamptz verified_at "opcional"
+        timestamptz created_at
+        timestamptz updated_at
     }
-    DOCUMENT_FILE {
-        objectid _id PK "GridFS claim_documents.files"
-        string filename
-        number length
-        number chunkSize
-        date uploadDate
-        string metadata_contentType "MIME en metadata"
-        string metadata_originalName
-        number metadata_size
-        date metadata_uploadedAt
+    CLAIM_REQUESTS {
+        uuid id PK
+        text requester_address "CHECK 0x..."
+        text issuer_address "CHECK 0x..."
+        smallint claim_topic_id FK
+        text message "opcional"
+        claim_request_status status "pending|approved|rejected"
+        text signed_message
+        text signature "verificada en servidor"
+        text review_note "opcional"
+        text issuer_signed_message "opcional"
+        text issuer_signature "opcional"
+        text reviewed_by "opcional, nuevo HW-01"
+        timestamptz reviewed_at "opcional"
+        timestamptz created_at
+        timestamptz updated_at
     }
-    TOKEN {
-        objectid _id PK
-        string name
-        string symbol
-        number decimals
-        string tokenAddress "unique funcional"
-        string adminAddress
-        string complianceAddress "opcional"
-        string_array complianceModules "opcional"
-        number_array requiredClaims
-        number price "opcional"
-        date createdAt
-        date updatedAt
-        string transactionHash "opcional"
-        number blockNumber "opcional"
-        string totalSupply "opcional"
-        string description "opcional"
+    DOCUMENT_FILES {
+        uuid id PK
+        uuid claim_request_id FK "CASCADE"
+        text original_name
+        text content_type "allowlist MIME"
+        bigint size_bytes "0 < n <= 10 MB"
+        bytea sha256
+        bytea content "cifrado AES-256-GCM"
+        text encryption_algo
+        bytea encryption_nonce "opcional"
+        text uploaded_by "CHECK 0x..."
+        timestamptz created_at
+    }
+    TOKENS {
+        uuid id PK
+        text token_address UK "CHECK 0x..."
+        text admin_address "CHECK 0x..."
+        text name
+        text symbol "CHECK ^[A-Z0-9]{1,11}$"
+        smallint decimals "0..18"
+        numeric max_total_supply "opcional"
+        numeric total_supply "opcional"
+        text identity_registry "NOT NULL"
+        text trusted_issuers_registry "NOT NULL"
+        text claim_topics_registry "NOT NULL (RF-W-11)"
+        text compliance_address "opcional"
+        numeric price "opcional"
+        text description "opcional"
+        text transaction_hash "opcional"
+        bigint block_number "opcional"
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    TOKEN_REQUIRED_CLAIMS {
+        uuid token_id PK "FK tokens CASCADE"
+        smallint claim_topic_id PK "FK claim_topics RESTRICT"
+        timestamptz created_at
+    }
+    TOKEN_COMPLIANCE_MODULES {
+        uuid token_id PK "FK tokens CASCADE"
+        text module_address PK "CHECK 0x..."
+        boolean is_primary
+        timestamptz created_at
+    }
+    SESSIONS {
+        uuid id PK "id de la cookie httpOnly"
+        text address "CHECK 0x..."
+        text nonce UK "SIWE de un solo uso"
+        session_role role "investor|issuer|admin"
+        timestamptz issued_at
+        timestamptz expires_at
+        timestamptz revoked_at "opcional"
+        text user_agent "opcional"
+        inet ip "opcional"
+    }
+    AUDIT_LOG {
+        bigserial id PK
+        text actor_address "opcional"
+        text action
+        text resource_type
+        text resource_id "opcional"
+        text request_id "opcional"
+        jsonb detail "opcional"
+        timestamptz at
+    }
+    SCHEMA_MIGRATIONS {
+        text version PK
+        timestamptz applied_at
     }
 ```
 
-> **Corrección off-chain:** la solicitud se identifica por `requesterAddress` (no `wallet`),
-> `issuerAddress` (no `issuer`), `claimTopic` (no `topic`) y `documentFileId` (no `documentId`); el token
-> por `tokenAddress` (no `address`) y `requiredClaims` (no `requiredTopics`); se documenta la colección
-> `issuers`. Sin índices explícitos en código (`createIndex` no aparece).
+> **Relaciones:** `CLAIM_REQUESTS → ISSUERS` es **lógica** (no hay FK: la tabla `issuers` es solo el nombre
+> visible y la integridad del emisor vive on-chain en `TrustedIssuersRegistry`). `DOCUMENT_FILES` pertenece a
+> la solicitud (`ON DELETE CASCADE`) y es la unidad de autorización de acceso (RF-W-06). Las tablas puente
+> `TOKEN_REQUIRED_CLAIMS` y `TOKEN_COMPLIANCE_MODULES` normalizan los antiguos arrays
+> `requiredClaims`/`complianceModules`. `SESSIONS` y `AUDIT_LOG` no tienen FK (identifican wallets por
+> dirección, no por usuario). Vista de apoyo: `rwa.v_claim_request_summary`.
 
-## 3. PLANIFICADO (aprobado y NO implementado) — `requerimientos.md` §3, D-014
+## 3. Cambios on-chain implementados en Fase 3 (referencia histórica)
 
-> Bloque separado: **no existe hoy**. No debe confundirse con §1/§2.
+> **Nota v1.2:** este bloque figuraba como *PLANIFICADO*. La Fase 3 lo **implementó y verificó**
+> (394/394 tests, cobertura `src/` 97,05 %): RF-001/RF-002/RF-004/RF-011/RF-012/RF-013. Se conserva como
+> referencia; el estado real está en `estado_proyecto.md`. **No existe hoy** como bloque separado del modelo
+> on-chain real de §1 — no debe confundirse con §1/§2. La etapa actual (D-088) **no modifica** el storage
+> on-chain.
 
 ```mermaid
 erDiagram

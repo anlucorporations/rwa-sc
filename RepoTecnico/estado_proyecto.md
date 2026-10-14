@@ -268,9 +268,15 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 | `casos_uso/diagramas_casos_uso.md` | v1.1 | 7 diagramas Mermaid |
 | `documento_tecnico.md` | v1.1 | Arquitectura, datos, trazas, entornos, riesgos |
 | `AUDITORIA_DOCUMENTO_TECNICO.md` | — | 13 hallazgos DT-01..DT-13 |
-| `diccionario_datos.md` · `diagrama_er.md` · `base_datos.sql` | v1.1 · v1.1 · v0.2 | Modelo de datos |
 | `metricas_ejecucion.md` · `entornos_globales.md` | — | Métricas y entorno reales |
 | `evidencias/` | — | PoC H-01/H-05, salida y lint (52 avisos) |
+| `rwa-web/RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md` | V1 | Auditoría del frontend: 16 hallazgos + plan + criterios V2 web (etapa `@web`) |
+| `rwa-web/RepoTecnico/requerimientos_web.md` | v1.2 | RF-W-01..18, RNF-W-01..08, RT-W-01..10, modelo PostgreSQL y trazabilidad HW→req (etapa `@web`) |
+| `rwa-web/RepoTecnico/plan_desarrollo_web.md` | v1.2 | Plan vertical de la etapa: ciclos O0..O5 con tareas, gates y DoD |
+| `rwa-web/RepoTecnico/pruebas/verificacion_gcp_o0.md` | — | **Acta de verificación de los servicios GCP** (Anvil de GCP + Cloud SQL) del ciclo O0 |
+| `rwa-web/RepoTecnico/ARTEFACTOS_DATOS_SINCRONIZADOS.md` · `check_sincronizacion_datos.sh` | — | Regla y gate de sincronización canónico↔espejo de los tres artefactos de datos |
+| `base_datos.sql` | **v1.0** | **DDL real PostgreSQL** del esquema `rwa` (10 tablas + 1 vista + catálogo + Anexo A con la transcripción MongoDB). **Duplicado** como espejo en `rwa-web/RepoTecnico/` |
+| `diccionario_datos.md` · `diagrama_er.md` | **v1.2 · v1.2** | Modelo de datos: on-chain + off-chain **PostgreSQL** (Q6 resuelta, D-095). **Duplicados** como espejo en `rwa-web/RepoTecnico/` |
 
 ## Brechas abiertas (declaradas)
 
@@ -295,7 +301,7 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 
 ## Próximo paso
 
-**Fase 4 cerrada.** El siguiente paso es la **Fase 5 (Manuales)**. En cuanto a la operación: cuando el usuario
+**Proyecto de contratos cerrado** (Fases 1–4 completadas, Fase 5 omitida por D-087). Se abre una **nueva etapa de optimización** centrada en el frontend `@web` (ver sección final). En cuanto a la operación: cuando el usuario
 autorice el `push` (`/push`), subir `rwa-sc-DSH-GCP` a `https://gitlab.com/anlucorporations/rwa-sc.git` con los
 commits de la Fase 4 (los de la Fase 3 ya están en remoto). El ensayo oficial del pipeline sigue siendo:
 
@@ -339,3 +345,86 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
   `infografia_proyecto.html`; render reproducible con `imagenes/render_infografia.sh`
   (usa el Chromium de Playwright del host + `LD_LIBRARY_PATH` a `/home/dsh/tools/libs`, ya que el sistema
   no tiene `mmdc`, `pandoc`, ImageMagick ni librerías de Chromium instaladas).
+
+---
+
+## Nueva etapa — Optimización del proyecto: frontend `@web` (2026-10-14)
+
+> Abierta a petición del usuario (`@web` + `@asistenteProyecto`). **No reabre** las Fases 1–4 de contratos
+> (cerradas y en verde) ni revive la Fase 5 (omitida, D-087): es una etapa nueva sobre `rwa-web/`.
+
+> **Reorganización de líneas (2026-10-14, petición del usuario):** con el fin de mantener separadas las dos
+> líneas de desarrollo **con sus propios archivos** (`@sc` en `rwa-sc/` y `@web` en `rwa-web/`), los documentos
+> propios del frontend se movieron a `rwa-web/RepoTecnico/`: `INFORME_OPTIMIZACION_WEB_V1.md`,
+> `requerimientos_web.md`, `plan_desarrollo_web.md` y `pruebas/verificacion_gcp_o0.md`. Los artefactos de datos
+> compartidos (`base_datos.sql`, `diccionario_datos.md`, `diagrama_er.md`) se **duplican** en las dos líneas
+> (canónico en `rwa-sc/RepoTecnico/` + espejo en `rwa-web/RepoTecnico/`), con la **regla de sincronización
+> byte a byte** documentada y verificable en `rwa-web/RepoTecnico/ARTEFACTOS_DATOS_SINCRONIZADOS.md`
+> (`check_sincronizacion_datos.sh`); el resto de documentación de la línea `@sc` permanece en `rwa-sc/RepoTecnico/`.
+
+### Estado y alcance
+
+| Campo | Valor |
+|---|---|
+| **Estado** | 🟡 **CICLO O0 EN CURSO** — **O0.1 completado (2026-10-14):** PostgreSQL en GCP conectado y esquema `rwa` aplicado/verificado; **Anvil de GCP verificado** (chain 31337, 9/9 contratos, EIP-712 + RF-004 + AF-01 al día). Siguiente: O0.2 (capa de datos) |
+| **Artefactos de la etapa** | **Línea `@web` (movidos a `rwa-web/RepoTecnico/`):** `INFORME_OPTIMIZACION_WEB_V1.md` · `requerimientos_web.md` v1.2 · `plan_desarrollo_web.md` v1.2 · `pruebas/verificacion_gcp_o0.md`. **Compartidos (canónico en `rwa-sc/RepoTecnico/` + espejo en `rwa-web/RepoTecnico/`, sincronizados byte a byte):** `base_datos.sql` v1.0 · `diccionario_datos.md` v1.2 · `diagrama_er.md` v1.2. **Solo en `rwa-sc/`:** `entornos_globales.md` §14. **Ya en `rwa-web/`:** `scripts/gcp-env.sh` · `.env.example` |
+| **Área** | `rwa-web/` — 5 apps Next.js. **Queda incorporada al alcance** (D-003 la excluía del ciclo de contratos) |
+| **Insumo auditado** | `rwa-web/RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md` — 16 hallazgos (3 críticos, 5 altos, 6 medios, 2 bajos); verificación adversarial **15/15 confirmados, 0 refutados** |
+| **Métricas base** | 16.648 líneas · 16 rutas de API (0 con auth) · 0 tests · 0 CI · sin control de versiones · 4 versiones de `next` · 2 stacks web3 |
+| **Artefactos de datos** | **ACTUALIZADOS (D-095):** `base_datos.sql` v1.0 es ya **DDL real y ejecutable** del esquema PostgreSQL `rwa` (10 tablas + 1 vista + catálogo); `diccionario_datos.md` v1.2 y `diagrama_er.md` v1.2 se sincronizaron en el mismo turno. El Anexo A de `base_datos.sql` conserva la transcripción MongoDB para el ETL |
+
+### Verificación de contexto (2026-10-14, tras la reorganización)
+
+> Re-análisis del árbol real contra la línea base de la auditoría. **No hay crecimiento de código**: se
+> mantienen 16.648 líneas TS/JS (el glob de medición se mantiene idéntico; los 125 líneas `.mjs` quedan fuera).
+
+| Hecho verificado | Valor actual | ¿Cambió? |
+|---|---|---|
+| Líneas TS/JS (5 apps) | **16.648** | **No** (idéntico a la auditoría) |
+| Rutas de API / con autenticación | **16 / 0** | No |
+| Referencias a MongoDB en el código | **18** | No (es O0.3) |
+| `ignoreBuildErrors: true` | 3 apps | No |
+| Versiones de `next` / `react` | 4 / 2 | No |
+| Repositorio `rwa-web` | ✅ creado: rama `rwa-web-DSH`, 229 ficheros, commit `cd97c7d`, **sin remoto** | **Sí** (D-094 en curso) |
+| `web-registry-trusted2/env.local` | **eliminado** → `.env.example` versionado; `.env.local` ignorado (`.gitignore:19`) | **Sí** (HW-15 cerrado) |
+| `docker-build/` de 3 apps | **rastreado en git** (incluye ruta absoluta de desarrollador) | ⚠️ **Regresión de HW-11**: `git rm -r --cached` en O1/O3 |
+| Gate de sincronización de datos | `check_sincronizacion_datos.sh --check` → **exit 0** (3/3 idénticos, sha256 coincidentes) | Nuevo (D-102) |
+| Cambios pendientes en `rwa-sc` | `D RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md` + `M` en los 3 artefactos, `entornos_globales.md` y `estado_proyecto.md` (la reorganización no está commiteada en `@sc`) | ⚠️ Pendiente de commit |
+
+### Decisiones de la etapa (D-088…D-102)
+
+| ID | Tema | Estado |
+|---|---|---|
+| **D-088** | **Alcance = solo frontend `@web`.** Los contratos quedan cerrados (394/394 en verde); no se retoman AF-04/AF-12/AF-14 ni los bloques R-3/R-7 en esta etapa | ✅ **APROBADA** (bloque 1) |
+| **D-089** | **Estrategia = hardening + monorepo y consolidación.** Ciclos O1–O5; estado final 3 apps sobre monorepo pnpm con paquete compartido | ✅ **APROBADA** (bloque 1) |
+| **D-090** | **Orden = O1 seguridad → O2 integración → O3 higiene → O4 consolidación → O5 operación/calidad** | ✅ **APROBADA** (bloque 1) |
+| **D-091** | **Red canónica = Anvil 31337**, con red parametrizable para Besu (81234 queda como alternativa documentada, no canónica) | ✅ **APROBADA** (bloque 2) |
+| **D-092** | **Sesión = SIWE (EIP-4361) + cookie `httpOnly` firmada**; rol por wallet (inversor/issuer autorizado/admin de token) | ✅ **APROBADA** (bloque 2) |
+| **D-093** | **Custodia KYC = GridFS cifrado (AES-256-GCM) + acceso por propiedad**, servido siempre como adjunto | ✅ **APROBADA** (bloque 2) |
+| **D-094** | **Se crea el repositorio `rwa-web`** y se publica en GitLab.com (`anlucorporations/rwa-web`, rama `rwa-web-DSH`); sin `push` sin orden explícita | ✅ **APROBADA** (bloque 2) |
+| **D-095** | **BD off-chain = PostgreSQL** (Cloud SQL, PG 15+, esquema `rwa`). **Sustituye a MongoDB** en el frontend y **resuelve Q6**. Esquema real: `base_datos.sql` v1.0 (10 tablas, 1 vista, catálogo sembrado); `document_files` cifrado sustituye a GridFS (matiza D-093) | ✅ **APROBADA** (directriz del usuario) |
+| **D-096** | **Red on-chain canónica = Anvil de GCP** (`MCC_ANVIL_RPC_URL`, chain 31337). **Matiza D-091**: la instancia canónica es la de GCP, no la local; Besu 81234 queda como alternativa documentada | ✅ **APROBADA** (directriz del usuario) |
+| **D-097** | **Hosting de la BD = Cloud SQL existente `truekeate-db-dev`** (PG 15.18, usuario `app`, Auth Proxy `127.0.0.1:5433`). Pendiente verificar la región (discrepancia `gcp-env.sh` southamerica-east1 vs `entornos_globales.md` us-east1) | ✅ **APROBADA** (bloque 3) |
+| **D-098** | **Documentos KYC = `bytea` cifrado AES-256-GCM en `rwa.document_files`** (sin almacenamiento externo); `sha256` + metadatos en la misma fila | ✅ **APROBADA** (bloque 3) |
+| **D-099** | **Arranque limpio:** no se migran los datos de MongoDB (solo había datos de prueba); el esquema se crea vacío con el catálogo de topics sembrado. El Anexo A de `base_datos.sql` queda como ETL opcional | ✅ **APROBADA** (bloque 3) |
+| **D-100** | **Se añade el ciclo O0 (fundación: esquema PostgreSQL + capa de datos + red Anvil de GCP) como primer ciclo**, antes de O1. Matiza D-090 | ✅ **APROBADA** (bloque 3) |
+| **D-101** | **Conexión a Cloud SQL:** forma canónica por **socket unix** (`/cloudsql/truekeate-main:southamerica-east1:truekeate-db-dev`) para Cloud Run/Auth Proxy; **TCP a la IP pública `34.39.180.101`** para hosts ya autorizados en el ACL (el proxy no está instalado). Se fija en `rwa-web/scripts/gcp-env.sh` con modo `--tcp` | ✅ **APLICADA** (verificación O0.1) |
+| **D-102** | **Separación de líneas `@sc`/`@web`:** cada línea con su `RepoTecnico/`; los web-docs pasan a `rwa-web/RepoTecnico/`; los tres artefactos de datos se **duplican** (canónico `rwa-sc` + espejo `rwa-web`) con regla de sincronización byte a byte y **gate** `check_sincronizacion_datos.sh --check` | ✅ **APLICADA** (reorganización del usuario) |
+
+### Plan de ciclos propuesto (borrador, a validar)
+
+| Ciclo | Objetivo | Hallazgos | Esfuerzo |
+|---|---|---|---|
+| **O0** | **Fundación (D-100):** esquema PostgreSQL `rwa` + capa de datos + red Anvil de GCP (arranque limpio, sin ETL) | D-095…D-100 | M |
+| **O1** | Contención de seguridad: retirar endpoints `test-*`, cerrar lectura de PII, autorizar `update-request` y toda escritura | HW-01, HW-02, HW-04 | S |
+| **O2** | Sincronización con contratos: ABIs/direcciones desde artefactos, flujo de claim EIP-712, `claimTopicsRegistry` obligatorio | HW-03, HW-07 | M |
+| **O3** | Verificabilidad: repo `rwa-web` + CI (lint/tsc/build/tests), versiones unificadas, retirada de `ignoreBuildErrors` | HW-05, HW-06, HW-08, HW-13 | M |
+| **O4** | Consolidación: monorepo pnpm + `packages/shared`, deduplicación y decisión sobre `web-rwa` / `web-registry-trusted2` | HW-09, HW-10 | L |
+| **O5** | Operación y calidad: contenedores reproducibles, observabilidad, RNF web (ISO 25010, WCAG 2.1 AA) | HW-11, HW-12, HW-14, HW-15, HW-16 | M |
+
+### Criterios de cierre de la etapa
+
+Se toman como criterios los **bloqueantes B-1…B-6** y de **calidad C-1…C-5** de `rwa-web/RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md` §8:
+0 endpoints públicos con PII · flujo identidad → claim → aprobación → `isVerified` operativo en la red canónica ·
+CI en verde sobre `rwa-web` · una sola versión de `next`/`react` por workspace · sin `ignoreBuildErrors` ·
+0 errores de dependencia devueltos como `200`.

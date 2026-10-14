@@ -1,147 +1,395 @@
 -- =============================================================================
--- base_datos.sql — Script de creación de BD para la plataforma RWA
--- Versión: 0.2 · 2026-10-03 (borrador, pendiente de decisión Q6 de entrevista)
+-- base_datos.sql — Creación de la BD off-chain (PostgreSQL) de la plataforma RWA
+-- Versión: 1.0 · 2026-10-14
+-- =============================================================================
+-- ARTEFACTO DE DATOS COMPARTIDO — COPIA ESPEJO SINCRONIZADA (2026-10-14):
+--   Canónico: rwa-sc/RepoTecnico/base_datos.sql   (línea @sc)
+--   Espejo:   rwa-web/RepoTecnico/base_datos.sql  (línea @web)
+--   Deben ser IDÉNTICOS byte a byte. Edita solo el canónico y ejecuta
+--   `rwa-web/RepoTecnico/check_sincronizacion_datos.sh --sync`.
+--   Regla: rwa-web/RepoTecnico/ARTEFACTOS_DATOS_SINCRONIZADOS.md
 -- =============================================================================
 -- Changelog:
---   v0.1 (2026-10-03): Artefacto inicial. La BD actual del proyecto es
---     MONGODB (BD "rwa", colecciones claim_requests / tokens / GridFS
---     claim_documents). Este script es la transcripción PostgreSQL en caso
---     de migración a GCP Cloud SQL. No se ejecuta hasta que el usuario
---     apruebe la migración (requerimientos.md §6 Q6).
---   v0.2 (2026-10-03): Coherencia con diccionario_datos.md v1.1 y
---     diagrama_er.md v1.1.
---       - Se transcriben FIELMENTE las colecciones reales de MongoDB
---         (fuente: rwa-web/web-identity/types/claim-request.ts,
---          web-token/types/token.ts, web-identity/types/issuer.ts y las
---          rutas de GridFS). Se corrigen nombres: requesterAddress,
---          issuerAddress, claimTopic, documentFileId, tokenAddress,
---          requiredClaims, complianceAddress, adminAddress.
---       - Se añade la colección `issuers`, antes no documentada.
---       - Se documenta el bucket GridFS `claim_documents` con metadata.
---       - Catálogo canónico de claim topics: 1=KYC, 7=Accreditation,
---         9=Jurisdiction (H-13). Reservados: 5=Environmental, 6=Sanctions.
---       - La sección PostgreSQL SIGUE PENDIENTE y NO se inventa: no se crea
---         ninguna tabla hasta la decisión Q6.
---       - Trazabilidad: INFORME_OPTIMIZACION_V1.md (H-13, H-14, H-08, H-11,
---         H-20) y requerimientos.md.
--- Convenciones (solo si se aprueba PostgreSQL): snake_case · tablas en
---   plural · PK id · FK <tabla_singular>_id.
--- Sin secretos: host/usuario/clave por variables de entorno (ver
---   entornos_globales.md).
+--   v0.1 (2026-10-03): Artefacto inicial documental (BD activa era MongoDB).
+--   v0.2 (2026-10-03): Transcripción fiel de las colecciones MongoDB + catálogo
+--     canónico de claim topics. Sección PostgreSQL PENDIENTE de la decisión Q6.
+--   v1.0 (2026-10-14): **DECISIÓN DEL USUARIO (Q6 resuelta): la BD off-chain del
+--     frontend es PostgreSQL** (Cloud SQL, PG 15+) y la red on-chain canónica es
+--     el **Anvil de GCP (chain 31337)**. Por tanto:
+--       - SECCIÓN 1 pasa a ser DDL REAL y ejecutable (ya no documental).
+--       - Se añaden `sessions` (D-092, SIWE) y `audit_log` (RNF-W-02).
+--       - `claim_documents` (GridFS) se sustituye por `document_files` (bytea
+--         cifrado AES-256-GCM, D-093) con `sha256` y metadatos.
+--       - Se normalizan los arrays de MongoDB: `token_required_claims` y
+--         `token_compliance_modules` (join tables con FK reales).
+--       - `claim_topic` pasa de string libre a FK contra el catálogo canónico
+--         `claim_topics` (H-13).
+--       - Se añade `claim_request_status`/`session_role` como ENUM, función
+--         `set_updated_at()` con triggers e índices de búsqueda.
+--       - La transcripción MongoDB original se conserva como ANEXO A (referencia
+--         de migración, no se ejecuta).
+--     Trazabilidad: `rwa-web/RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md` (HW-01/02/04),
+--     `rwa-web/RepoTecnico/requerimientos_web.md`
+--     v1.1 (RF-W-02/05/06, RNF-W-02), D-092/D-093/D-095, y `diccionario_datos.md` v1.2
+--     + `diagrama_er.md` v1.2 (sincronizados en el mismo turno).
+--
+-- Convenciones: snake_case · tablas en plural · PK `id` (uuid salvo catálogos) ·
+--   FK `<tabla_singular>_id` · timestamps `created_at`/`updated_at`.
+-- Idempotente y reejecutable: IF NOT EXISTS + DO $$ para tipos + DROP TRIGGER IF EXISTS.
+-- Sin secretos: la conexión se toma de `DATABASE_URL` (ver entornos_globales.md §14).
+--   Usuario/host/clave NO se escriben aquí.
 -- =============================================================================
 
 -- =============================================================================
--- SECCIÓN 1 — TRANSCRIPCIÓN DE LA BD ACTIVA (MongoDB, base `rwa`)
+-- SECCIÓN 0 — Extensiones y esquema
 -- =============================================================================
--- Esta sección es DOCUMENTAL (comentarios): la BD real es MongoDB y su
--- esquema no se aplica desde este archivo. Los nombres de campo son exactos.
 
--- -----------------------------------------------------------------------------
--- Colección: claim_requests
--- Fuente: rwa-web/web-identity/types/claim-request.ts:5-26
---         (idéntico en rwa-web/web-registry-trusted/types/claim-request.ts)
---         Escritura: web-identity/app/api/claim-requests/route.ts
---         Actualización: web-registry-trusted/app/api/update-request/route.ts
--- -----------------------------------------------------------------------------
---   _id                  ObjectId   PK
---   requesterAddress     string     wallet solicitante
---   issuerAddress        string     emisor destinatario (minúsculas)
---   claimTopic           string     topic del claim (string, no int)
---   message              string?    mensaje del solicitante
---   documentFileId       string?    referencia GridFS del documento
---   documentName         string?    nombre del documento
---   documentContentType  string?    MIME del documento
---   documentSize         number?    bytes del documento
---   status               string     pending | approved | rejected
---   signedMessage        string     mensaje firmado por el solicitante
---   signature            string     firma criptográfica del solicitante
---   createdAt            ISODate
---   updatedAt            ISODate
---   reviewedAt           ISODate?   revisión por el issuer
---   reviewNote           string?    nota del issuer
---   issuerSignedMessage  string?    mensaje firmado por el issuer
---   issuerSignature      string?    firma criptográfica del issuer
--- Nota: no hay índice único compuesto declarado en el código
---       (`createIndex` no aparece en rwa-web).
+CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- gen_random_uuid(), digest()
 
--- -----------------------------------------------------------------------------
--- Colección: tokens
--- Fuente: rwa-web/web-token/types/token.ts:5-24
--- -----------------------------------------------------------------------------
---   _id                 ObjectId  PK
---   name                string
---   symbol              string
---   decimals            number
---   tokenAddress        string    dirección on-chain del token
---   adminAddress        string    admin del token
---   complianceAddress   string?   módulo principal (compatibilidad)
---   complianceModules   string[]? todos los módulos
---   requiredClaims      number[]  topics exigidos
---   price               number?   precio por token en ETH
---   createdAt           ISODate
---   updatedAt           ISODate
---   transactionHash     string?   hash del deploy
---   blockNumber         number?   bloque del deploy
---   totalSupply         string?
---   description         string?
-
--- -----------------------------------------------------------------------------
--- Colección: issuers  (documentada a partir de v0.2; existía sin documentar)
--- Fuente: rwa-web/web-identity/types/issuer.ts:5-10
---         rwa-web/web-registry-trusted/app/api/issuers/route.ts:28-55
--- -----------------------------------------------------------------------------
---   _id        ObjectId  PK
---   address    string    dirección del emisor (minúsculas; búsqueda por address)
---   name       string    nombre del emisor
---   createdAt  ISODate
---   updatedAt  ISODate
-
--- -----------------------------------------------------------------------------
--- GridFS: bucket `claim_documents`
--- Colecciones físicas: claim_documents.files / claim_documents.chunks
--- Fuente: rwa-web/web-identity/app/api/upload/route.ts:62-80
---         rwa-web/web-identity/app/api/download/[fileId]/route.ts:42
--- -----------------------------------------------------------------------------
---   _id                    ObjectId   PK (referenciado por claim_requests.documentFileId)
---   filename               string     nombre del subido
---   length                 number     bytes
---   chunkSize              number     tamaño de chunk (GridFS)
---   uploadDate             ISODate    fecha de subida (GridFS)
---   metadata.originalName  string     nombre original
---   metadata.contentType   string     MIME (dentro de metadata, NO en la raíz)
---   metadata.size          number     bytes
---   metadata.uploadedAt    ISODate    fecha de subida (aplicación)
+CREATE SCHEMA IF NOT EXISTS rwa;
+SET search_path TO rwa, public;
 
 -- =============================================================================
--- SECCIÓN 2 — CATÁLOGO CANÓNICO DE CLAIM TOPICS (oficial, H-13)
+-- SECCIÓN 1 — Tipos ENUM (idempotentes)
 -- =============================================================================
---   1 = KYC            (oficial, implementado)   rwa-web/README.md:325
---   7 = Accreditation  (oficial, implementado)   rwa-web/README.md:326
---   9 = Jurisdiction   (oficial, implementado)   rwa-web/README.md:327
---   5 = Environmental  (RESERVADO / backlog, H-10 — NO implementado)
---   6 = Sanctions      (RESERVADO / backlog, H-10 — NO implementado)
--- Deprecados (no usar): 1/2/3/4 (ARQUITECTURA_FINAL.md:65) y
---   1/2/3/9/10 (REFERENCIA_TECNICA.md:823-833), donde 9 se definía como
---   "Sanctions Check"; el valor 9 queda oficialmente como "Jurisdiction".
-
--- =============================================================================
--- SECCIÓN 3 — (PENDIENTE) Migración MongoDB -> PostgreSQL
--- =============================================================================
--- NO IMPLEMENTADA A PROPÓSITO. Se redactará solo tras la decisión Q6
--- (requerimientos.md §6: destino GCP Atlas vs Cloud SQL PostgreSQL).
--- La transcripción campo a campo de las colecciones está en la Sección 1 de
--- este archivo y en diccionario_datos.md §2.
--- Cuando se apruebe, esta sección contendrá:
---   1. Extensiones (pgcrypto)
---   2. Enum: claim_request_status (pending, approved, rejected)
---   3. Tablas: issuers, claim_requests, tokens,
---      claim_documents (metadatos; blobs quedan en storage)
---   4. Índices sobre FK y búsquedas frecuentes
---   5. Semillas: catálogo canónico de claim topics (1, 7, 9)
--- No se crea ninguna tabla en este borrador para no inventar el esquema.
 
 DO $$
 BEGIN
-    RAISE NOTICE 'RWA: base_datos.sql v0.2 en estado BORRADOR — BD activa es MongoDB (ver diccionario_datos.md v1.1). Seccion PostgreSQL PENDIENTE de la decision Q6 (GCP: Atlas vs Cloud SQL). Catalogo canonico de topics: 1=KYC, 7=Accreditation, 9=Jurisdiction.';
+    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+                   WHERE t.typname = 'claim_request_status' AND n.nspname = 'rwa') THEN
+        CREATE TYPE rwa.claim_request_status AS ENUM ('pending', 'approved', 'rejected');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+                   WHERE t.typname = 'session_role' AND n.nspname = 'rwa') THEN
+        CREATE TYPE rwa.session_role AS ENUM ('investor', 'issuer', 'admin');
+    END IF;
 END
 $$;
+
+-- =============================================================================
+-- SECCIÓN 2 — Catálogos
+-- =============================================================================
+
+-- Catálogo canónico de claim topics (H-13): 1=KYC, 7=Accreditation, 9=Jurisdiction.
+-- Reservados (active = false): 5=Environmental, 6=Sanctions (H-10, no implementados).
+CREATE TABLE IF NOT EXISTS rwa.claim_topics (
+    id          smallint     PRIMARY KEY,
+    code        text         NOT NULL UNIQUE,
+    name        text         NOT NULL,
+    description text,
+    active      boolean      NOT NULL DEFAULT true,
+    created_at  timestamptz  NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE rwa.claim_topics IS 'Catálogo canónico de claim topics (H-13). Único origen permitido para claim_requests.claim_topic_id y token_required_claims.claim_topic_id.';
+
+-- Registro de nombres visibles de emisores. La autoridad real (quién es issuer
+-- y para qué topic) vive on-chain en TrustedIssuersRegistry; aquí solo el nombre
+-- visible y el estado de verificación cacheado (RF-W-12).
+CREATE TABLE IF NOT EXISTS rwa.issuers (
+    id          uuid         PRIMARY KEY DEFAULT gen_random_uuid(),
+    address     text         NOT NULL UNIQUE,
+    name        text         NOT NULL,
+    verified    boolean      NOT NULL DEFAULT false,
+    verified_at timestamptz,
+    created_at  timestamptz  NOT NULL DEFAULT now(),
+    updated_at  timestamptz  NOT NULL DEFAULT now(),
+    CONSTRAINT issuers_address_lower_hex CHECK (address ~ '^0x[0-9a-f]{40}$'),
+    CONSTRAINT issuers_name_not_blank CHECK (btrim(name) <> '')
+);
+
+COMMENT ON TABLE rwa.issuers IS 'Nombre visible del emisor. La autorización por topic se valida on-chain (TrustedIssuersRegistry); esta tabla no concede permisos.';
+
+-- =============================================================================
+-- SECCIÓN 3 — Núcleo del frontend
+-- =============================================================================
+
+-- Solicitudes de claim. Sustituye a la colección MongoDB `claim_requests`.
+CREATE TABLE IF NOT EXISTS rwa.claim_requests (
+    id                    uuid                   PRIMARY KEY DEFAULT gen_random_uuid(),
+    requester_address     text                   NOT NULL,
+    issuer_address        text                   NOT NULL,
+    claim_topic_id        smallint               NOT NULL REFERENCES rwa.claim_topics(id) ON DELETE RESTRICT,
+    message               text,
+    status                rwa.claim_request_status NOT NULL DEFAULT 'pending',
+    signed_message        text                   NOT NULL,
+    signature             text                   NOT NULL,
+    review_note           text,
+    issuer_signed_message text,
+    issuer_signature      text,
+    reviewed_by           text,
+    reviewed_at           timestamptz,
+    created_at            timestamptz            NOT NULL DEFAULT now(),
+    updated_at            timestamptz            NOT NULL DEFAULT now(),
+    CONSTRAINT claim_requests_requester_lower_hex CHECK (requester_address ~ '^0x[0-9a-f]{40}$'),
+    CONSTRAINT claim_requests_issuer_lower_hex    CHECK (issuer_address ~ '^0x[0-9a-f]{40}$'),
+    -- Una revisión exige firma y firmante; ninguna revisión queda sin trazabilidad (HW-01).
+    CONSTRAINT claim_requests_review_consistency CHECK (
+        (status = 'pending'  AND reviewed_at IS NULL AND issuer_signature IS NULL AND reviewed_by IS NULL)
+        OR
+        (status <> 'pending' AND reviewed_at IS NOT NULL AND issuer_signature IS NOT NULL AND reviewed_by IS NOT NULL)
+    )
+);
+
+COMMENT ON TABLE rwa.claim_requests IS 'Solicitudes de claim off-chain. `claim_topic_id` es FK al catálogo canónico (antes string libre, H-13). Una solicitud resuelta siempre lleva `reviewed_by`, `reviewed_at` e `issuer_signature` (HW-01).';
+
+-- Documentos KYC. Sustituye al bucket GridFS `claim_documents`.
+-- El contenido se guarda cifrado (AES-256-GCM, D-093); el acceso se autoriza por
+-- propiedad de la solicitud asociada (RF-W-06).
+CREATE TABLE IF NOT EXISTS rwa.document_files (
+    id               uuid         PRIMARY KEY DEFAULT gen_random_uuid(),
+    claim_request_id uuid         NOT NULL REFERENCES rwa.claim_requests(id) ON DELETE CASCADE,
+    original_name    text         NOT NULL,
+    content_type     text         NOT NULL,
+    size_bytes       bigint       NOT NULL,
+    sha256           bytea        NOT NULL,
+    content          bytea        NOT NULL,
+    encryption_algo  text         NOT NULL DEFAULT 'AES-256-GCM',
+    encryption_nonce bytea,
+    uploaded_by      text         NOT NULL,
+    created_at       timestamptz  NOT NULL DEFAULT now(),
+    CONSTRAINT document_files_size_range CHECK (size_bytes > 0 AND size_bytes <= 10485760),
+    CONSTRAINT document_files_uploader_lower_hex CHECK (uploaded_by ~ '^0x[0-9a-f]{40}$'),
+    CONSTRAINT document_files_mime_allowlist CHECK (
+        content_type IN ('application/pdf','image/jpeg','image/png',
+                         'application/msword',
+                         'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    )
+);
+
+COMMENT ON TABLE rwa.document_files IS 'Documentos KYC cifrados en reposo (D-093). MIME validado en servidor por magic bytes y restringido por CHECK. Tamaño máximo 10 MB.';
+
+-- Tokens registrados por la fábrica (registro off-chain para la UI).
+-- Sustituye a la colección MongoDB `tokens`; los arrays se normalizan.
+CREATE TABLE IF NOT EXISTS rwa.tokens (
+    id                        uuid          PRIMARY KEY DEFAULT gen_random_uuid(),
+    token_address             text          NOT NULL UNIQUE,
+    admin_address             text          NOT NULL,
+    name                      text          NOT NULL,
+    symbol                    text          NOT NULL,
+    decimals                  smallint      NOT NULL,
+    max_total_supply          numeric(78,0),
+    total_supply              numeric(78,0),
+    identity_registry         text,
+    trusted_issuers_registry  text,
+    claim_topics_registry     text,
+    compliance_address        text,
+    price                     numeric(38,18),
+    description               text,
+    transaction_hash          text,
+    block_number              bigint,
+    created_at                timestamptz   NOT NULL DEFAULT now(),
+    updated_at                timestamptz   NOT NULL DEFAULT now(),
+    CONSTRAINT tokens_address_lower_hex  CHECK (token_address ~ '^0x[0-9a-f]{40}$'),
+    CONSTRAINT tokens_admin_lower_hex    CHECK (admin_address ~ '^0x[0-9a-f]{40}$'),
+    CONSTRAINT tokens_decimals_range     CHECK (decimals BETWEEN 0 AND 18),
+    CONSTRAINT tokens_symbol_format      CHECK (symbol ~ '^[A-Z0-9]{1,11}$'),
+    -- RF-W-11 / D-084: sin claimTopicsRegistry el token es fail-closed; se prohíbe registrar
+    -- un token sin los tres registries (evita reproducir el estado actual roto).
+    CONSTRAINT tokens_registries_required CHECK (
+        identity_registry IS NOT NULL
+        AND trusted_issuers_registry IS NOT NULL
+        AND claim_topics_registry IS NOT NULL
+    ),
+    CONSTRAINT tokens_price_non_negative CHECK (price IS NULL OR price >= 0)
+);
+
+COMMENT ON TABLE rwa.tokens IS 'Registro off-chain de tokens. CHECK `tokens_registries_required` impide persistir tokens sin claimTopicsRegistry (HW-03 / RF-W-11).';
+
+-- Join table: topics exigidos por token (sustituye `tokens.requiredClaims`).
+CREATE TABLE IF NOT EXISTS rwa.token_required_claims (
+    token_id       uuid     NOT NULL REFERENCES rwa.tokens(id) ON DELETE CASCADE,
+    claim_topic_id smallint NOT NULL REFERENCES rwa.claim_topics(id) ON DELETE RESTRICT,
+    created_at     timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (token_id, claim_topic_id)
+);
+
+-- Join table: módulos de compliance asociados a un token (sustituye `tokens.complianceModules`).
+CREATE TABLE IF NOT EXISTS rwa.token_compliance_modules (
+    token_id      uuid        NOT NULL REFERENCES rwa.tokens(id) ON DELETE CASCADE,
+    module_address text       NOT NULL,
+    is_primary    boolean     NOT NULL DEFAULT false,
+    created_at    timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (token_id, module_address),
+    CONSTRAINT token_compliance_modules_address_lower_hex CHECK (module_address ~ '^0x[0-9a-f]{40}$')
+);
+
+-- =============================================================================
+-- SECCIÓN 4 — Sesión SIWE y auditoría (D-092, RNF-W-02)
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS rwa.sessions (
+    id         uuid              PRIMARY KEY DEFAULT gen_random_uuid(),
+    address    text              NOT NULL,
+    nonce      text              NOT NULL UNIQUE,
+    role       rwa.session_role  NOT NULL DEFAULT 'investor',
+    issued_at  timestamptz       NOT NULL DEFAULT now(),
+    expires_at timestamptz       NOT NULL,
+    revoked_at timestamptz,
+    user_agent text,
+    ip         inet,
+    CONSTRAINT sessions_address_lower_hex CHECK (address ~ '^0x[0-9a-f]{40}$'),
+    CONSTRAINT sessions_expiry_after_issue CHECK (expires_at > issued_at)
+);
+
+COMMENT ON TABLE rwa.sessions IS 'Sesiones SIWE (EIP-4361, D-092). `nonce` de un solo uso. La cookie httpOnly firmada transporta el id de sesión; esta tabla permite revocación inmediata.';
+
+CREATE TABLE IF NOT EXISTS rwa.audit_log (
+    id             bigserial   PRIMARY KEY,
+    actor_address  text,
+    action         text        NOT NULL,
+    resource_type  text        NOT NULL,
+    resource_id    text,
+    request_id     text,
+    detail         jsonb,
+    at             timestamptz NOT NULL DEFAULT now()
+);
+
+COMMENT ON TABLE rwa.audit_log IS 'Registro de auditoría de accesos y mutaciones (RNF-W-02): quién accedió a qué documento o claim y cuándo.';
+
+CREATE TABLE IF NOT EXISTS rwa.schema_migrations (
+    version    text        PRIMARY KEY,
+    applied_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- =============================================================================
+-- SECCIÓN 5 — Función y triggers de `updated_at`
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION rwa.set_updated_at() RETURNS trigger AS $$
+BEGIN
+    NEW.updated_at := now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_issuers_updated_at ON rwa.issuers;
+CREATE TRIGGER trg_issuers_updated_at BEFORE UPDATE ON rwa.issuers
+    FOR EACH ROW EXECUTE FUNCTION rwa.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_claim_requests_updated_at ON rwa.claim_requests;
+CREATE TRIGGER trg_claim_requests_updated_at BEFORE UPDATE ON rwa.claim_requests
+    FOR EACH ROW EXECUTE FUNCTION rwa.set_updated_at();
+
+DROP TRIGGER IF EXISTS trg_tokens_updated_at ON rwa.tokens;
+CREATE TRIGGER trg_tokens_updated_at BEFORE UPDATE ON rwa.tokens
+    FOR EACH ROW EXECUTE FUNCTION rwa.set_updated_at();
+
+-- =============================================================================
+-- SECCIÓN 6 — Índices
+-- =============================================================================
+
+-- claim_requests: consultas de la UI (HW-02 exigía paginación y filtrado por titular/emisor).
+CREATE INDEX IF NOT EXISTS idx_claim_requests_requester_created ON rwa.claim_requests (requester_address, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_claim_requests_issuer_status     ON rwa.claim_requests (issuer_address, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_claim_requests_status_created    ON rwa.claim_requests (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_claim_requests_topic             ON rwa.claim_requests (claim_topic_id);
+
+-- document_files
+CREATE INDEX IF NOT EXISTS idx_document_files_claim_request ON rwa.document_files (claim_request_id);
+CREATE INDEX IF NOT EXISTS idx_document_files_sha256        ON rwa.document_files (sha256);
+
+-- tokens
+CREATE INDEX IF NOT EXISTS idx_tokens_admin_created ON rwa.tokens (admin_address, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tokens_block_number  ON rwa.tokens (block_number);
+CREATE INDEX IF NOT EXISTS idx_token_required_claims_topic ON rwa.token_required_claims (claim_topic_id);
+CREATE INDEX IF NOT EXISTS idx_token_modules_address       ON rwa.token_compliance_modules (module_address);
+
+-- sesiones y auditoría
+CREATE INDEX IF NOT EXISTS idx_sessions_address_expires ON rwa.sessions (address, expires_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires         ON rwa.sessions (expires_at) WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_audit_log_actor_at       ON rwa.audit_log (actor_address, at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_resource       ON rwa.audit_log (resource_type, resource_id, at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_request_id     ON rwa.audit_log (request_id);
+
+-- =============================================================================
+-- SECCIÓN 7 — Vista de apoyo para la UI (solicitudes con nombre de emisor y nº de documentos)
+-- =============================================================================
+
+CREATE OR REPLACE VIEW rwa.v_claim_request_summary AS
+SELECT cr.id,
+       cr.requester_address,
+       cr.issuer_address,
+       i.name                     AS issuer_name,
+       cr.claim_topic_id,
+       ct.name                    AS claim_topic_name,
+       cr.status,
+       cr.created_at,
+       cr.reviewed_at,
+       cr.reviewed_by,
+       count(df.id)               AS document_count
+FROM rwa.claim_requests cr
+LEFT JOIN rwa.issuers       i  ON i.address = cr.issuer_address
+LEFT JOIN rwa.claim_topics  ct ON ct.id     = cr.claim_topic_id
+LEFT JOIN rwa.document_files df ON df.claim_request_id = cr.id
+GROUP BY cr.id, i.name, ct.name;
+
+COMMENT ON VIEW rwa.v_claim_request_summary IS 'Vista de lectura para el panel de emisor: solicitud + nombre de emisor + nombre de topic + número de documentos.';
+
+-- =============================================================================
+-- SECCIÓN 8 — Datos semilla (catálogo canónico, reejecutable)
+-- =============================================================================
+
+INSERT INTO rwa.claim_topics (id, code, name, description, active) VALUES
+    (1, 'KYC',          'Know Your Customer', 'Verificación de identidad del inversor',           true),
+    (7, 'ACCREDITATION','Accreditation',      'Acreditación de inversor cualificado',             true),
+    (9, 'JURISDICTION', 'Jurisdiction',       'Jurisdicción aplicable al inversor',               true),
+    (5, 'ENVIRONMENTAL','Environmental',      'RESERVADO / backlog (H-10) — no implementado',     false),
+    (6, 'SANCTIONS',    'Sanctions',          'RESERVADO / backlog (H-10) — no implementado',     false)
+ON CONFLICT (id) DO UPDATE
+    SET code        = EXCLUDED.code,
+        name        = EXCLUDED.name,
+        description = EXCLUDED.description,
+        active      = EXCLUDED.active;
+
+INSERT INTO rwa.schema_migrations (version) VALUES ('1.0')
+ON CONFLICT (version) DO NOTHING;
+
+-- =============================================================================
+-- SECCIÓN 9 — Comprobación final
+-- =============================================================================
+
+DO $$
+DECLARE
+    n_tables int;
+BEGIN
+    SELECT count(*) INTO n_tables
+    FROM information_schema.tables
+    WHERE table_schema = 'rwa' AND table_type = 'BASE TABLE';
+
+    RAISE NOTICE 'RWA off-chain PostgreSQL: % tablas en el esquema rwa. Red on-chain canonica: Anvil de GCP (chain 31337). Catalogo de topics: 1=KYC, 7=Accreditation, 9=Jurisdiction.', n_tables;
+END
+$$;
+
+-- =============================================================================
+-- ANEXO A — Transcripción del sistema MongoDB sustituido (REFERENCIA DE MIGRACIÓN)
+-- =============================================================================
+-- No se ejecuta. Se conserva para el ETL Mongo → PostgreSQL (ver `rwa-web/RepoTecnico/plan_desarrollo_web.md`).
+--
+-- claim_requests  ← colección `claim_requests`
+--   _id(ObjectId)→id(uuid) · requesterAddress→requester_address · issuerAddress→issuer_address
+--   claimTopic(string)→claim_topic_id(smallint FK) · message→message · status→status(enum)
+--   signedMessage→signed_message · signature→signature · reviewedAt→reviewed_at
+--   reviewNote→review_note · issuerSignedMessage→issuer_signed_message
+--   issuerSignature→issuer_signature · createdAt→created_at · updatedAt→updated_at
+--   [NUEVO] reviewed_by (HW-01) · [RETIRADO] documentFileId/Name/ContentType/Size → tabla document_files
+--
+-- claim_documents (GridFS: .files/.chunks) ← bucket `claim_documents`
+--   _id→document_files.id · filename→original_name · length→size_bytes
+--   metadata.contentType→content_type · metadata.uploadedAt→created_at
+--   chunks→content(bytea cifrado) · [NUEVO] sha256, encryption_algo, encryption_nonce,
+--   claim_request_id, uploaded_by
+--
+-- tokens ← colección `tokens`
+--   _id→id · tokenAddress→token_address · adminAddress→admin_address · name/symbol/decimals
+--   complianceAddress→compliance_address · complianceModules[]→token_compliance_modules
+--   requiredClaims[]→token_required_claims · price/description/transactionHash/blockNumber
+--   totalSupply→total_supply · [NUEVO] max_total_supply, registries, created_at/updated_at
+--
+-- issuers ← colección `issuers`
+--   _id→id · address→address · name→name · [NUEVO] verified, verified_at
+--
+-- [NUEVAS TABLAS] sessions (SIWE, D-092) · audit_log (RNF-W-02) · schema_migrations
+-- =============================================================================
+
+-- Fin de base_datos.sql v1.0

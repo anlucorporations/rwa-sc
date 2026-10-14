@@ -1,7 +1,24 @@
 # 🗂️ Diccionario de Datos — RWA
 
-> **Versión: v1.1 · 2026-10-03.** Fuente de verdad de datos del proyecto. Cubre el **modelo on-chain**
-> (contratos, storage) y el **modelo off-chain** (MongoDB).
+> **🔗 Artefacto de datos compartido — copia espejo sincronizada (2026-10-14).** Existe en las dos líneas
+> de desarrollo: **canónico** `rwa-sc/RepoTecnico/diccionario_datos.md` · **espejo** `rwa-web/RepoTecnico/diccionario_datos.md`.
+> Deben ser **idénticos byte a byte**: edita solo el canónico y ejecuta `rwa-web/RepoTecnico/check_sincronizacion_datos.sh --sync`
+> (regla de sincronización en `rwa-web/RepoTecnico/ARTEFACTOS_DATOS_SINCRONIZADOS.md`).
+>
+> **Versión: v1.2 · 2026-10-14.** Fuente de verdad de datos del proyecto. Cubre el **modelo on-chain**
+> (contratos, storage) y el **modelo off-chain** (PostgreSQL, esquema `rwa`).
+>
+> **Changelog v1.2 (2026-10-14):**
+> - **D-095 (decisión del usuario — Q6 resuelta):** la BD off-chain del frontend es **PostgreSQL**
+>   (Cloud SQL, PG 15+), **no MongoDB**. §2 se reescribe con el esquema real y ejecutable de
+>   `base_datos.sql` v1.0.
+> - **D-096:** la red on-chain canónica del frontend es el **Anvil de GCP (chain 31337)**.
+> - **D-092/D-093:** se añaden `rwa.sessions` (SIWE) y `rwa.audit_log`; `document_files` sustituye al bucket
+>   GridFS y guarda el contenido **cifrado AES-256-GCM**.
+> - **Normalización:** `tokens.requiredClaims` → `token_required_claims` y `tokens.complianceModules` →
+>   `token_compliance_modules`; `claim_topic` (string libre) → FK a `claim_topics` (H-13).
+> - La transcripción fiel del sistema MongoDB sustituido se conserva como **Anexo A de `base_datos.sql`**
+>   (referencia del ETL).
 >
 > **Changelog v1.1 (2026-10-03):**
 > - **H-14 (fidelidad on-chain):** se regeneran las tablas de storage contra el código real de
@@ -102,92 +119,139 @@ Los módulos **no** emiten `TokenContractSet` al fijar `tokenContract` (H-34, ba
 emitidos son los documentados en cada `.sol` (`MaxHoldersSet`, `HolderAdded`, `HolderRemoved`,
 `LockPeriodSet`, `TransferLocked`, `MaxBalanceSet`, `ModuleAdded`, `ModuleRemoved`, `TokenRegistered`).
 
-## 2. Modelo off-chain (rwa-web → MongoDB, BD `rwa`)
+## 2. Modelo off-chain (rwa-web → **PostgreSQL**, esquema `rwa`)
 
-> Transcrito fielmente de los tipos y rutas de `rwa-web/` (no de suposiciones). Los nombres de campo son
-> **exactos** (camelCase). La BD **activa** es MongoDB; la transcripción PostgreSQL es un borrador
-> pendiente (ver `base_datos.sql`).
+> **v1.2 — DECISIÓN DEL USUARIO (Q6 resuelta, D-095):** la BD off-chain del frontend es **PostgreSQL**
+> (Cloud SQL, PG 15+), **no MongoDB**. La red on-chain canónica es el **Anvil de GCP (chain 31337)** (D-096).
+> Este apartado describe el esquema **real y ejecutable** de `base_datos.sql` v1.0; los nombres y tipos son
+> idénticos a los de ese script y a `diagrama_er.md` §2.
+>
+> **Migración documentada:** la transcripción fiel del sistema MongoDB sustituido (colecciones
+> `claim_requests`, `tokens`, `issuers` y bucket GridFS `claim_documents`) se conserva como **Anexo A** de
+> `base_datos.sql`, como fuente para el ETL.
 
-### Colección: `claim_requests`
-Fuente: `rwa-web/web-identity/types/claim-request.ts:5-26` (idéntico en `web-registry-trusted`),
-`web-identity/app/api/claim-requests/route.ts`, `web-registry-trusted/app/api/update-request/route.ts`.
-
-| Campo | Tipo | Índice | Descripción |
+### Tabla: `rwa.claim_topics` (catálogo canónico, H-13)
+| Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
-| `_id` | ObjectId | PK | Identificador único |
-| `requesterAddress` | string (0x…) | — (sin índice en código) | Wallet solicitante |
-| `issuerAddress` | string (0x…) | — (filtro en consulta `:29`) | Emisor destinatario (minúsculas) |
-| `claimTopic` | string | — | Topic del claim (string, no int) |
-| `message` | string? | — | Mensaje del solicitante |
-| `documentFileId` | string? | — | Ref GridFS del documento adjunto |
-| `documentName` | string? | — | Nombre del documento |
-| `documentContentType` | string? | — | MIME del documento |
-| `documentSize` | number? | — | Bytes del documento |
-| `status` | enum: `pending`/`approved`/`rejected` | — (filtro `:32`) | Estado de la solicitud |
-| `signedMessage` | string | — | Mensaje firmado por el solicitante (requester + fecha) |
-| `signature` | string | — | Firma criptográfica del solicitante (MetaMask) |
-| `createdAt` | ISODate | — | Creación (`web-identity/.../route.ts:90`) |
-| `updatedAt` | ISODate | — | Última actualización |
-| `reviewedAt` | ISODate? | — | Revisión por el issuer |
-| `reviewNote` | string? | — | Nota del issuer al aprobar/rechazar |
-| `issuerSignedMessage` | string? | — | Mensaje firmado por el issuer |
-| `issuerSignature` | string? | — | Firma criptográfica del issuer |
+| `id` | smallint | PK | Código canónico: 1=KYC, 7=Accreditation, 9=Jurisdiction |
+| `code` | text | UK | Identificador legible |
+| `name` | text | — | Nombre |
+| `description` | text | — | Descripción |
+| `active` | boolean | — | `false` para reservados (5=Environmental, 6=Sanctions) |
+| `created_at` | timestamptz | — | `default now()` |
 
-> **Corrección respecto a v1.0:** los campos `wallet`, `issuer`, `topic`, `documentId` e `issuerNote` **no
-> existen** con esos nombres; son `requesterAddress`, `issuerAddress`, `claimTopic`, `documentFileId` y
-> `reviewNote`. No hay índice único compuesto declarado en el código (`grep createIndex` sin resultados).
-
-### Colección: `tokens`
-Fuente: `rwa-web/web-token/types/token.ts:5-24`, `app/api/tokens/route.ts`.
-
-| Campo | Tipo | Índice | Descripción |
+### Tabla: `rwa.issuers`
+| Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
-| `_id` | ObjectId | PK | Identificador único |
-| `name` / `symbol` | string | — | Metadatos |
-| `decimals` | number | — | Decimales |
-| `tokenAddress` | string (0x…) | — | Dirección on-chain del token |
-| `adminAddress` | string (0x…) | — | Admin del token |
-| `complianceAddress` | string? | — | Módulo principal (compatibilidad) |
-| `complianceModules` | string[]? | — | Todos los módulos de compliance |
-| `requiredClaims` | number[] | — | Topics exigidos (**no** `requiredTopics`) |
-| `price` | number? | — | Precio por token en ETH |
-| `createdAt` / `updatedAt` | ISODate | — | Timestamps |
-| `transactionHash` | string? | — | Hash del deploy |
-| `blockNumber` | number? | — | Bloque del deploy |
-| `totalSupply` | string? | — | Suministro |
-| `description` | string? | — | Descripción |
+| `id` | uuid | PK | `default gen_random_uuid()` |
+| `address` | text | UK, CHECK `^0x[0-9a-f]{40}$` | Dirección del emisor (minúsculas) |
+| `name` | text | CHECK no vacío | Nombre visible |
+| `verified` | boolean | — | Caché del estado on-chain (`default false`) |
+| `verified_at` | timestamptz | — | Fecha de verificación |
+| `created_at` / `updated_at` | timestamptz | — | Triggers `set_updated_at()` |
 
-> **Corrección respecto a v1.0:** `address` → `tokenAddress`; `requiredTopics` → `requiredClaims`;
-> `complianceModule` → `complianceAddress`; `createdBy` → `adminAddress`; se añaden `decimals`,
-> `complianceModules`, `transactionHash`, `blockNumber`, `totalSupply`, `description`, `updatedAt`.
+> La autoridad real (quién es issuer y para qué topic) vive en `TrustedIssuersRegistry` on-chain; esta tabla
+> **no concede permisos** (RF-W-12).
 
-### Colección: `issuers` (**nueva en v1.1, existía sin documentar**)
-Fuente: `rwa-web/web-identity/types/issuer.ts:5-10`, `web-registry-trusted/app/api/issuers/route.ts:28-55`.
-
-| Campo | Tipo | Índice | Descripción |
+### Tabla: `rwa.claim_requests`
+| Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
-| `_id` | ObjectId | PK | Identificador único |
-| `address` | string (0x…, minúsculas) | — (búsqueda por `address`) | Dirección del emisor |
-| `name` | string | — | Nombre del emisor |
-| `createdAt` / `updatedAt` | ISODate | — | Timestamps |
+| `id` | uuid | PK | `default gen_random_uuid()` |
+| `requester_address` | text | CHECK `0x…` | Wallet solicitante; índice con `created_at` |
+| `issuer_address` | text | CHECK `0x…` | Emisor destinatario; índice con `status` |
+| `claim_topic_id` | smallint | FK → `claim_topics.id` | Topic canónico (antes string libre) |
+| `message` | text? | — | Mensaje del solicitante |
+| `status` | `claim_request_status` | enum | `pending` (default) / `approved` / `rejected` |
+| `signed_message` | text | — | Mensaje firmado por el solicitante |
+| `signature` | text | — | Firma del solicitante (verificada en servidor, RF-W-04) |
+| `review_note` | text? | — | Nota del emisor |
+| `issuer_signed_message` | text? | — | Mensaje firmado por el emisor |
+| `issuer_signature` | text? | — | Firma del emisor (verificada en servidor, RF-W-03) |
+| `reviewed_by` | text? | — | **Nuevo (HW-01):** dirección derivada de la firma del revisor |
+| `reviewed_at` | timestamptz? | — | Fecha de revisión |
+| `created_at` / `updated_at` | timestamptz | — | Timestamps |
 
-### GridFS: bucket `claim_documents` (colecciones `claim_documents.files` / `claim_documents.chunks`)
-Fuente: `rwa-web/web-identity/app/api/upload/route.ts:62-80`, `.../download/[fileId]/route.ts:42`.
+> **CHECK `claim_requests_review_consistency`:** si `status <> 'pending'`, entonces `reviewed_at`,
+> `issuer_signature` y `reviewed_by` son obligatorios; si `status = 'pending'`, los tres son `NULL`.
+> Hace **imposible** una aprobación sin trazabilidad (HW-01).
 
-| Campo | Tipo | Descripción |
+### Tabla: `rwa.document_files` (sustituye a GridFS `claim_documents`)
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| `id` | uuid | PK | Identificador del documento |
+| `claim_request_id` | uuid | FK → `claim_requests.id` ON DELETE CASCADE | Solicitud propietaria (autorización por propiedad) |
+| `original_name` | text | — | Nombre original |
+| `content_type` | text | CHECK allowlist | PDF, JPEG, PNG, DOC, DOCX |
+| `size_bytes` | bigint | CHECK `0 < n ≤ 10485760` | Tamaño (máx. 10 MB) |
+| `sha256` | bytea | — | Hash del contenido en claro (integridad) |
+| `content` | bytea | — | Contenido **cifrado AES-256-GCM** (D-093) |
+| `encryption_algo` | text | — | `AES-256-GCM` (default) |
+| `encryption_nonce` | bytea? | — | Nonce del cifrado |
+| `uploaded_by` | text | CHECK `0x…` | Wallet que subió el documento |
+| `created_at` | timestamptz | — | Fecha de subida |
+
+### Tabla: `rwa.tokens`
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| `id` | uuid | PK | Identificador |
+| `token_address` | text | UK, CHECK `0x…` | Dirección on-chain |
+| `admin_address` | text | CHECK `0x…` | Admin del token |
+| `name` / `symbol` | text | CHECK `symbol ^[A-Z0-9]{1,11}$` | Metadatos |
+| `decimals` | smallint | CHECK 0–18 | Decimales |
+| `max_total_supply` / `total_supply` | numeric(78,0)? | — | Suministro |
+| `identity_registry` / `trusted_issuers_registry` / `claim_topics_registry` | text | **NOT NULL** (CHECK) | Los tres registries son obligatorios (RF-W-11 / D-084) |
+| `compliance_address` | text? | — | Módulo principal (compatibilidad) |
+| `price` | numeric(38,18)? | CHECK ≥ 0 | Precio |
+| `description` | text? | — | Descripción |
+| `transaction_hash` / `block_number` | text? / bigint? | — | Traza del despliegue |
+| `created_at` / `updated_at` | timestamptz | — | Timestamps |
+
+> `requiredClaims` y `complianceModules` **se normalizan** en dos tablas puente (abajo); ya no son arrays.
+
+### Tablas puente: `rwa.token_required_claims` y `rwa.token_compliance_modules`
+| Tabla | Campos | Clave |
 |---|---|---|
-| `_id` | ObjectId | Ref en `claim_requests.documentFileId` |
-| `filename` | string | Nombre del subido (`openUploadStream(file.name)`) |
-| `length` | number | Bytes |
-| `chunkSize` | number | Tamaño de chunk (GridFS) |
-| `uploadDate` | ISODate | Fecha de subida (GridFS) |
-| `metadata.originalName` | string | Nombre original |
-| `metadata.contentType` | string | MIME (**dentro de `metadata`**, no en la raíz) |
-| `metadata.size` | number | Bytes |
-| `metadata.uploadedAt` | ISODate | Fecha de subida (aplicación) |
+| `token_required_claims` | `token_id` (FK tokens, CASCADE), `claim_topic_id` (FK claim_topics, RESTRICT), `created_at` | PK (`token_id`,`claim_topic_id`) |
+| `token_compliance_modules` | `token_id` (FK tokens, CASCADE), `module_address` (CHECK `0x…`), `is_primary` (bool), `created_at` | PK (`token_id`,`module_address`) |
 
-> **Corrección respecto a v1.0:** `contentType` no está en la raíz del documento de GridFS sino en
-> `metadata.contentType`; se añaden `chunkSize`, `uploadDate` y el resto de `metadata`.
+### Tabla: `rwa.sessions` (nueva, SIWE — D-092)
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| `id` | uuid | PK | Id de sesión (transportado en cookie `httpOnly` firmada) |
+| `address` | text | CHECK `0x…` | Wallet autenticada |
+| `nonce` | text | UK | Nonce SIWE de un solo uso |
+| `role` | `session_role` | enum | `investor` / `issuer` / `admin` |
+| `issued_at` | timestamptz | — | Emisión |
+| `expires_at` | timestamptz | CHECK > `issued_at` | Caducidad |
+| `revoked_at` | timestamptz? | — | Revocación inmediata |
+| `user_agent` / `ip` | text? / inet? | — | Contexto de la sesión |
+
+### Tabla: `rwa.audit_log` (nueva — RNF-W-02)
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| `id` | bigserial | PK | Secuencia |
+| `actor_address` | text? | — | Quién |
+| `action` | text | — | Qué acción |
+| `resource_type` / `resource_id` | text / text? | — | Sobre qué recurso |
+| `request_id` | text? | — | Correlación con el log estructurado (RT-W-10) |
+| `detail` | jsonb? | — | Detalle |
+| `at` | timestamptz | — | `default now()` |
+
+### Tabla: `rwa.schema_migrations`
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| `version` | text | PK | Versión aplicada (p. ej. `1.0`) |
+| `applied_at` | timestamptz | — | `default now()` |
+
+### Vista: `rwa.v_claim_request_summary`
+Solicitud + `issuer_name` + `claim_topic_name` + `document_count` (lectura del panel de emisor).
+
+### Índices obligatorios (idénticos a `base_datos.sql` §6)
+`claim_requests (requester_address, created_at DESC)` · `(issuer_address, status, created_at DESC)` ·
+`(status, created_at DESC)` · `(claim_topic_id)` · `document_files (claim_request_id)` · `(sha256)` ·
+`tokens (admin_address, created_at DESC)` · `(block_number)` · `sessions (address, expires_at DESC)` ·
+`(expires_at) WHERE revoked_at IS NULL` · `audit_log (actor_address, at DESC)` ·
+`(resource_type, resource_id, at DESC)` · `(request_id)`.
 
 ## 3. Catálogo canónico de Claim Topics (compartido on/off-chain)
 
@@ -232,22 +296,29 @@ Fuente: `rwa-web/web-identity/app/api/upload/route.ts:62-80`, `.../download/[fil
 | 1 | ECDSA (comentado en `IdentityCloneable.sol:57`) | existe (documentado) |
 | 2 | RSA (citado en `REFERENCIA_TECNICA.md:839`) | **Deprecado/no implementado** |
 
-## 4. Estado de datos (pendientes de decisión)
-- **DB:** MongoDB local (`rwa`) → destino GCP (Atlas / Cloud SQL PostgreSQL) — ver `requerimientos.md` §6 Q6.
-  La decisión **no está tomada**; `base_datos.sql` es un borrador PostgreSQL (**no** ejecutable).
-- **Custodia/privacidad (H-11):** las colecciones off-chain contienen PII y documentos KYC sin custodio,
-  base legal, cifrado, retención ni borrado; on-chain `Claim.data`/`Claim.uri` son inmutables y los eventos
-  `ClaimAdded(signature, data, uri)` son permanentes. **Backlog R-3.**
+## 4. Estado de datos (decisiones)
+- **DB (Q6 RESUELTA — D-095):** la BD off-chain del frontend es **PostgreSQL** (Cloud SQL, PG 15+) y su
+  esquema real está en `base_datos.sql` v1.0 (esquema `rwa`, ejecutable). El sistema MongoDB anterior se
+  sustituye; su transcripción queda como Anexo A de ese script para el ETL.
+- **Red on-chain (D-096):** **Anvil de GCP** (`MCC_ANVIL_RPC_URL`, chain 31337) es la red canónica del
+  frontend; Besu 81234 queda como alternativa documentada y no canónica.
+- **Custodia/privacidad (H-11 → D-093):** en la etapa web se resuelve con `document_files` cifrado
+  (AES-256-GCM) y `audit_log` de accesos; la política formal de base legal, retención y supresión sigue
+  pendiente como backlog R-3 (fuera del alcance de D-088).
 - **Escala (H-20):** arrays no acotados con borrado O(n) en `IdentityRegistry.registeredAddresses`,
   `TrustedIssuersRegistry.trustedIssuersList`, `ClaimTopicsRegistryCloneable.claimTopics` y
   `ComplianceAggregator.tokens`; vistas sin paginación. **Backlog M-11.**
-- **Índices off-chain:** el código web **no** ejecuta `createIndex`; los filtros por `issuerAddress`/`status`
-  se resuelven en consulta. Cualquier índice (p. ej. único por emisor) es **planificado**, no existente.
+- **Índices off-chain:** definidos y ejecutables en `base_datos.sql` §6 y listados en §2 (los 12 índices
+  obligatorios). En el sistema MongoDB anterior **no existía ninguno** (`grep createIndex` sin resultados).
 
-## 5. Cambios planificados por requisito (PLANIFICADO — no existe hoy)
+## 5. Cambios on-chain por requisito (IMPLEMENTADOS en Fase 3 — referencia histórica)
 
-> Todo lo de esta sección está **aprobado** (`requerimientos.md` §3, D-014) pero **no implementado**. No
-> debe confundirse con el storage real de §1.
+> **Nota v1.2:** esta sección se redactó en v1.1 como *planificado*. La Fase 3 los **implementó y verificó**
+> (394/394 tests, cobertura `src/` 97,05 %): RF-001 EIP-712 (Ciclo 2, D-020/D-083/D-084), RF-002 retirada del
+> flag de bypass y anti-reentrancia (Ciclo 3), RF-004 whitelist y límites (D-006/D-078), RF-011 fail-closed
+> (Ciclo 6), RF-012 registro explícito por token, RF-013 vigencia/revocación de claims. Se conserva el detalle
+> como **referencia histórica**; el estado real y las decisiones están en `estado_proyecto.md`.
+> El alcance de la presente etapa es **solo frontend** (D-088): el storage on-chain no se modifica.
 
 ### RF-004 — Whitelist de destinos y límites (`TokenCloneable`)
 | Campo planificado | Tipo | Descripción |
