@@ -43,13 +43,16 @@
 ### Entidad: `IdentityCloneable` (por inversor)
 | Campo | Tipo | Clave | Estado | Descripción |
 |---|---|---|---|---|
-| `claims` | `mapping(uint256 => mapping(address => Claim))` private | PK lógica (topic+issuer) | existe (`IdentityCloneable.sol:13`) | Claim por topic y emisor |
-| `topicIssuers` | `mapping(uint256 => address[])` private | — | existe (`IdentityCloneable.sol:16`) | Emisores con claim en el topic (índice) |
-| `topicIssuerExists` | `mapping(uint256 => mapping(address => bool))` private | — | existe (`IdentityCloneable.sol:19`) | Índice de existencia de emisor por topic |
-| struct `Claim` | `{uint256 topic; uint256 scheme; address issuer; bytes signature; bytes data; string uri;}` | — | existe (`IdentityCloneable.sol:21-28`) | **Sin** `expiresAt`, `revoked`, `issuedAt` (H-08) |
+| `claims` | `mapping(uint256 => mapping(address => Claim))` private | PK lógica (topic+issuer) | existe (`IdentityCloneable.sol:26`) | Claim por topic y emisor |
+| `topicIssuers` | `mapping(uint256 => address[])` private | — | existe (`IdentityCloneable.sol:29`) | Emisores con claim en el topic (índice) |
+| `topicIssuerExists` | `mapping(uint256 => mapping(address => bool))` private | — | existe (`IdentityCloneable.sol:32`) | Índice de existencia de emisor por topic |
+| `claimNonce` | `mapping(uint256 => mapping(address => uint256))` public | — | existe (`IdentityCloneable.sol:37`) | Nonce firmado por `(topic, issuer)`; lo incrementan `revokeClaim` (RF-013/D-050) y `removeClaim` (AF-12) |
+| struct `Claim` | `{uint256 topic; uint256 scheme; address issuer; bytes signature; bytes data; string uri; uint256 expiresAt; bool revoked;}` | — | existe (`IdentityCloneable.sol:39-51`) | Incluye **`expiresAt`** y **`revoked`** (RF-013, D-038/D-046) |
 
 > **H-14 corregido:** no existe `holders[]`, `holderIndex[]`, `firstReceiveTime` ni `issuerTopics` en este
 > contrato. El índice de emisores se llama `topicIssuers` (array) + `topicIssuerExists` (mapping).
+> **Actualizado (RF-013/AF-12):** el struct `Claim` ya no son 7 campos; añade `expiresAt` (vigencia, D-038)
+> y `revoked` (revocación por el issuer, D-046), y existe el mapping `claimNonce` fuera del struct.
 
 ### Entidad: `IdentityRegistry` (compartido)
 | Campo | Tipo | Clave | Estado | Descripción |
@@ -81,33 +84,39 @@
 ### Entidad: `TokenCloneable`
 | Campo | Tipo | Clave | Estado | Descripción |
 |---|---|---|---|---|
-| `identityRegistry` | `IdentityRegistry` public | FK | existe (`TokenCloneable.sol:23`) | Registry de identidades |
-| `trustedIssuersRegistry` | `TrustedIssuersRegistry` public | FK | existe (`TokenCloneable.sol:24`) | Registry de emisores |
-| `claimTopicsRegistry` | `IClaimTopicsRegistry` public | FK | existe (`TokenCloneable.sol:25`) | Requirements de claims del token |
-| `complianceModules` | `ICompliance[]` public | — | existe (`TokenCloneable.sol:28`) | Módulos activos directos |
-| `_tokenName` | `string` private | — | existe (`TokenCloneable.sol:31`) | **H-06:** storage muerto (nombre ERC-20 duplicado) |
-| `_tokenSymbol` | `string` private | — | existe (`TokenCloneable.sol:32`) | **H-06:** storage muerto |
-| `_tokenDecimals` | `uint8` private | — | existe (`TokenCloneable.sol:33`) | Decimales |
-| `frozen` | `mapping(address => bool)` private | PK (account) | existe (`TokenCloneable.sol:44`) | Cuenta congelada |
-| `bypassCompliance` | `bool` private | — | existe (`TokenCloneable.sol:47`) | **H-03/H-18: flag a rediseñar (RF-002)** |
-| roles `DEFAULT_ADMIN_ROLE`, `AGENT_ROLE`, `COMPLIANCE_ROLE` | `bytes32 public constant` | — | existe (`TokenCloneable.sol:19-20` + `AccessControlUpgradeable`) | `DEFAULT_ADMIN_ROLE` heredado de OZ |
+| `identityRegistry` | `IdentityRegistry` public | FK | existe (`TokenCloneable.sol:39`) | Registry de identidades |
+| `trustedIssuersRegistry` | `TrustedIssuersRegistry` public | FK | existe (`TokenCloneable.sol:40`) | Registry de emisores |
+| `claimTopicsRegistry` | `IClaimTopicsRegistry` public | FK | existe (`TokenCloneable.sol:41`) | Requirements de claims del token |
+| `complianceModules` | `ICompliance[]` public | — | existe (`TokenCloneable.sol:44`) | Módulos activos directos (**AF-05:** array vacío ⇒ `canTransfer == false`) |
+| `_tokenDecimals` | `uint8` private | — | existe (`TokenCloneable.sol:49`) | Decimales (lo usa `decimals()`) |
+| `frozen` | `mapping(address => bool)` private | PK (account) | existe (`TokenCloneable.sol:60`) | Cuenta congelada |
+| `authorizedDestinations` | `mapping(address => bool)` public | PK (account) | existe (`TokenCloneable.sol:66`) | Whitelist de destinos de `burn`/`forcedTransfer` (RF-004) |
+| `maxBurnPerTx` | `uint256` public | — | existe (`TokenCloneable.sol:69`) | Tope de `burn` por transacción; `0` desactiva (RF-004) |
+| `maxForcedPerTx` | `uint256` public | — | existe (`TokenCloneable.sol:72`) | Tope de `forcedTransfer`; `0` desactiva (RF-004) |
+| `maxSupply` | `uint256` public | — | existe (`TokenCloneable.sol:75`) | Tope de suministro; `0` = sin tope (D-022) |
+| roles `DEFAULT_ADMIN_ROLE`, `AGENT_ROLE`, `COMPLIANCE_ROLE` | `bytes32 public constant` | — | existe (`TokenCloneable.sol:35-36` + `AccessControlUpgradeable`) | `DEFAULT_ADMIN_ROLE` heredado de OZ |
 | balances / allowances / totalSupply | ERC-20 | — | existe (`ERC20Upgradeable`) | State estándar ERC-20 |
+
+> **H-14 corregido (TokenCloneable):** **no** existen `_tokenName` ni `_tokenSymbol` (storage muerto
+> eliminado en D-070) ni el flag `bypassCompliance` (retirado en RF-002); en su lugar están los 4 campos
+> de RF-004 (`authorizedDestinations`, `maxBurnPerTx`, `maxForcedPerTx`, `maxSupply`). El layout real
+> (slots 0..9) se verifica con `forge inspect TokenCloneable storage-layout`.
 
 ### Entidad: `ComplianceAggregator`
 | Campo | Tipo | Clave | Estado | Descripción |
 |---|---|---|---|---|
-| `tokenModules` | `mapping(address => ICompliance[])` private | FK (token) | existe (`ComplianceAggregator.sol:26`) | Módulos por token |
-| `moduleIndex` | `mapping(address => mapping(address => uint256))` private | — | existe (`ComplianceAggregator.sol:29`) | Índice para borrado O(1) |
-| `isModuleActive` | `mapping(address => mapping(address => bool))` private | — | existe (`ComplianceAggregator.sol:32`) | Estado del módulo |
-| `tokens` | `address[]` private | — | existe (`ComplianceAggregator.sol:35`) | Índice de tokens que usan el aggregator |
-| `_isTokenRegistered` | `mapping(address => bool)` private | PK lógica (token) | existe (`ComplianceAggregator.sol:38`) | Registro implícito (se marca solo al añadir módulo). **RF-012** lo hará explícito y fail-closed → §5 |
+| `tokenModules` | `mapping(address => ICompliance[])` private | FK (token) | existe (`ComplianceAggregator.sol:38`) | Módulos por token |
+| `moduleIndex` | `mapping(address => mapping(address => uint256))` private | — | existe (`ComplianceAggregator.sol:41`) | Índice para borrado O(1) |
+| `isModuleActive` | `mapping(address => mapping(address => bool))` private | — | existe (`ComplianceAggregator.sol:44`) | Estado del módulo |
+| `tokens` | `address[]` private | — | existe (`ComplianceAggregator.sol:47`) | Índice de tokens que usan el aggregator |
+| `_isTokenRegistered` | `mapping(address => bool)` private | PK lógica (token) | existe (`ComplianceAggregator.sol:50`) | Registro del token; **RF-012** ya lo usa fail-closed (0 módulos ⇒ denegar) |
 
 ### Módulos de compliance (state propio)
 | Módulo | Campos | Estado |
 |---|---|---|
-| `MaxBalanceCompliance` | `maxBalance` (`MaxBalanceCompliance.sol:14`), `tokenContract` (`:17`) | existe |
-| `MaxHoldersCompliance` | `maxHolders` (`MaxHoldersCompliance.sol:14`), `holderCount` (`:17`), `tokenContract` (`:20`), `isHolder` (`:23`), `authorizedCallers` (`:26`) | existe |
-| `TransferLockCompliance` | `lockPeriod` (`TransferLockCompliance.sol:14`), `tokenContract` (`:17`), `lockEndTime` (`:20`), `authorizedCallers` (`:23`) | existe |
+| `MaxBalanceCompliance` | `maxBalance` (`MaxBalanceCompliance.sol:16`), `tokenContract` (`:19`) | existe |
+| `MaxHoldersCompliance` | `maxHolders` (`MaxHoldersCompliance.sol:16`), `holderCount` (`:19`), `tokenContract` (`:22`), `isHolder` (`:25`), `authorizedCallers` (`:28`) | existe |
+| `TransferLockCompliance` | `lockPeriod` (`TransferLockCompliance.sol:16`), `tokenContract` (`:19`), `lockEndTime` (`:22`), `authorizedCallers` (`:25`) | existe |
 
 > **H-14 corregido (módulos):** el identificador del token es **`tokenContract`**, no `token`. En
 > `MaxHoldersCompliance` el estado por cuenta es **`isHolder`** (mapping, **no** `holders[]` +
@@ -115,9 +124,10 @@
 > `TransferLockCompliance` el lock por cuenta es **`lockEndTime`** (**no** `firstReceiveTime`).
 
 ### Estado de eventos de compliance
-Los módulos **no** emiten `TokenContractSet` al fijar `tokenContract` (H-34, backlog QW-8). Los eventos hoy
-emitidos son los documentados en cada `.sol` (`MaxHoldersSet`, `HolderAdded`, `HolderRemoved`,
-`LockPeriodSet`, `TransferLocked`, `MaxBalanceSet`, `ModuleAdded`, `ModuleRemoved`, `TokenRegistered`).
+Los tres módulos **sí** emiten `TokenContractSet(address indexed tokenContract)` al fijar `tokenContract`
+(QW-8, cierra **H-34**). El resto de eventos son los documentados en cada `.sol`
+(`MaxHoldersSet`, `HolderAdded`, `HolderRemoved`, `LockPeriodSet`, `TransferLocked`, `MaxBalanceSet`,
+`ModuleAdded`, `ModuleRemoved`, `TokenRegistered`).
 
 ## 2. Modelo off-chain (rwa-web → **PostgreSQL**, esquema `rwa`)
 

@@ -53,6 +53,7 @@ contract RF013_ClaimLifecycleTest is Test {
         uint256 expiresAt
     );
     event ClaimRevoked(uint256 indexed topic, address indexed issuer);
+    event ClaimRemoved(uint256 indexed topic, address indexed issuer);
 
     function setUp() public {
         issuer = vm.addr(ISSUER_PK);
@@ -484,5 +485,74 @@ contract RF013_ClaimLifecycleTest is Test {
         vm.prank(user1);
         vm.expectRevert("Signature signer mismatch");
         identities[user1].addClaim(KYC_TOPIC, 1, issuer, sigNonce0, data, "uri", expiresAt);
+    }
+
+    // ------------------------------------------------------------------
+    // AF-12 — `removeClaim` conserva el anti-replay y deja traza
+    // ------------------------------------------------------------------
+
+    /// AF-12: el borrado del titular incrementa el nonce y elimina la entrada de storage.
+    function test_AF12_removeClaim_incrementa_nonce_y_borra() public {
+        bytes memory data = _claimData(user1);
+        uint256 expiresAt = block.timestamp + 30 days;
+        _attest(user1, data, "uri", expiresAt);
+        assertEq(_nonce(user1), 0, "nonce inicial");
+
+        vm.prank(user1);
+        identities[user1].removeClaim(KYC_TOPIC, issuer);
+
+        assertEq(_nonce(user1), 1, "removeClaim incrementa el nonce (AF-12)");
+        assertFalse(identities[user1].claimExists(KYC_TOPIC, issuer), "la entrada se borra por diseno");
+        assertEq(identities[user1].getClaimIssuersForTopic(KYC_TOPIC).length, 0, "indice limpio");
+        assertFalse(token.isVerified(user1));
+    }
+
+    /// AF-12: la firma emitida antes del borrado ya no puede reactivar el claim por replay.
+    function test_AF12_removeClaim_firma_previa_no_reactiva() public {
+        bytes memory data = _claimData(user1);
+        uint256 expiresAt = block.timestamp + 30 days;
+        bytes memory sig = _sign(user1, data, expiresAt, 0, "uri");
+
+        vm.prank(user1);
+        identities[user1].addClaim(KYC_TOPIC, 1, issuer, sig, data, "uri", expiresAt);
+
+        vm.prank(user1);
+        identities[user1].removeClaim(KYC_TOPIC, issuer);
+
+        // Misma firma (nonce 0) contra el nonce 1 vigente: revierte y no reactiva.
+        vm.prank(user1);
+        vm.expectRevert("Signature signer mismatch");
+        identities[user1].addClaim(KYC_TOPIC, 1, issuer, sig, data, "uri", expiresAt);
+        assertFalse(token.isVerified(user1), "sigue sin verificar");
+    }
+
+    /// AF-12: el issuer puede reactivar con una firma nueva sobre el nonce incrementado.
+    function test_AF12_removeClaim_reactivacion_con_nonce_nuevo_ok() public {
+        bytes memory data = _claimData(user1);
+        uint256 expiresAt = block.timestamp + 30 days;
+        _attest(user1, data, "uri", expiresAt);
+
+        vm.prank(user1);
+        identities[user1].removeClaim(KYC_TOPIC, issuer);
+        assertEq(_nonce(user1), 1);
+
+        bytes memory newSig = _sign(user1, data, expiresAt, 1, "uri");
+        vm.prank(user1);
+        identities[user1].addClaim(KYC_TOPIC, 1, issuer, newSig, data, "uri", expiresAt);
+
+        assertTrue(identities[user1].hasValidClaim(KYC_TOPIC, issuer));
+        assertTrue(token.isVerified(user1), "reactivado con firma nueva");
+    }
+
+    /// AF-12: cuando el storage se borra, la traza on-chain queda en `ClaimRemoved`.
+    function test_AF12_removeClaim_emite_evento_de_traza() public {
+        bytes memory data = _claimData(user1);
+        uint256 expiresAt = block.timestamp + 30 days;
+        _attest(user1, data, "uri", expiresAt);
+
+        vm.expectEmit(true, true, false, false);
+        emit ClaimRemoved(KYC_TOPIC, issuer);
+        vm.prank(user1);
+        identities[user1].removeClaim(KYC_TOPIC, issuer);
     }
 }

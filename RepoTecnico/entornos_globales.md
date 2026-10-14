@@ -13,14 +13,14 @@
 
 ## 2. Repositorios remotos
 
-| Repositorio | URL | Estado (2026-10-03) |
+| Repositorio | URL | Estado (2026-10-14) |
 |---|---|---|
-| rwa-sc (GitLab) | `https://gitlab.com/anlucorporations/rwa-sc.git` | ✅ Existe · ramas: `main`, `rwa-sc-DSH`, `rwa-sc-DSH-GCP` (misma cabeza `2a4a683`) |
-| rwa-sc (GitHub) | `https://github.com/anlucorporations/rwa-sc` | ⚠️ Repo vacío (0 ramas) |
-| rwa-sc (CodeCrypto) | `https://gitlab.codecrypto.academy/anlucorporations/rwa-sc.git` | ❌ 404 (o privado sin token) |
-| rwa-web | — | ❌ **No existe en ningún remoto** (GitHub, GitLab.com, CodeCrypto: 404). Pendiente autorización de creación (Q3) |
+| rwa-sc (GitLab.com, `origin`) | `https://gitlab.com/anlucorporations/rwa-sc.git` | ✅ Existe · ramas: `main` (`2a4a683`), `rwa-sc-DSH`, **`rwa-sc-DSH-GCP`** sincronizada. `fetch` por HTTPS; **`push` por SSH** (`remote.origin.pushurl = git@gitlab.com:...`, el HTTPS no tiene token) |
+| rwa-sc (GitHub, remoto `github`) | `git@github.com:anlucorporations/rwa-sc.git` | ✅ Existe · `rwa-sc-DSH-GCP` sincronizada (SSH) |
+| rwa-sc (CodeCrypto, remoto `codecrypto`) | `https://gitlab.codecrypto.academy/anlucorporations/rwa-sc.git` | ✅ Existe · `rwa-sc-DSH-GCP` sincronizada (helper `git-credential-gitlab-codecrypto`) |
+| rwa-web | — | ⏳ Repo **local** `rwa-web/.git`, rama `rwa-web-DSH`; **sin remoto** configurado (D-094) |
 
-- **Rama de trabajo**: pendiente de Q3.
+- **Rama de trabajo**: `rwa-sc-DSH-GCP` (D-005).
 - **Regla**: nunca `git push` sin orden explícita del usuario (`/push`).
 
 ## 3. GCP (global, `/home/dsh/workspace/`)
@@ -138,9 +138,12 @@ sc/script/deploy.sh                      # despliega, valida red, verifica on-ch
 
 ## 10. Rama y repositorios de trabajo
 
-- Rama de trabajo de contratos: **`rwa-sc-DSH-GCP`** (D-005) en `https://gitlab.com/anlucorporations/rwa-sc.git`.
-- Estado del repo remoto: HEAD = 1 commit (`2a4a683`) con solo `README.md`; el árbol real de `rwa-sc`
-  (contratos, tests, scripts y docs) sigue **sin versionar** → H-04 / RF-005.
+- Rama de trabajo de contratos: **`rwa-sc-DSH-GCP`** (D-005). Remotos configurados: **`origin`**
+  (`https://gitlab.com/anlucorporations/rwa-sc.git`, push por SSH), **`github`**
+  (`git@github.com:anlucorporations/rwa-sc.git`) y **`codecrypto`**
+  (`https://gitlab.codecrypto.academy/anlucorporations/rwa-sc.git`).
+- Estado del repo remoto: la rama está **publicada y sincronizada en los tres remotos** (último commit de
+  referencia `688f737`); `main` intacta en `2a4a683`. El `push` se ejecutó con orden explícita del usuario.
 - No se hace `push` sin orden explícita del usuario.
 - **Repo del frontend (etapa de optimización, D-094):** ✅ **creado en local** el 2026-10-14 — `rwa-web/.git`,
   rama **`rwa-web-DSH`**, commit inicial `cd97c7d` («chore(web): commit inicial — separación de líneas @sc/@web»),
@@ -154,8 +157,8 @@ sc/script/deploy.sh                      # despliega, valida red, verifica on-ch
 
 ## 11. Métricas de referencia (medidas, no declaradas)
 
-Cifras vigentes (medidas, ver `metricas_ejecucion.md` §16.3 y §19): **353 tests / 353 pasan / 0 fallan**
-(18 suites) y cobertura de `src/` **97,12 % de líneas** (D-017, sin interfaces; mínimo por contrato 91,53 %).
+Cifras vigentes (medidas, ver `metricas_ejecucion.md` §25): **401 tests / 401 pasan / 0 fallan** (23 suites,
+19 invariantes) y cobertura de `src/` **97,07 % de líneas** (D-017, sin interfaces; mínimo por contrato 91,53 %).
 Las cifras originales ("139 tests", "100 % passing", "coverage > 80 %") no estaban respaldadas; históricamente
 la auditoría V1 midió 98 ejecutados / 93 pasan / 5 fallan / 53 no arrancan / cobertura 42,86 % (2026-10-03).
 

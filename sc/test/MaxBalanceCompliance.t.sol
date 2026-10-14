@@ -27,6 +27,7 @@ contract MaxBalanceComplianceTest is Test {
     uint256 constant MAX_BALANCE = 1000 * 10 ** 18; // 1000 tokens
 
     event MaxBalanceSet(uint256 maxBalance);
+    event TokenContractSet(address indexed tokenContract);
 
     function setUp() public {
         owner = address(this);
@@ -51,6 +52,15 @@ contract MaxBalanceComplianceTest is Test {
 
     function test_SetTokenContract() public {
         address newToken = makeAddr("newToken");
+        compliance.setTokenContract(newToken);
+        assertEq(compliance.tokenContract(), newToken);
+    }
+
+    /// QW-8 (H-34): `setTokenContract` emite `TokenContractSet` con el token vinculado.
+    function test_QW8_SetTokenContract_emite_evento() public {
+        address newToken = makeAddr("newTokenQW8");
+        vm.expectEmit(true, true, true, true);
+        emit TokenContractSet(newToken);
         compliance.setTokenContract(newToken);
         assertEq(compliance.tokenContract(), newToken);
     }

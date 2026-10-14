@@ -16,6 +16,7 @@ contract TransferLockComplianceTest is Test {
 
     event LockPeriodSet(uint256 lockPeriod);
     event TransferLocked(address indexed account, uint256 lockEndTime);
+    event TokenContractSet(address indexed tokenContract);
 
     function setUp() public {
         owner = address(this);
@@ -38,6 +39,15 @@ contract TransferLockComplianceTest is Test {
 
     function test_SetTokenContract() public {
         address newToken = makeAddr("newToken");
+        compliance.setTokenContract(newToken);
+        assertEq(compliance.tokenContract(), newToken);
+    }
+
+    /// QW-8 (H-34): `setTokenContract` emite `TokenContractSet` con el token vinculado.
+    function test_QW8_SetTokenContract_emite_evento() public {
+        address newToken = makeAddr("newTokenQW8");
+        vm.expectEmit(true, true, true, true);
+        emit TokenContractSet(newToken);
         compliance.setTokenContract(newToken);
         assertEq(compliance.tokenContract(), newToken);
     }

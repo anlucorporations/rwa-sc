@@ -460,3 +460,56 @@ todo"). Retirar el último módulo (o el aggregator) desactivaba en silencio tod
   `test_AF05_transfer_revierte_sin_modulos`, `test_AF05_con_modulo_permisivo_transfiere`,
   `test_AF05_retirar_ultimo_modulo_bloquea_y_registrar_recupera`,
   `test_AF05_mint_y_forcedTransfer_no_dependen_de_modulos`).
+
+---
+
+## Cierre de deuda (QW-8) — evento `TokenContractSet` en los módulos de compliance (ABI **aditiva**)
+
+**Motivo:** H-34 — fijar `tokenContract` en los módulos no emitía ningún evento, así que la vinculación
+módulo→token no dejaba traza on-chain. QW-8 añade el evento en los tres módulos.
+
+### ABI: evento nuevo (aditivo)
+
+```
+event TokenContractSet(address indexed tokenContract);
+```
+
+- `MaxBalanceCompliance.setTokenContract(address)` → emite `TokenContractSet(_token)`
+- `MaxHoldersCompliance.setTokenContract(address)` → emite `TokenContractSet(_token)`
+- `TransferLockCompliance.setTokenContract(address)` → emite `TokenContractSet(_token)`
+
+### Firmas existentes: sin cambios
+
+`setTokenContract(address)` conserva su selector; **no** cambia ninguna firma de función, salida ni
+comportamiento de autorización (`onlyOwner`, `require(_token != address(0))`). Por tanto **no hay impacto**
+para los consumidores que llaman a la función; solo se añade un log.
+
+### Línea base
+
+`sc/abis/MaxBalanceCompliance.json`, `MaxHoldersCompliance.json` y `TransferLockCompliance.json` se
+regeneran con `script/ci/abi_diff.sh --update`; los `.methods` no cambian (no hay selectores nuevos).
+
+---
+
+## Cierre de deuda (AF-12) — `removeClaim` con anti-replay (sin cambio de ABI)
+
+**Motivo:** AF-12 — el titular podía borrar el claim (`removeClaim`) sin invalidar la firma previa, y el
+`delete` perdía la traza de un claim revocado (D-046).
+
+### Regla vigente
+
+- `IdentityCloneable.removeClaim(topic, issuer)` sigue siendo `onlyOwner` y **sigue borrando** la entrada
+  (`claimExists` → `false`), pero ahora **incrementa `claimNonce[topic][issuer]`**, igual que `revokeClaim`.
+  La firma EIP-712 emitida antes del borrado deja de verificar (`addClaim` revierte
+  `"Signature signer mismatch"`), de modo que el borrado no puede reactivar el claim por replay.
+- La traza on-chain del claim eliminado queda en los eventos `ClaimAdded` (con firma, `data`, `uri` y
+  `expiresAt`), `ClaimRevoked` (si lo hubo) y `ClaimRemoved`. Es la fuente de verdad documentada cuando el
+  storage se borra.
+- **Sin cambio de ABI:** `claimNonce` ya era público (Ciclo 8c); ninguna firma, selector, salida ni evento
+  cambia. `sc/abis/` no requiere regeneración por este cambio.
+
+### Pruebas de regresión
+
+`test/RF013_ClaimLifecycle.t.sol`: `test_AF12_removeClaim_incrementa_nonce_y_borra`,
+`test_AF12_removeClaim_firma_previa_no_reactiva`, `test_AF12_removeClaim_reactivacion_con_nonce_nuevo_ok`,
+`test_AF12_removeClaim_emite_evento_de_traza`.

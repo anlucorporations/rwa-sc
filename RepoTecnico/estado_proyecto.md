@@ -295,15 +295,13 @@ Criterios de salida de la V2: **B-1..B-8** (bloqueantes) y **C-1..C-11** (calida
 - Incidencias reales resueltas durante el primer push: *dubious ownership* en el runner no-root (arreglado con
   `git config --global --add safe.directory '*'`, que cubre también los submódulos anidados) y eliminación de la
   dependencia de `jq` en el gate de ABIs (la imagen oficial solo trae `git`).
-- Quedan **subidos a GitLab** todos los commits de la Fase 3 (rama `rwa-sc-DSH-GCP`; `main` intacta). Los
-  cambios de la **Fase 4** (invariantes, matriz, 7 huecos y gates nuevos) están en **commit local, sin push**,
-  por la regla del proyecto (sin orden explícita del usuario no hay `push`).
+- Quedan **subidos** todos los commits de las Fases 3 y 4 (rama `rwa-sc-DSH-GCP`; `main` intacta). El `push`
+  se autorizó explícitamente y la rama está replicada en **GitLab.com**, **GitHub** y **CodeCrypto**.
 
 ## Próximo paso
 
-**Proyecto de contratos cerrado** (Fases 1–4 completadas, Fase 5 omitida por D-087). Se abre una **nueva etapa de optimización** centrada en el frontend `@web` (ver sección final). En cuanto a la operación: cuando el usuario
-autorice el `push` (`/push`), subir `rwa-sc-DSH-GCP` a `https://gitlab.com/anlucorporations/rwa-sc.git` con los
-commits de la Fase 4 (los de la Fase 3 ya están en remoto). El ensayo oficial del pipeline sigue siendo:
+**Proyecto de contratos cerrado** (Fases 1–4 completadas, Fase 5 omitida por D-087). Se abre una **nueva etapa de optimización** centrada en el frontend `@web` (ver sección final). La operación de `push` ya está
+ejecutada: `rwa-sc-DSH-GCP` está publicada en GitLab.com (`origin`), GitHub y CodeCrypto. El ensayo oficial del pipeline sigue siendo:
 
 ```bash
 cd /home/dsh/workspace/RWA/rwa-sc
@@ -324,8 +322,25 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
   (11 corregidos + 2 por decisión del usuario + 3 diferidos).
 - **D-086 (decisión del usuario):** la **Fase 5 (Manuales) queda aplazada**; puede retomarse en cualquier
   momento con el skill `@manuales` (los insumos ya están: arquitectura, despliegue, datos, runbook y métricas).
-- **Estado del repositorio remoto (`rwa-sc-DSH-GCP`)**: 22 commits, pipelines `2934202154`, `2934241152` y
-  `2935871780` en verde; `main` intacta en `2a4a683`.
+- **Estado del repositorio remoto (`rwa-sc-DSH-GCP`)**: rama replicada en GitLab.com, GitHub y CodeCrypto;
+  pipelines `2934202154`, `2934241152` y `2935871780` en verde; `main` intacta en `2a4a683`.
+
+## Cierre de deuda de bajo riesgo (QW-8 · AF-12 · H-14)
+
+- [x] **QW-8 (cierra H-34):** evento `TokenContractSet(address indexed tokenContract)` en los 3 módulos de
+  compliance; antes la vinculación módulo→token no dejaba traza. Tests: `test_QW8_SetTokenContract_emite_evento`
+  en las 3 suites de módulos. ABI **aditiva** (solo evento) → `sc/abis/` regenerado y `CHANGELOG_ABIS.md`
+  actualizado.
+- [x] **AF-12:** `removeClaim` incrementa `claimNonce[_topic][_issuer]` (mismo anti-replay que `revokeClaim`):
+  la firma EIP-712 previa al borrado ya no reactiva el claim. La traza del claim borrado queda en los eventos
+  `ClaimAdded`/`ClaimRevoked`/`ClaimRemoved` (storage borrado por diseño, `claimExists == false`). Tests:
+  `test_AF12_*` (4) en `RF013_ClaimLifecycle.t.sol`.
+- [x] **H-14:** `diccionario_datos.md` §1 (modelo on-chain) se corrige contra el storage real verificado con
+  `forge inspect <C> storage-layout`: fuera `_tokenName`/`_tokenSymbol`/`bypassCompliance`, dentro `claimNonce`,
+  `expiresAt`/`revoked` y los 4 campos de RF-004; líneas y eventos actualizados (incluye `TokenContractSet`).
+- **Pendiente relacionado:** **H-19** (estado singleton cross-token de los módulos) exige cambiar el modelo de
+  storage de los módulos (clave por token) y se evalúa aparte por su impacto en ABI/tests; **AF-04** (front-running
+  de `createIdentityWithClaim`) y **AF-14** (`check_secrets.sh` no escanea `.md`) siguen diferidos.
 
 ## Cierre del proyecto (Fase 5 omitida)
 

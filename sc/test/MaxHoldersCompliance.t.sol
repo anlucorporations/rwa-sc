@@ -30,6 +30,7 @@ contract MaxHoldersComplianceTest is Test {
     event MaxHoldersSet(uint256 maxHolders);
     event HolderAdded(address indexed holder);
     event HolderRemoved(address indexed holder);
+    event TokenContractSet(address indexed tokenContract);
 
     function setUp() public {
         owner = address(this);
@@ -56,6 +57,15 @@ contract MaxHoldersComplianceTest is Test {
 
     function test_SetTokenContract() public {
         address newToken = makeAddr("newToken");
+        compliance.setTokenContract(newToken);
+        assertEq(compliance.tokenContract(), newToken);
+    }
+
+    /// QW-8 (H-34): `setTokenContract` emite `TokenContractSet` con el token vinculado.
+    function test_QW8_SetTokenContract_emite_evento() public {
+        address newToken = makeAddr("newTokenQW8");
+        vm.expectEmit(true, true, true, true);
+        emit TokenContractSet(newToken);
         compliance.setTokenContract(newToken);
         assertEq(compliance.tokenContract(), newToken);
     }

@@ -20,6 +20,10 @@ contract MaxBalanceCompliance is ICompliance, ERC165, Ownable {
 
     event MaxBalanceSet(uint256 maxBalance);
 
+    /// @dev QW-8: traza la vinculacion del modulo a su token. Cierra H-34 (los cambios de
+    /// `tokenContract` no emitían evento), necesario para auditar a que token sirve el modulo.
+    event TokenContractSet(address indexed tokenContract);
+
     constructor(address initialOwner, uint256 _maxBalance) Ownable(initialOwner) {
         maxBalance = _maxBalance;
         emit MaxBalanceSet(_maxBalance);
@@ -41,6 +45,7 @@ contract MaxBalanceCompliance is ICompliance, ERC165, Ownable {
     function setTokenContract(address _token) external onlyOwner {
         require(_token != address(0), "Invalid token address");
         tokenContract = _token;
+        emit TokenContractSet(_token);
     }
 
     /**

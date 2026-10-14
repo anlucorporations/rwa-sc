@@ -209,12 +209,29 @@ contract IdentityCloneable is OwnableUpgradeable {
     }
 
     /**
-     * @dev Remove a claim from the identity
+     * @dev Remove a claim from the identity (solo el titular, `onlyOwner`).
+     *
+     * AF-12 (cierre): la entrada de storage se **borra** por diseño (`claimExists` pasa a `false`),
+     * pero el borrado **ya no es silencioso ni reversible con la firma antigua**:
+     *
+     * 1. Incrementa `claimNonce[_topic][_issuer]`, igual que `revokeClaim`. Asi la firma EIP-712
+     *    emitida antes del borrado deja de verificar y no puede reactivar el claim por replay
+     *    (`addClaim` reconstruye el digest con el nonce nuevo y revierte `"Signature signer mismatch"`).
+     * 2. La **traza on-chain** del claim eliminado queda en el historico de eventos, que es la
+     *    fuente de verdad documentada cuando el storage se borra: `ClaimAdded` (con `signature`,
+     *    `data`, `uri` y `expiresAt`), mas `ClaimRevoked` (si lo hubo) y `ClaimRemoved`. Esta
+     *    decision cierra la parte de H-34/AF-12 relativa a "conservar traza" sin anadir storage.
+     *
      * @param _topic Claim topic
      * @param _issuer Issuer address
      */
     function removeClaim(uint256 _topic, address _issuer) external onlyOwner returns (bool) {
         delete claims[_topic][_issuer];
+
+        // AF-12: invalida la firma previa al borrado (mismo criterio anti-replay que `revokeClaim`).
+        // Se incrementa siempre, aunque no existiera claim, para que una firma futura con el nonce
+        // anterior no pueda reutilizarse.
+        claimNonce[_topic][_issuer]++;
 
         // Remove issuer from tracking array
         if (topicIssuerExists[_topic][_issuer]) {

@@ -29,6 +29,9 @@ contract TransferLockCompliance is ICompliance, ERC165, Ownable {
     event AuthorizedCallerAdded(address indexed caller);
     event AuthorizedCallerRemoved(address indexed caller);
 
+    /// @dev QW-8: traza la vinculacion del modulo a su token (cierra H-34).
+    event TokenContractSet(address indexed tokenContract);
+
     modifier onlyTokenOrAuthorized() {
         require(
             msg.sender == tokenContract || authorizedCallers[msg.sender], "Only token contract or authorized caller"
@@ -57,6 +60,7 @@ contract TransferLockCompliance is ICompliance, ERC165, Ownable {
     function setTokenContract(address _token) external onlyOwner {
         require(_token != address(0), "Invalid token address");
         tokenContract = _token;
+        emit TokenContractSet(_token);
     }
 
     /**

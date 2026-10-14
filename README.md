@@ -21,8 +21,8 @@ Este proyecto implementa un **sistema de tokenización RWA** (Real World Assets)
 - ⚠️ **Inspirado en ERC-3643 / T-REX**, no "ERC-3643 compliant": implementa un subconjunto propio de interfaces (ver declaración verificable en [`SECURITY.md`](SECURITY.md)). **No auditado y no apto para producción con activos reales** (ver [`RepoTecnico/INFORME_OPTIMIZACION_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_V1.md)).
 - ✅ **Clone Factory** (EIP-1167) — ahorro de gas medido con comparación equivalente: **45–59 %** (Token 55 %, Identity 59 %, Identity+claim 45 %, Registry 53 %; ver `.gas-snapshot`).
 - ✅ **Compliance Aggregator** — gestión modular de compliance (fail-closed).
-- ✅ **353 tests** (353 pasando, 0 fallos, 0 skipped) — `forge test`, cifra respaldada por [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
-- ✅ **Cobertura de `src/`**: **97,11 % de líneas / 86,13 % de ramas** (D-017: sin interfaces ni `test/`; `metricas_ejecucion.md`).
+- ✅ **401 tests** (401 pasando, 0 fallos, 0 skipped) — `forge test`, cifra respaldada por [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
+- ✅ **Cobertura de `src/`**: **97,07 % de líneas** (mínimo por contrato 91,53 %; D-017: sin interfaces ni `test/`; `metricas_ejecucion.md`).
 - ✅ **Gas medido** con baseline versionado (`sc/.gas-snapshot`); **no production-ready** sin auditoría externa (D-024).
 
 ---
@@ -137,25 +137,30 @@ Compliance:
 
 ```
 - Token.t.sol                          (30 tests)
-- TokenCloneFactory.t.sol              (13 tests)
+- TokenCloneFactory.t.sol              (15 tests)
 - IdentityCloneFactory.t.sol           (12 tests)
-- IdentityCloneable.t.sol              (21 tests)
+- IdentityCloneable.t.sol              (24 tests)
 - IdentityRegistry.t.sol               (41 tests)
-- TrustedIssuersRegistry.t.sol         (33 tests)
+- TrustedIssuersRegistry.t.sol         (34 tests)
 - ClaimTopicsRegistry.t.sol            (25 tests)
 - ClaimTopicsRegistryCloneFactory.t.sol (14 tests)
 - ComplianceAggregator.t.sol           (25 tests)
-- MaxBalanceCompliance.t.sol           (15 tests)
-- MaxHoldersCompliance.t.sol           (22 tests)
-- TransferLockCompliance.t.sol         (22 tests)
+- MaxBalanceCompliance.t.sol           (18 tests)
+- MaxHoldersCompliance.t.sol           (25 tests)
+- TransferLockCompliance.t.sol         (23 tests)
 - RF003_ERC165.t.sol                   (16 tests)
-- RF011_FailClosed.t.sol               (6 tests)
-- RF012_AggregatorFailClosed.t.sol     (8 tests)
-- RF013_ClaimLifecycle.t.sol           (16 tests)
+- RF011_FailClosed.t.sol               (8 tests)
+- RF012_AggregatorFailClosed.t.sol     (9 tests)
+- RF013_ClaimLifecycle.t.sol           (20 tests)
 - TokenLimits.t.sol                    (17 tests)
-- TokenReentrancy.t.sol                (17 tests)
+- TokenReentrancy.t.sol                (18 tests)
+- AuditoriaFinalAF.t.sol               (19 tests)
+- invariant/AggregatorInvariants.t.sol (2 tests)
+- invariant/IdentityInvariants.t.sol   (2 tests)
+- invariant/RegistryInvariants.t.sol   (2 tests)
+- invariant/TokenInvariants.t.sol      (2 tests)
 
-Total: 353 tests en 18 suites (353 pasando, 0 fallos, 0 skipped)
+Total: 401 tests en 23 suites (401 pasando, 0 fallos, 0 skipped)
 ```
 
 ---
@@ -294,25 +299,30 @@ forge coverage
 | Suite | Tests | Descripción |
 |-------|-------|-------------|
 | TokenTest | 30 | Token clonable principal |
-| TokenCloneFactoryTest | 13 | Token factory |
+| TokenCloneFactoryTest | 15 | Token factory |
 | TokenLimitsTest | 17 | Whitelist/topes/`maxSupply` (RF-004) |
-| TokenReentrancyTest | 17 | Anti-reentrancia (RF-002) |
+| TokenReentrancyTest | 18 | Anti-reentrancia (RF-002) |
 | ComplianceAggregatorTest | 25 | Compliance aggregator |
-| RF012_AggregatorFailClosedTest | 8 | Aggregator fail-closed (RF-012) |
+| RF012_AggregatorFailClosedTest | 9 | Aggregator fail-closed (RF-012) |
 | IdentityCloneFactoryTest | 12 | Identity factory |
-| IdentityCloneableRF001Test | 21 | Claims EIP-712 (RF-001) |
-| RF013_ClaimLifecycleTest | 16 | Vigencia/revocación de claims (RF-013) |
+| IdentityCloneableRF001Test | 24 | Claims EIP-712 (RF-001) |
+| RF013_ClaimLifecycleTest | 20 | Vigencia/revocación de claims (RF-013) |
 | IdentityRegistryTest | 41 | Registro de identidades |
-| TrustedIssuersRegistryTest | 33 | Emisores autorizados |
+| TrustedIssuersRegistryTest | 34 | Emisores autorizados |
 | ClaimTopicsRegistryTest | 25 | Topics requeridos |
 | ClaimTopicsRegistryCloneFactoryTest | 14 | Claim topics factory |
-| RF011_FailClosedTest | 6 | `isVerified` fail-closed (RF-011) |
+| RF011_FailClosedTest | 8 | `isVerified` fail-closed (RF-011) |
 | RF003_ERC165Test | 16 | Validación de módulos ERC-165 (RF-003) |
-| MaxBalanceComplianceTest | 15 | Max balance module |
-| MaxHoldersComplianceTest | 22 | Max holders module |
-| TransferLockComplianceTest | 22 | Transfer lock module |
+| MaxBalanceComplianceTest | 18 | Max balance module |
+| MaxHoldersComplianceTest | 25 | Max holders module |
+| TransferLockComplianceTest | 23 | Transfer lock module |
+| AuditoriaFinalAFTest | 19 | Auditoría adversarial final (AF-01..AF-15) |
+| AggregatorInvariantsTest | 2 | Invariantes con estado del aggregator |
+| IdentityInvariantsTest | 2 | Invariantes con estado de la identidad |
+| RegistryInvariantsTest | 2 | Invariantes con estado de los registries |
+| TokenInvariantsTest | 2 | Invariantes con estado del token |
 
-**Total: 353 tests en 18 suites (353 pasando, 0 fallos, 0 skipped)** — verificado con `forge test` y enlazado a [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
+**Total: 401 tests en 23 suites (401 pasando, 0 fallos, 0 skipped)** — verificado con `forge test` y enlazado a [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
 
 ---
 
@@ -464,4 +474,4 @@ code START_HERE.md
 
 **¡Feliz aprendizaje! 🚀📚**
 
-*Este proyecto representa 353 tests (353 pasando, 0 fallos) con baseline de gas versionado, miles de líneas de código, y múltiples patrones avanzados de Solidity. Tómate tu tiempo para entenderlo bien.*
+*Este proyecto representa 401 tests (401 pasando, 0 fallos) con baseline de gas versionado, miles de líneas de código, y múltiples patrones avanzados de Solidity. Tómate tu tiempo para entenderlo bien.*

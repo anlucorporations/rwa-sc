@@ -369,6 +369,19 @@
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "TokenContractSet",
+    "inputs": [
+      {
+        "name": "tokenContract",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "error",
     "name": "OwnableInvalidOwner",
     "inputs": [

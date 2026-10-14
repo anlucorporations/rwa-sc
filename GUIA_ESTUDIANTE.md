@@ -1262,7 +1262,7 @@ Este proyecto es un **caso de estudio completo** de:
 ✅ **Smart contracts profesionales** (no toy projects)  
 ✅ **Patrones de diseño** modernos (Clone Factory, Proxy)  
 ✅ **Arquitectura modular** y extensible  
-✅ **Testing comprehensivo** (353 tests, 18 suites)  
+✅ **Testing comprehensivo** (401 tests, 23 suites)  
 ✅ **Gas optimization** (45–59 % de ahorro medido con comparación equivalente)  
 ✅ **Security best practices** (access control, validaciones)  
 

@@ -1476,3 +1476,53 @@ Ningún test se borra, se debilita ni usa `vm.skip`.
 
 **D-083** (AF-03), **D-084** (AF-05) y **D-085** (cierre definitivo y adaptación de suites) en
 `requerimientos.md` (Bloque 6b) y en `estado_proyecto.md`.
+
+---
+
+## 25. Cierre de deuda de bajo riesgo — QW-8 · AF-12 · H-14
+
+> Cambios fuera de la Fase 4 (que permanece cerrada): cierran deuda del backlog V1 y de la auditoría
+> adversarial final sin tocar RF ni cambiar selectores.
+
+### 25.1 Conteo — antes / después
+
+| Métrica | Antes (§24) | Después |
+|---|---:|---:|
+| Tests (`forge test`) | 394 | **401** |
+| Suites | 23 | **23** |
+| Funciones `invariant_*` | 19 | **19** |
+| Cobertura `src/` (líneas) | 97,05 % (691/712) | **97,07 % (695/716)** |
+| Mínimo por contrato (líneas) | 91,53 % | **91,53 %** |
+
+`forge test` → `Ran 23 test suites ... 401 tests passed, 0 failed, 0 skipped` (`+7` pruebas: 3 de QW-8 y 4
+de AF-12). El denominador de cobertura sube de 712 a 716 líneas porque entran las 3 líneas `emit` nuevas
+más la línea de `claimNonce++` de `removeClaim`.
+
+### 25.2 QW-8 — evento `TokenContractSet` (cierra H-34)
+
+`MaxBalanceCompliance`, `MaxHoldersCompliance` y `TransferLockCompliance` emiten
+`TokenContractSet(address indexed tokenContract)` en `setTokenContract`. Traza la vinculación módulo→token
+que antes era silenciosa. **ABI aditiva** (solo evento), sin cambio de selectores. Pruebas:
+`test_QW8_SetTokenContract_emite_evento` en las 3 suites de módulos.
+
+### 25.3 AF-12 — `removeClaim` con anti-replay
+
+`IdentityCloneable.removeClaim` (solo titular) sigue borrando la entrada (`claimExists == false`) pero
+incrementa `claimNonce[_topic][_issuer]`, igual que `revokeClaim`: la firma previa al borrado deja de
+verificar y no reactiva el claim por replay; la traza queda en `ClaimAdded`/`ClaimRevoked`/`ClaimRemoved`.
+Sin cambio de ABI (`claimNonce` ya era público). Pruebas: `test_AF12_*` (4) en `RF013_ClaimLifecycle.t.sol`.
+
+### 25.4 H-14 — diccionario de datos contra el storage real
+
+`RepoTecnico/diccionario_datos.md` §1 se reescribe contra `forge inspect <C> storage-layout`: se eliminan
+`_tokenName`, `_tokenSymbol` (D-070) y `bypassCompliance` (RF-002); se añaden `claimNonce` (RF-013/AF-12),
+`expiresAt`/`revoked` en el struct `Claim` y los 4 campos de RF-004 (`authorizedDestinations`,
+`maxBurnPerTx`, `maxForcedPerTx`, `maxSupply`); se actualizan líneas y la lista de eventos (incluye
+`TokenContractSet`). El espejo `rwa-web/RepoTecnico/diccionario_datos.md` se sincroniza byte a byte.
+
+### 25.5 Verificaciones
+
+`forge build` 0 errores; `forge test` **401/401** (0 fallos, 0 saltados); `forge fmt --check` limpio;
+`check_coverage.sh` → agregado `src/` **97,07 %** y mínimo por contrato **91,53 %** (umbrales 80 %/80 %);
+`abi_diff.sh` → 15 ABIs, deriva declarada en `CHANGELOG_ABIS.md` y línea base regenerada; `.gas-snapshot`
+regenerado (`forge snapshot`), `check_no_bypass_flag.sh` y `check_secrets.sh` sin hallazgos.
