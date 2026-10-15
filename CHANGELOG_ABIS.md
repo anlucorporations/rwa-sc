@@ -600,3 +600,30 @@ de la gobernanza queda en R-7.
 Los scripts (`DeployFullStack.s.sol`, `CompleteDeploymentExample.s.sol`) crean con el `owner` de la
 factory, por lo que siguen funcionando sin cambios. Un integrador que creara con una cuenta distinta
 debe llamar antes a `setAuthorizedCreator`.
+
+---
+
+## Cierre de gobernanza (H-06) — nuevo contrato `GovernanceMultisig` (ABI **nueva**)
+
+**Motivo:** H-06 (R-7 / D-021) — los roles `DEFAULT_ADMIN_ROLE`, `AGENT_ROLE` y `COMPLIANCE_ROLE`
+podían recaer en una sola EOA. Se añade el mecanismo on-chain de **multisig M-de-N + timelock**.
+
+### ABI del contrato nuevo
+
+`src/GovernanceMultisig.sol` (no modifica la ABI de ningún contrato existente):
+
+- `constructor(address[] initialOwners, uint256 initialThreshold, uint256 initialDelay)`
+- `propose(address,uint256,bytes) returns (uint256)`, `approve(uint256)`, `execute(uint256)`, `cancel(uint256)`
+- `addOwner(address)`, `removeOwner(address)`, `setThreshold(uint256)`, `setDelay(uint256)` (solo vía propuesta)
+- Vistas: `getOwners()`, `ownerCount()`, `getProposal(uint256)`, `hasApproved(uint256,address)`,
+  `isOwner(address)`, `threshold()`, `delay()`, `proposalCount()`, `MAX_OWNERS()`
+- `receive()`
+
+Eventos: `OwnerAdded`, `OwnerRemoved`, `ThresholdUpdated`, `DelayUpdated`, `ProposalCreated`,
+`ProposalApproved`, `ProposalCancelled`, `ProposalExecuted`.
+
+### Impacto en consumidores
+
+Ninguno sobre las ABIs existentes. La adopción (conceder los roles admin al multisig y
+`renounceRole` de la EOA) es un paso **operativo** documentado en `RUNBOOK_MIGRACION.md`; el contrato
+nuevo requiere auditoría externa antes de producción (D-024).

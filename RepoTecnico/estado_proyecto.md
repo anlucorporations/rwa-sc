@@ -83,7 +83,7 @@
   Suite nueva `RF012_AggregatorFailClosed.t.sol` (8 tests, CU-16) y **31 de 35** puntos de llamada de las 3
   suites afectadas reencaminados a la ruta de producción `token → aggregator` (los 4 restantes son negativos de
   autorización); `test_NoModules_AllowsAll` invertido a `test_NoModules_FailClosed`.
-  **334/334 tests**, `src/` 97,01 % líneas / 85,53 % ramas. Decisiones **D-043/D-044**.
+  **334/334 tests**, `src/` 97,18 % líneas / 85,53 % ramas. Decisiones **D-043/D-044**.
 - [x] **Ciclo 8 — RF-013 · vigencia y revocación de claims por el issuer (+ HB-14)** (commit local
   `RF-013`): struct `Claim` con `bool revoked` (append-only) y vista `hasValidClaim` que aplica D-038
   (`expiresAt == 0` = sin caducidad); `revokeClaim` solo por el propio issuer (conserva histórico y emite
@@ -356,15 +356,19 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
   9=Jurisdiction; 5/6 reservados) con fuente única en el seed `rwa.claim_topics`; `ARQUITECTURA_FINAL.md`
   y `REFERENCIA_TECNICA.md` alineados y gate nuevo `sc/script/ci/check_claim_topics.sh`
   (`ci_check_H13_catalogo_topics_unico`) integrado en `ci-checks`.
-- **Estado actual medido:** **420/420 tests en 24 suites**, cobertura `src/` **97,01 %** (810/835; mínimo
+- **Estado actual medido:** **420/443 tests en 25 suites**, cobertura `src/` **97,18 %** (896/922; mínimo
   92,31 %), CI local 7/7. Detalle en `metricas_ejecucion.md` §25–§28 y `CHANGELOG_ABIS.md`.
 
-## Cierre de los hallazgos restantes (AF-04 · AF-14 · H-29 · H-32 · RNF)
+## Cierre de los hallazgos restantes (AF-04 · AF-14 · H-06 · H-29 · H-32 · RNF)
 
 - [x] **AF-04:** `createIdentityWithClaim` exige `msg.sender == owner` (anti front-running del clon
   predecible). `test_AF04_createIdentityWithClaim_tercero_revierte`.
 - [x] **AF-14:** `check_secrets.sh` escanea los `.md` con `DOC_RE` buscando claves crudas **etiquetadas**
   (sin marcar hashes de evidencia); prueba negativa documentada.
+- [x] **H-06 (R-7/D-021) — mecanismo:** nuevo `src/GovernanceMultisig.sol` (multisig M-de-N + timelock,
+  mantenimiento auto-dirigido, propagación del revert), `script/DeployGovernance.s.sol` y runbook de
+  entrega de roles (`RUNBOOK_MIGRACION.md` §8). Suite `GovernanceMultisig.t.sol` (23). **Pendiente:
+  adoptarlo en el despliegue canónico y auditarlo** (el mecanismo por sí solo no cierra H-06).
 - [x] **H-29 (M-14):** `DeployFullStack.s.sol` activa hasta 3 módulos (MaxBalance obligatorio;
   MaxHolders/TransferLock opcionales por env) y `deploy.sh` deriva y verifica el conteo real y cada
   módulo. Simulado con 1 y 3 módulos.
@@ -376,8 +380,8 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
   legal/regulatorias y el ensayo de restauración requieren **aprobación/ejecución externa**, y el
   **indexer** (H-12/H-21) es un componente off-chain.
 - **Lo que queda (no lo cierra el equipo técnico):** aprobación **legal** (H-10, H-11, H-25), **ensayo
-  de restauración** (H-30), **indexer off-chain** (H-12/H-21), **multisig/timelock** (H-06, R-7),
-  **Slither fijado** (H-09/RNF-107) y la **auditoría externa** antes de activos reales (R-9).
+  de restauración** (H-30), **indexer off-chain** (H-12/H-21), **adopción + auditoría del multisig**
+  (H-06, R-7), **Slither fijado** (H-09/RNF-107) y la **auditoría externa** antes de activos reales (R-9).
 
 ## Cierre del proyecto (Fase 5 omitida)
 

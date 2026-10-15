@@ -1673,3 +1673,37 @@ Verificado por simulación `forge script` (1 y 3 módulos).
 `forge build` 0 errores; `forge test` **420/420**; `forge fmt --check` limpio; `check_coverage.sh`
 → `src/` **97,01 %** (810/835); `check_secrets.sh` (con escaneo de docs) y `check_docs.sh` OK;
 `deploy.sh` simulado con 1 y 3 módulos; `.gas-snapshot` regenerado.
+
+---
+
+## 29. Cierre de gobernanza (H-06 / R-7) — `GovernanceMultisig` (multisig + timelock)
+
+### 29.1 Conteo — antes / después
+
+| Métrica | Antes (§28) | Después |
+|---|---:|---:|
+| Tests (`forge test`) | 420 | **443** |
+| Suites | 24 | **25** |
+| Cobertura `src/` (líneas) | 97,01 % (810/835) | **97,18 % (896/922)** |
+| Mínimo por contrato (líneas) | 92,31 % | **92,31 %** |
+
+`forge test` → `Ran 25 test suites ... 443 tests passed, 0 failed, 0 skipped` (`+23` de la suite nueva).
+
+### 29.2 Mecanismo
+
+`src/GovernanceMultisig.sol`: gobernanza **M-de-N con timelock** (D-021) para los roles admin.
+`propose` → `approve` × umbral → esperar `delay` → `execute`; `cancel` mientras no se ejecute. El
+mantenimiento (owners, umbral, delay) es **auto-dirigido** (`onlySelf`) y el umbral no puede exceder el
+número de owners. `execute` propaga el motivo del revert interno para conservar el diagnóstico.
+Despliegue: `script/DeployGovernance.s.sol`; entrega de roles: `RUNBOOK_MIGRACION.md` §8.
+
+### 29.3 ABI
+
+Contrato **nuevo** (no cambia ninguna ABI existente); `sc/abis/` pasa a 16 contratos y
+`CHANGELOG_ABIS.md` documenta su superficie. El contrato nuevo **requiere auditoría** antes de producción.
+
+### 29.4 Verificaciones
+
+`forge build` 0 errores; `forge test` **443/443**; `forge fmt --check` limpio; `check_coverage.sh`
+→ `src/` **97,18 %** (896/922); `DeployGovernance` simulado con `forge script`; `.gas-snapshot`
+regenerado.

@@ -9,7 +9,7 @@ Este proyecto es un **sistema de tokenización de RWA** (Real World Assets) **in
 ║                                                           ║
 ║   📚 PROYECTO EDUCATIVO DE NIVEL PROFESIONAL             ║
 ║                                                           ║
-║   ✅ 420 tests (420 passing, 0 failing)                  ║
+║   ✅ 443 tests (443 passing, 0 failing)                  ║
 ║   ✅ Gas medido: baseline .gas-snapshot                  ║
 ║   ✅ Patrones de diseño avanzados                        ║
 ║   ✅ Documentación completa                              ║
@@ -490,7 +490,7 @@ Semana 2:
   │       └─ TransferLockCompliance.sol (Ejemplo 3)
   │
   ├─ 📁 test/
-  │   └─ 24 suites de tests (420 tests totales)
+  │   └─ 25 suites de tests (443 tests totales)
   │
   └─ 📁 script/
       └─ 7 scripts Solidity (.s.sol) + deploy.sh + ci/

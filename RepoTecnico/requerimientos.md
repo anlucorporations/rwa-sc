@@ -12,7 +12,7 @@
 
 Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
 
-- **`rwa-sc`** (Zona Contratos): 15 contratos Solidity 0.8.20 (11 en `src/` + 4 en `src/compliance/`) + 24 suites de test Forge (420 tests)
+- **`rwa-sc`** (Zona Contratos): 15 contratos Solidity 0.8.20 (11 en `src/` + 4 en `src/compliance/`) + 25 suites de test Forge (443 tests)
   + 7 scripts `.s.sol` de deploy + `deploy.sh` + gates de CI. Patrones: EIP-1167 clones, Compliance modular, Registry de identidades/claims.
 - **`rwa-web`** (Zona WEB): 5 micro-apps Next.js 16 / React 19 / TS / Tailwind v4 sobre Anvil + MongoDB
   (GridFS para documentos). Ethers v6 (viem en `web-registry-trusted2`). **Fuera de alcance de este ciclo (D-003).**
@@ -362,7 +362,7 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   Quedan **prohibidas** las referencias a archivos/contratos inexistentes (`Token.sol`, `Identity.sol`,
   `TOKEN_CLONE_FACTORY.md`, `COMPLIANCE_AGGREGATOR_FINAL.md`, `COMPLIANCE_AGGREGATOR_V2.md`,
   `DeployIdentityRegistry.s.sol`) y las afirmaciones "production-ready"/"ERC-3643 compliant" sin declaración
-  verificable. Cifras canónicas: **420 tests / 420 pasan** (24 suites), cobertura `src/` **97,01 % líneas**
+  verificable. Cifras canónicas: **443 tests / 443 pasan** (25 suites), cobertura `src/` **97,18 % líneas**
   (mínimo por contrato 92,31 %; D-017/D-042), ahorro de gas **45–59 %** con comparación equivalente.
 - **D-059 (Ciclo 10 · `SECURITY.md`):** el documento de seguridad es **vivo** y refleja el estado de los 34
   hallazgos de la auditoría V1 (corregido + ciclo, parcial o backlog), los hallazgos base HB-01..HB-12, los
@@ -485,7 +485,7 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   actualización de consumidores y plan de rollback. Cierra AF-10 (MEDIA) y materializa el runbook exigido por
   D-019/RT-008.
 - **D-081 (AF-06/AF-11/AF-15 · evidencia y deriva documental a cero):** se regenera
-  `RepoTecnico/pruebas/matriz_criterios.md` como **v2 (vigente)**: 386 tests, 24 suites, 19 invariantes,
+  `RepoTecnico/pruebas/matriz_criterios.md` como **v2 (vigente)**: 386 tests, 25 suites, 19 invariantes,
   **0 FALTA** (los 9 huecos cerrados); `SECURITY.md`, `.gitlab-ci.yml`, `README.md`, `entornos_globales.md` y
   `run_local_ci.sh` se alinean con el estado real de la CI (pipelines `2934202154` y `2934241152`, 7/7);
   se corrige el `CLAIM_TYPEHASH` de D-020 (incluye `nonce`, superado por D-050) y la referencia de línea de
@@ -524,7 +524,7 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
 - **D-085 (cierre definitivo de la Fase 4 y adaptación de suites):** se adaptan las suites que emitían URIs
   no cubiertos por la firma (`test/IdentityCloneable.t.sol`, `test/IdentityCloneFactory.t.sol`,
   `test/RF013_ClaimLifecycle.t.sol`) para que `SigUtils` firme exactamente el `uri` que se da de alta; **no
-  se debilita, borra ni salta ningún test**. Estado final: `forge test` → **394/394** (24 suites, 19
+  se debilita, borra ni salta ningún test**. Estado final: `forge test` → **394/394** (25 suites, 19
   funciones `invariant_*`), `forge build` 0 errores, `forge fmt --check` limpio, los 5 gates de
   `ci-checks` + `run_local_ci.sh` en verde y `.gas-snapshot` regenerado. Cierra la Fase 4 (Pruebas).
 
@@ -538,7 +538,7 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
   (`ComplianceAggregator` fail-closed y administración por token) → **CU-16**; RF-013 (vigencia y revocación de
   claims) → **CU-17**. Los tres están implementados y con etiqueta `IMPLEMENTADO (Ciclo N)` en los casos de uso.
 - Sin cobertura por alcance (D-003): RF-007, RF-008, RNF-006.
-- Datos reales de la suite (Fase 4, estado actual): **394 tests, 394 pasan, 0 fallan**, 24 suites (19 funciones
+- Datos reales de la suite (Fase 4, estado actual): **394 tests, 394 pasan, 0 fallan**, 25 suites (19 funciones
   `invariant_*`); cobertura `src/` 97,05 % de líneas (691/712; mínimo por contrato 92,31 % de líneas; D-017/D-042), con
   el gate `check_coverage.sh` en el pipeline. Ver `metricas_ejecucion.md` §21 y §22.
   (Histórico de la auditoría V1, 2026-10-03: 151 declarados, 93 pasan, 5 fallan, 53 no arrancan, coverage 42,86 %.)
@@ -559,7 +559,7 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-03 | Cifras de ahorro de gas contradictorias; RNF-001 sin criterio operativo | **Cubierto (parcial)** | RNF-001; operacionalización (`.gas-snapshot`) al backlog M-2 |
 | H-04 | Build no reproducible: código sin versionar, submódulos, sin CI | **Cubierto** | RF-005, RF-009 |
 | H-05 | `isVerified()` fail-open sin `claimTopicsRegistry` | **Cubierto** | RF-011 (D-014) |
-| H-06 | Centralización de poderes: una EOA, `AGENT_ROLE` absoluto | **Cubierto (parcial)** | RF-004; gobernanza multisig/timelock al backlog R-7 |
+| H-06 | Centralización de poderes: una EOA, `AGENT_ROLE` absoluto | **Parcial (R-7)** | RF-004 + `GovernanceMultisig` (M-de-N + timelock) probado; pendiente adoptarlo y auditarlo |
 | H-07 | Factories permissionless; EIP-1167 sin ruta de upgrade | **Corregido** | Allowlist `setAuthorizedCreator`/`onlyCreator` (3 factories) + redeploy limpio (D-019); `test_H07_*` (6) |
 | H-08 | Claims sin vigencia ni revocación por el issuer | **Cubierto (implementado, Ciclo 8)** | RF-013 (D-014, D-045..D-047) |
 | H-09 | Catálogo RNF incompleto (ISO 25010) | **Definido (R-1)** | `RepoTecnico/requerimientos_no_funcionales.md` §1 (RNF-101..109); pendiente fijar Slither |

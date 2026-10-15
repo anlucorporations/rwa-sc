@@ -21,8 +21,8 @@ Este proyecto implementa un **sistema de tokenización RWA** (Real World Assets)
 - ⚠️ **Inspirado en ERC-3643 / T-REX**, no "ERC-3643 compliant": implementa un subconjunto propio de interfaces (ver declaración verificable en [`SECURITY.md`](SECURITY.md)). **No auditado y no apto para producción con activos reales** (ver [`RepoTecnico/INFORME_OPTIMIZACION_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_V1.md)).
 - ✅ **Clone Factory** (EIP-1167) — ahorro de gas medido con comparación equivalente: **45–59 %** (Token 55 %, Identity 59 %, Identity+claim 45 %, Registry 53 %; ver `.gas-snapshot`).
 - ✅ **Compliance Aggregator** — gestión modular de compliance (fail-closed).
-- ✅ **420 tests** (420 pasando, 0 fallos, 0 skipped) — `forge test`, cifra respaldada por [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
-- ✅ **Cobertura de `src/`**: **97,01 % de líneas** (mínimo por contrato 92,31 %; D-017: sin interfaces ni `test/`; `metricas_ejecucion.md`).
+- ✅ **443 tests** (443 pasando, 0 fallos, 0 skipped) — `forge test`, cifra respaldada por [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
+- ✅ **Cobertura de `src/`**: **97,18 % de líneas** (mínimo por contrato 92,31 %; D-017: sin interfaces ni `test/`; `metricas_ejecucion.md`).
 - ✅ **Gas medido** con baseline versionado (`sc/.gas-snapshot`); **no production-ready** sin auditoría externa (D-024).
 
 ---
@@ -115,6 +115,9 @@ Compliance:
     └─ TransferLockCompliance.sol     (Lock period)
   - ICompliance.sol              (Interface)
   - IClaimTopicsRegistry.sol     (Interface)
+
+Gobernanza:
+  - GovernanceMultisig.sol       (Multisig M-de-N + timelock, H-06)
 ```
 
 ### Scripts (`script/`)
@@ -124,6 +127,7 @@ Compliance:
 - DeployTokenCloneFactory.s.sol          (Deploy token factory)
 - DeployIdentityCloneFactory.s.sol       (Deploy identity factory)
 - DeployClaimTopicsRegistryCloneFactory.s.sol
+- DeployGovernance.s.sol                 (Gobernanza multisig + timelock)
 - DeployComplianceAggregator.s.sol       (Deploy aggregator)
 - CreateTokenWithCloneFactory.s.sol      (Crear token)
 - CompleteDeploymentExample.s.sol        (Ejemplo completo)
@@ -158,12 +162,13 @@ Compliance:
 - TokenReentrancy.t.sol                (18 tests)
 - AuditoriaFinalAF.t.sol               (19 tests)
 - H20_Escalabilidad.t.sol              (6 tests)
+- GovernanceMultisig.t.sol             (23 tests)
 - invariant/AggregatorInvariants.t.sol (2 tests)
 - invariant/IdentityInvariants.t.sol   (2 tests)
 - invariant/RegistryInvariants.t.sol   (2 tests)
 - invariant/TokenInvariants.t.sol      (2 tests)
 
-Total: 420 tests en 24 suites (420 pasando, 0 fallos, 0 skipped)
+Total: 443 tests en 25 suites (443 pasando, 0 fallos, 0 skipped)
 ```
 
 ---
@@ -326,8 +331,9 @@ forge coverage
 | RegistryInvariantsTest | 2 | Invariantes con estado de los registries |
 | TokenInvariantsTest | 2 | Invariantes con estado del token |
 | H20EscalabilidadTest | 6 | Índices O(1) y vistas paginadas (H-20) |
+| GovernanceMultisigTest | 23 | Gobernanza multisig + timelock (H-06) |
 
-**Total: 420 tests en 24 suites (420 pasando, 0 fallos, 0 skipped)** — verificado con `forge test` y enlazado a [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
+**Total: 443 tests en 25 suites (443 pasando, 0 fallos, 0 skipped)** — verificado con `forge test` y enlazado a [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
 
 ---
 
@@ -479,4 +485,4 @@ code START_HERE.md
 
 **¡Feliz aprendizaje! 🚀📚**
 
-*Este proyecto representa 420 tests (420 pasando, 0 fallos) con baseline de gas versionado, miles de líneas de código, y múltiples patrones avanzados de Solidity. Tómate tu tiempo para entenderlo bien.*
+*Este proyecto representa 443 tests (443 pasando, 0 fallos) con baseline de gas versionado, miles de líneas de código, y múltiples patrones avanzados de Solidity. Tómate tu tiempo para entenderlo bien.*

@@ -162,7 +162,52 @@ Tras verificar el nuevo despliegue:
 
 ---
 
-## 8. Referencias
+## 8. Gobernanza: entrega al multisig + timelock (H-06 / D-021)
+
+> Objetivo: que las operaciones administrativas dejen de depender de una sola EOA. El mecanismo
+> on-chain es `sc/src/GovernanceMultisig.sol` (M-de-N + timelock) y su despliegue
+> `sc/script/DeployGovernance.s.sol`.
+
+### 8.1 Despliegue
+
+```bash
+cd rwa-sc/sc
+GOVERNANCE_OWNER_1=0x... GOVERNANCE_OWNER_2=0x... GOVERNANCE_OWNER_3=0x... \
+GOVERNANCE_THRESHOLD=2 GOVERNANCE_DELAY=86400 \
+forge script script/DeployGovernance.s.sol:DeployGovernance \
+  --rpc-url "$RPC_URL" --broadcast --keystore <path> --password-file <path>
+```
+
+Los owners deben ser **custodios de claves distintos** (D-021) y `GOVERNANCE_DELAY` ≥ 24 h.
+
+### 8.2 Entrega de roles (por cada contrato administrado)
+
+1. Desde el multisig, proponer y ejecutar `grantRole(<ROL>, <multisig>)` sobre el contrato:
+   `propose(contrato, 0, abi.encodeCall(AccessControl.grantRole, (ROL, multisig)))` + `approve` ×
+   umbral + esperar el timelock + `execute`.
+2. Verificar con `cast call contrato 'hasRole(bytes32,address)(bool)' <ROL> <multisig>` → `true`.
+3. El owner EOA **renuncia** a su rol con `renounceRole(<ROL>, <eoa>)`.
+4. Repetir para `DEFAULT_ADMIN_ROLE`, `AGENT_ROLE` y `COMPLIANCE_ROLE` en token, registries y
+   factories (conceder el rol admin de las factories al multisig antes de renunciar).
+
+### 8.3 Mantenimiento del propio multisig
+
+Añadir/quitar owners, cambiar el umbral o el delay se hace **por propuesta auto-dirigida**
+(`target = address(multisig)`), nunca con una llamada directa (`onlySelf`). El umbral no puede
+exceder el número de owners.
+
+### 8.4 Checklist de gobernanza
+
+- [ ] Owners distintos, con custodia y rotación documentadas.
+- [ ] `threshold` ≥ 2 y `delay` ≥ 24 h.
+- [ ] `hasRole(ROL, multisig) == true` en todos los contratos administrados.
+- [ ] EOA sin roles (`hasRole(ROL, eoa) == false`) tras `renounceRole`.
+- [ ] Procedimiento de recuperación de claves de los owners probado.
+- [ ] Multisig y script auditados antes de producción (D-024).
+
+---
+
+## 9. Referencias
 
 - `RepoTecnico/requerimientos.md` — D-019 (líneas 129-130), D-037, D-009/RT-008 (línea 95).
 - `RepoTecnico/documento_tecnico.md` — ciclo de vida (§8.2.1, líneas 270, 775, 789).

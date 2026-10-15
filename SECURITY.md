@@ -55,7 +55,7 @@ test o un gate que lo demuestre.
 | ID | Título breve | Estado | Ciclo / RF | Evidencia (test o gate) |
 |---|---|---|---|---|
 | **H-01** | Claims auto-forjados sin verificación de firma | **Corregido** | Ciclo 2 · RF-001 | `test/RF001_*` en `test/IdentityCloneable.t.sol` (`test_RF001_addClaim_firma_vacia_revierte`, `test_RF001_addClaim_firma_de_otra_clave_revierte`, `test_RF001_addClaim_firma_maleable_s_alto_revierte`, `test_RF001_addClaim_con_firma_valida`) |
-| **H-02** | "139 tests (100 % passing)" falso; suites muertas; cobertura 42,86 % | **Corregido** | Ciclos 1/1b · RF-005, y Ciclo 10 · RF-006 | `forge test` → **420/420**; cobertura `src/` **97,01 % líneas** (810/835; mínimo por contrato 92,31 %; D-017/D-042) |
+| **H-02** | "139 tests (100 % passing)" falso; suites muertas; cobertura 42,86 % | **Corregido** | Ciclos 1/1b · RF-005, y Ciclo 10 · RF-006 | `forge test` → **443/443**; cobertura `src/` **97,18 % líneas** (896/922; mínimo por contrato 92,31 %; D-017/D-042) |
 | **H-04** | Build no reproducible: submódulos, pin de `solc`, sin CI | **Corregido** | Ciclos 1 y 11 · RF-005/RF-009 | `.gitmodules` único + `sc/foundry.lock`; `solc_version = 0.8.20` y `evm_version` en `sc/foundry.toml`; `sc/.gitlab-ci.yml` (7 jobs) en verde (`2934202154`, `2934241152`) |
 | **H-05** | `isVerified()` fail-open sin `claimTopicsRegistry` | **Corregido** | Ciclo 6 · RF-011 | `test/RF011_FailClosed.t.sol` (`test_RF011_isVerified_sin_registry_topics_false`, `test_RF011_mint_transfer_bloqueados_sin_politica`) |
 | **H-08** | Claims sin vigencia ni revocación por el issuer | **Corregido** | Ciclos 8/8c · RF-013 | `test/RF013_ClaimLifecycle.t.sol` (`test_RF013_claim_expirado_isVerified_false`, `test_RF013_claim_revocado_por_issuer_isVerified_false`, `test_RF013_revocacion_replay_firma_original_revierte`) |
@@ -67,7 +67,7 @@ test o un gate que lo demuestre.
 
 | ID | Título breve | Estado | Backlog |
 |---|---|---|---|
-| **H-06** | Centralización de poderes en una EOA; `burn`/`forcedTransfer` sin límites | **Parcial**: RF-004 acota operaciones (whitelist/topes/`maxSupply`); falta multisig/timelock y reparto de roles | R-7 (D-021) |
+| **H-06** | Centralización de poderes en una EOA; `burn`/`forcedTransfer` sin límites | **Parcial**: RF-004 acota operaciones; **mecanismo multisig + timelock implementado** (`GovernanceMultisig`, `DeployGovernance.s.sol`, `RUNBOOK_MIGRACION.md` §8); falta **adoptarlo** en el despliegue canónico y auditarlo (R-7/D-021) |
 | **H-07** | Factories permissionless; EIP-1167 sin ruta de upgrade | **Corregido** | H-07: allowlist de creadores (`setAuthorizedCreator`, `onlyCreator`) en las 3 factories + decisión de ciclo de vida = **redeploy limpio** (D-009/D-019, `RUNBOOK_MIGRACION.md`); `test_H07_*` (6) |
 | **H-09** | Catálogo RNF incompleto (ISO 25010) | **Definido** | `RepoTecnico/requerimientos_no_funcionales.md` §1 (RNF-101..109); falta fijar Slither (RNF-107) |
 | **H-10** | Sin RNF de cumplimiento regulatorio (sanciones/PEP/AML) | **Definido** | §2 (RNF-201..206); **pendiente de aprobación legal** |
@@ -122,7 +122,7 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
 | HB-08 | `web-registry-trusted2` duplicado (zona web) | **Pausado** | D-003 (fuera de alcance) |
 | HB-09 | Direcciones hardcodeadas en `rwa-web` | **Pausado** | D-003 (fuera de alcance) |
 | HB-10 | No hay CI/CD | **Corregido** | RF-009 / Ciclo 11 (`sc/.gitlab-ci.yml`, 7 jobs; pipelines `2934202154` y `2934241152` en verde) |
-| HB-11 | 151 tests no verificados en el entorno | **Corregido** | RF-005 / Ciclo 1; hoy **420/420** |
+| HB-11 | 151 tests no verificados en el entorno | **Corregido** | RF-005 / Ciclo 1; hoy **443/443** |
 | HB-12 | `deploy-besu.sh` maneja clave privada en claro | **Corregido** | RF-010 / Ciclo 9 (D-054/D-055) |
 
 ## 4. Controles implementados (con su prueba)
@@ -206,6 +206,11 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
 21. **Escaneo de secretos en documentación (AF-14).** `check_secrets.sh` escanea también los `.md`
     (`DOC_RE`) buscando claves crudas **etiquetadas** (`Private key: 0x…`), sin marcar los hashes de
     evidencia de auditoría. Verificado con una prueba negativa (clave plantada en un `.md` ⇒ exit 1).
+22. **Gobernanza multisig + timelock (H-06/R-7).** `GovernanceMultisig` implementa M-de-N con umbral,
+    timelock, propuestas auto-dirigidas para el propio mantenimiento y propagación del motivo de revert.
+    Despliegue con `script/DeployGovernance.s.sol` y entrega de roles documentada en
+    `RUNBOOK_MIGRACION.md` §8. Pruebas: `test/GovernanceMultisig.t.sol` (23). **Pendiente de adopción en
+    el despliegue canónico y de auditoría externa** (el mecanismo no basta por sí solo).
 
 ## 5. Riesgos residuales (declaración honesta)
 
