@@ -29,6 +29,25 @@ contract IdentityCloneFactoryTest is Test {
         factory = new IdentityCloneFactory(owner);
     }
 
+    /// H-07: una cuenta no autorizada no puede crear identidades.
+    function test_H07_CreateIdentity_sin_autorizacion_revierte() public {
+        address stranger = makeAddr("strangerH07");
+        vm.prank(stranger);
+        vm.expectRevert("Not authorized to create");
+        factory.createIdentity(user1);
+    }
+
+    /// H-07: el owner autoriza a un tercero y este puede crear.
+    function test_H07_SetAuthorizedCreator_autoriza() public {
+        address relay = makeAddr("relayH07");
+        factory.setAuthorizedCreator(relay, true);
+
+        vm.prank(relay);
+        address identity = factory.createIdentity(user2);
+        assertNotEq(identity, address(0));
+        assertEq(IdentityCloneable(identity).owner(), user2);
+    }
+
     /// @dev Firma EIP-712 (RF-001) para una identidad concreta. AF-03: la firma cubre el `uri`.
     function _sign(
         address identity,

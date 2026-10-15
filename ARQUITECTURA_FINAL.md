@@ -62,13 +62,14 @@ IdentityRegistry identityRegistry = new IdentityRegistry(admin);
 TrustedIssuersRegistry trustedIssuersRegistry = new TrustedIssuersRegistry(admin);
 
 // Configurar emisores confiables
-uint256[] memory topics = [1, 2, 3, 4]; // KYC, AML, Accredited, Tax
+// Catálogo canónico (H-13): 1 = KYC, 7 = Accreditation, 9 = Jurisdiction.
+uint256[] memory topics = [1, 7, 9]; // KYC, Accreditation, Jurisdiction
 trustedIssuersRegistry.addTrustedIssuer(issuerAddress, topics);
 
 // ===== PASO 3: Por cada Token =====
 
 // 3.1 Crear ClaimTopicsRegistry específico para este token
-uint256[] memory tokenTopics = [1, 2, 3]; // Requisitos específicos
+uint256[] memory tokenTopics = [1, 7, 9]; // Subconjunto del catálogo canónico
 address claimTopicsRegistry = claimTopicsFactory.createRegistryForTokenWithTopics(
     admin,
     tokenAddress,
@@ -108,8 +109,8 @@ address identity = identityFactory.createIdentityWithClaim(
 // 4.2 Agregar más claims según necesidad
 IdentityCloneable identityContract = IdentityCloneable(identity);
 identityContract.transferOwnership(admin); // Temporalmente
-identityContract.addClaim(2, 1, issuerAddress, sig, data, uri); // AML
-identityContract.addClaim(3, 1, issuerAddress, sig, data, uri); // Accredited
+identityContract.addClaim(7, 1, issuerAddress, sig, data, uri); // Accreditation
+identityContract.addClaim(9, 1, issuerAddress, sig, data, uri); // Jurisdiction
 identityContract.transferOwnership(investorAddress); // Devolver control
 
 // 4.3 Registrar identidad
@@ -238,8 +239,8 @@ function transfer(address to, uint256 amount) public {
 
 ### Caso 1: Token Inmobiliario (Strict)
 ```solidity
-// Requiere: KYC + AML + Accredited Investor + Tax Compliance
-uint256[] memory topics = [1, 2, 3, 4];
+// Requiere: KYC + Accreditation + Jurisdiction (catálogo canónico, H-13)
+uint256[] memory topics = [1, 7, 9];
 address registry = claimTopicsFactory.createRegistryForTokenWithTopics(...);
 
 // Solo inversores acreditados pueden participar
@@ -260,12 +261,12 @@ address registry = claimTopicsFactory.createRegistryForTokenWithTopics(...);
 ClaimTopicsRegistryCloneable registry = ClaimTopicsRegistryCloneable(...);
 registry.addClaimTopic(1);
 
-// Día 180: Nueva regulación agrega AML
-registry.addClaimTopic(2);
-// Holders sin AML no pueden transferir hasta obtenerlo
+// Día 180: Nueva regulación agrega un topic reservado (Sanctions, backlog R-2)
+registry.addClaimTopic(6);
+// Holders sin el topic exigido no pueden transferir hasta obtenerlo
 
 // Día 365: Se relaja
-registry.removeClaimTopic(3);
+registry.removeClaimTopic(6);
 ```
 
 ## 📝 Mejores Prácticas

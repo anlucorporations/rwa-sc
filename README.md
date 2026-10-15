@@ -21,8 +21,8 @@ Este proyecto implementa un **sistema de tokenización RWA** (Real World Assets)
 - ⚠️ **Inspirado en ERC-3643 / T-REX**, no "ERC-3643 compliant": implementa un subconjunto propio de interfaces (ver declaración verificable en [`SECURITY.md`](SECURITY.md)). **No auditado y no apto para producción con activos reales** (ver [`RepoTecnico/INFORME_OPTIMIZACION_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_V1.md)).
 - ✅ **Clone Factory** (EIP-1167) — ahorro de gas medido con comparación equivalente: **45–59 %** (Token 55 %, Identity 59 %, Identity+claim 45 %, Registry 53 %; ver `.gas-snapshot`).
 - ✅ **Compliance Aggregator** — gestión modular de compliance (fail-closed).
-- ✅ **413 tests** (413 pasando, 0 fallos, 0 skipped) — `forge test`, cifra respaldada por [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
-- ✅ **Cobertura de `src/`**: **96,94 % de líneas** (mínimo por contrato 91,53 %; D-017: sin interfaces ni `test/`; `metricas_ejecucion.md`).
+- ✅ **419 tests** (419 pasando, 0 fallos, 0 skipped) — `forge test`, cifra respaldada por [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
+- ✅ **Cobertura de `src/`**: **97,00 % de líneas** (mínimo por contrato 92,31 %; D-017: sin interfaces ni `test/`; `metricas_ejecucion.md`).
 - ✅ **Gas medido** con baseline versionado (`sc/.gas-snapshot`); **no production-ready** sin auditoría externa (D-024).
 
 ---
@@ -131,19 +131,21 @@ Compliance:
 - ci/check_no_bypass_flag.sh             (Gate RF-002)
 - ci/abi_diff.sh                         (Gate RF-006 — deriva de ABIs)
 - ci/check_docs.sh                       (Gate RF-006 — documentación)
+- ci/check_secrets.sh                    (Gate RF-010 — secretos)
+- ci/check_claim_topics.sh               (Gate H-13 — catálogo de claim topics)
 ```
 
 ### Tests (`test/`)
 
 ```
 - Token.t.sol                          (30 tests)
-- TokenCloneFactory.t.sol              (15 tests)
-- IdentityCloneFactory.t.sol           (12 tests)
+- TokenCloneFactory.t.sol              (17 tests)
+- IdentityCloneFactory.t.sol           (14 tests)
 - IdentityCloneable.t.sol              (24 tests)
 - IdentityRegistry.t.sol               (41 tests)
 - TrustedIssuersRegistry.t.sol         (34 tests)
 - ClaimTopicsRegistry.t.sol            (25 tests)
-- ClaimTopicsRegistryCloneFactory.t.sol (14 tests)
+- ClaimTopicsRegistryCloneFactory.t.sol (16 tests)
 - ComplianceAggregator.t.sol           (25 tests)
 - MaxBalanceCompliance.t.sol           (18 tests)
 - MaxHoldersCompliance.t.sol           (25 tests)
@@ -161,7 +163,7 @@ Compliance:
 - invariant/RegistryInvariants.t.sol   (2 tests)
 - invariant/TokenInvariants.t.sol      (2 tests)
 
-Total: 413 tests en 24 suites (413 pasando, 0 fallos, 0 skipped)
+Total: 419 tests en 24 suites (419 pasando, 0 fallos, 0 skipped)
 ```
 
 ---
@@ -300,18 +302,18 @@ forge coverage
 | Suite | Tests | Descripción |
 |-------|-------|-------------|
 | TokenTest | 30 | Token clonable principal |
-| TokenCloneFactoryTest | 15 | Token factory |
+| TokenCloneFactoryTest | 17 | Token factory |
 | TokenLimitsTest | 17 | Whitelist/topes/`maxSupply` (RF-004) |
 | TokenReentrancyTest | 18 | Anti-reentrancia (RF-002) |
 | ComplianceAggregatorTest | 25 | Compliance aggregator |
 | RF012_AggregatorFailClosedTest | 9 | Aggregator fail-closed (RF-012) |
-| IdentityCloneFactoryTest | 12 | Identity factory |
+| IdentityCloneFactoryTest | 14 | Identity factory |
 | IdentityCloneableRF001Test | 24 | Claims EIP-712 (RF-001) |
 | RF013_ClaimLifecycleTest | 20 | Vigencia/revocación de claims (RF-013) |
 | IdentityRegistryTest | 41 | Registro de identidades |
 | TrustedIssuersRegistryTest | 34 | Emisores autorizados |
 | ClaimTopicsRegistryTest | 25 | Topics requeridos |
-| ClaimTopicsRegistryCloneFactoryTest | 14 | Claim topics factory |
+| ClaimTopicsRegistryCloneFactoryTest | 16 | Claim topics factory |
 | RF011_FailClosedTest | 8 | `isVerified` fail-closed (RF-011) |
 | RF003_ERC165Test | 16 | Validación de módulos ERC-165 (RF-003) |
 | MaxBalanceComplianceTest | 18 | Max balance module |
@@ -324,7 +326,7 @@ forge coverage
 | TokenInvariantsTest | 2 | Invariantes con estado del token |
 | H20EscalabilidadTest | 6 | Índices O(1) y vistas paginadas (H-20) |
 
-**Total: 413 tests en 24 suites (413 pasando, 0 fallos, 0 skipped)** — verificado con `forge test` y enlazado a [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
+**Total: 419 tests en 24 suites (419 pasando, 0 fallos, 0 skipped)** — verificado con `forge test` y enlazado a [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
 
 ---
 
@@ -342,7 +344,7 @@ El pipeline de GitLab vive en [`.gitlab-ci.yml`](.gitlab-ci.yml) y se ejecuta en
 | `test` | `forge test` | **RNF-003**: cualquier fallo detiene el pipeline; publica el **conteo real** como artefacto |
 | `coverage` | `forge coverage --report summary --report lcov` | **RNF-002 / D-017 / D-042**: agregado de `src/` ≥ 80 % (sin interfaces) **y** mínimo por contrato ≥ 80 % |
 | `gas` | `forge snapshot --check --tolerance 5` | **RNF-001 / D-039** |
-| `ci-checks` | `check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh` | RF-002 / RF-006 |
+| `ci-checks` | `check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh`, `check_secrets.sh`, `check_claim_topics.sh` | RF-002 / RF-006 / RF-010 / H-13 |
 
 Artefactos: `sc/ci-artifacts/test-count.txt` (conteo real, no escrito a mano) y `sc/lcov.info`.
 Sin secretos: el pipeline no despliega.
@@ -476,4 +478,4 @@ code START_HERE.md
 
 **¡Feliz aprendizaje! 🚀📚**
 
-*Este proyecto representa 413 tests (413 pasando, 0 fallos) con baseline de gas versionado, miles de líneas de código, y múltiples patrones avanzados de Solidity. Tómate tu tiempo para entenderlo bien.*
+*Este proyecto representa 419 tests (419 pasando, 0 fallos) con baseline de gas versionado, miles de líneas de código, y múltiples patrones avanzados de Solidity. Tómate tu tiempo para entenderlo bien.*

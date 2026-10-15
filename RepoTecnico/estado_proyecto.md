@@ -325,7 +325,7 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
 - **Estado del repositorio remoto (`rwa-sc-DSH-GCP`)**: rama replicada en GitLab.com, GitHub y CodeCrypto;
   pipelines `2934202154`, `2934241152` y `2935871780` en verde; `main` intacta en `2a4a683`.
 
-## Cierre de deuda (QW-8 · AF-12 · H-14 · H-19 · H-20)
+## Cierre de deuda (QW-8 · AF-12 · H-14 · H-19 · H-20 · H-07 · H-13)
 
 - [x] **QW-8 (cierra H-34):** evento `TokenContractSet(address indexed tokenContract)` en los 3 módulos de
   compliance; antes la vinculación módulo→token no dejaba traza. Tests: `test_QW8_SetTokenContract_emite_evento`
@@ -347,11 +347,20 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
   `hasClaimTopic` y `claimTopicExists` dejan de recorrer arrays; `removeComplianceModuleByAddress` permite
   borrar por dirección en O(1); `addModuleThroughAggregator` ya no escanea. Suite nueva
   `test/H20_Escalabilidad.t.sol` (6 tests).
-- **Estado actual medido:** **413/413 tests en 24 suites**, cobertura `src/` **96,94 %** (791/816; mínimo
-  91,53 %), CI local 7/7. Detalle en `metricas_ejecucion.md` §25–§26 y `CHANGELOG_ABIS.md`.
+- [x] **H-07 (M-7):** allowlist de creadores en `TokenCloneFactory`, `IdentityCloneFactory` y
+  `ClaimTopicsRegistryCloneFactory` (`authorizedCreators` + `setAuthorizedCreator` + `onlyCreator` +
+  evento `CreatorAuthorized`). Cierra el "primer llamador gana" de `createRegistryForToken`. La
+  implementación clonada sigue siendo `immutable`: ciclo de vida = **redeploy limpio** (D-009/D-019,
+  `RUNBOOK_MIGRACION.md`). Tests: `test_H07_*` (6).
+- [x] **H-13 (M-8):** catálogo canónico **v1.0** de claim topics (1=KYC, 7=Accreditation,
+  9=Jurisdiction; 5/6 reservados) con fuente única en el seed `rwa.claim_topics`; `ARQUITECTURA_FINAL.md`
+  y `REFERENCIA_TECNICA.md` alineados y gate nuevo `sc/script/ci/check_claim_topics.sh`
+  (`ci_check_H13_catalogo_topics_unico`) integrado en `ci-checks`.
+- **Estado actual medido:** **419/419 tests en 24 suites**, cobertura `src/` **97,00 %** (809/834; mínimo
+  92,31 %), CI local 7/7. Detalle en `metricas_ejecucion.md` §25–§27 y `CHANGELOG_ABIS.md`.
 - **Pendiente relacionado:** **AF-04** (front-running de `createIdentityWithClaim`) y **AF-14**
-  (`check_secrets.sh` no escanea `.md`) siguen diferidos; **H-13** (catálogo de topics en 5 fuentes) y
-  **H-07** (factories permissionless) permanecen en backlog.
+  (`check_secrets.sh` no escanea `.md`) siguen diferidos; **H-06** (multisig/timelock, R-7), **H-09/H-10/H-11/H-12**
+  (RNF ISO 25010, regulatorio, PII, observabilidad) y **H-25/H-30** (stakeholder regulador, backup/DR) quedan en backlog.
 
 ## Cierre del proyecto (Fase 5 omitida)
 

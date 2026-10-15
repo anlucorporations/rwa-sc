@@ -22,9 +22,23 @@ contract IdentityCloneFactory is Ownable {
     // Array of all created identities
     address[] public allIdentities;
 
+    /// @dev H-07: allowlist de creadores (ver `TokenCloneFactory`). `owner()` siempre puede crear.
+    mapping(address => bool) public authorizedCreators;
+
     // Events
     event IdentityCreated(address indexed identity, address indexed owner);
     event ImplementationUpdated(address indexed newImplementation);
+
+    /// @dev H-07: traza de la allowlist de creadores.
+    event CreatorAuthorized(address indexed creator, bool authorized);
+
+    /**
+     * @dev H-07: solo el owner de la factory o una direccion autorizada pueden crear.
+     */
+    modifier onlyCreator() {
+        require(msg.sender == owner() || authorizedCreators[msg.sender], "Not authorized to create");
+        _;
+    }
 
     /**
      * @dev Constructor
@@ -36,11 +50,20 @@ contract IdentityCloneFactory is Ownable {
     }
 
     /**
+     * @dev H-07: autoriza o revoca una direccion para crear identidades con esta factory.
+     */
+    function setAuthorizedCreator(address creator, bool authorized) external onlyOwner {
+        require(creator != address(0), "Invalid creator address");
+        authorizedCreators[creator] = authorized;
+        emit CreatorAuthorized(creator, authorized);
+    }
+
+    /**
      * @dev Create a new Identity clone for a user
      * @param owner The owner of the new Identity contract
      * @return identity The address of the newly created Identity clone
      */
-    function createIdentity(address owner) external returns (address identity) {
+    function createIdentity(address owner) external onlyCreator returns (address identity) {
         require(owner != address(0), "Invalid owner address");
 
         // Clone the implementation contract
@@ -86,7 +109,7 @@ contract IdentityCloneFactory is Ownable {
         bytes memory data,
         string memory uri,
         uint256 expiresAt
-    ) external returns (address identity) {
+    ) external onlyCreator returns (address identity) {
         require(owner != address(0), "Invalid owner address");
 
         // Clone the implementation contract

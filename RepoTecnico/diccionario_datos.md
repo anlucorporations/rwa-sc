@@ -283,9 +283,12 @@ Solicitud + `issuer_name` + `claim_topic_name` + `document_count` (lectura del p
 
 ## 3. Catálogo canónico de Claim Topics (compartido on/off-chain)
 
-> **Canónico y único (v1.1):** los tres topics oficiales del sistema son **1 = KYC**, **7 = Accreditation**
-> y **9 = Jurisdiction**. Fuente: `rwa-web/README.md:325-327` y `rwa-web/web-token/types/token.ts:46-50`
-> (`INVESTMENT_CLAIMS { KYC: 1, ACCREDITATION: 7, JURISDICTION: 9 }`).
+> **Canónico, único y versionado — catálogo v1.0 (H-13):** los tres topics oficiales del sistema son
+> **1 = KYC**, **7 = Accreditation** y **9 = Jurisdiction**. Fuente de verdad: el seed de
+> `rwa.claim_topics` en `base_datos.sql` §8 (espejo en `rwa-web/RepoTecnico/`), esta tabla y
+> `rwa-web/web-token/types/token.ts` (`INVESTMENT_CLAIMS { KYC: 1, ACCREDITATION: 7, JURISDICTION: 9 }`).
+> El gate `sc/script/ci/check_claim_topics.sh` verifica que el seed, esta tabla y los documentos raíz
+> (`ARQUITECTURA_FINAL.md`, `REFERENCIA_TECNICA.md`) **no divergan** entre sí.
 
 ### 3.1 Catálogo oficial (implementado)
 | ID | Nombre | Uso | Evidencia |

@@ -818,20 +818,23 @@ cast code ADDRESS --rpc-url localhost
 
 ## 💾 Datos de Referencia
 
-### Claim Topics Estándar
+### Claim Topics Estándar — **catálogo canónico v1.0 (H-13)**
 
-```
-1  = KYC (Know Your Customer)
-2  = AML (Anti-Money Laundering)
-3  = Accredited Investor
-4  = Country
-5  = Identity Verification
-6  = Tax Status
-7  = Investor Type
-8  = Risk Assessment
-9  = Sanctions Check
-10 = Politically Exposed Person (PEP)
-```
+> **Fuente única:** `RepoTecnico/diccionario_datos.md` §3 y el seed de `rwa.claim_topics` en
+> `RepoTecnico/base_datos.sql`. El gate `sc/script/ci/check_claim_topics.sh` falla si este documento
+> (o `ARQUITECTURA_FINAL.md`) reintroduce un catálogo divergente.
+
+| ID | Nombre | Estado |
+|---|---|---|
+| 1 | KYC (Know Your Customer) | **Activo** |
+| 7 | Accreditation | **Activo** |
+| 9 | Jurisdiction | **Activo** |
+| 5 | Environmental | Reservado / backlog (H-10) — no implementado |
+| 6 | Sanctions | Reservado / backlog (H-10) — no implementado |
+
+> **Deprecado:** el catálogo antiguo de 10 IDs (que usaba AML en la posición 2, "Sanctions Check"
+> en la posición 9 y "Country"/"Tax Status" en otras) queda descartado. En el catálogo vigente el
+> ID `9` es **Jurisdiction**.
 
 ### Signature Schemes
 

@@ -563,3 +563,40 @@ revierte `"Module already bound to another token"` si el modulo ya estaba vincul
 (idempotente si se repite el mismo). Cierra la contaminacion de estado entre tokens de H-19 (los
 contenedores `isHolder`/`holderCount` y `lockEndTime` no estan indexados por token). AF-01 ya impedia
 registrar un modulo sin vincular; H-19 cierra la re-vinculacion posterior. **Sin cambio de ABI.**
+
+---
+
+## Cierre de deuda (H-07) — allowlist de creadores en las factories (ABI **aditiva**)
+
+**Motivo:** H-07 (auditoría V1 / plan M-7) — las factories eran permissionless: cualquiera podía
+crear tokens, identidades y registries, y `createRegistryForToken` permitía "reclamar" el registro
+de un token ajeno (primer llamador gana).
+
+### API nueva (aditiva) — idéntica en las 3 factories
+
+| Contrato | Firma nueva |
+|---|---|
+| `TokenCloneFactory` | `setAuthorizedCreator(address,bool)`, `authorizedCreators(address) returns (bool)` |
+| `IdentityCloneFactory` | `setAuthorizedCreator(address,bool)`, `authorizedCreators(address) returns (bool)` |
+| `ClaimTopicsRegistryCloneFactory` | `setAuthorizedCreator(address,bool)`, `authorizedCreators(address) returns (bool)` |
+
+Evento nuevo: `CreatorAuthorized(address indexed creator, bool authorized)`.
+
+### Cambio de comportamiento (sin cambio de firma)
+
+`createToken`, `createTokenWithRegistries`, `createIdentity`, `createIdentityWithClaim`,
+`createRegistry`, `createRegistryForToken`, `createRegistryWithTopics` y
+`createRegistryForTokenWithTopics` pasan a exigir `msg.sender == owner()` o estar en la allowlist;
+si no, revierten `"Not authorized to create"`. **No** cambia ningún selector ni salida.
+
+### Ciclo de vida (R-6)
+
+La implementación clonada sigue siendo `immutable` (EIP-1167 sin proxy actualizable). La decisión
+vigente es **redeploy limpio** (D-009/D-019, `RUNBOOK_MIGRACION.md`); el respaldo multisig/timelock
+de la gobernanza queda en R-7.
+
+### Impacto en consumidores
+
+Los scripts (`DeployFullStack.s.sol`, `CompleteDeploymentExample.s.sol`) crean con el `owner` de la
+factory, por lo que siguen funcionando sin cambios. Un integrador que creara con una cuenta distinta
+debe llamar antes a `setAuthorizedCreator`.

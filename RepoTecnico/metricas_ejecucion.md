@@ -1580,3 +1580,45 @@ reordenar los slots previos. `IdentityRegistry` conserva `registered` en el slot
 `forge build` 0 errores; `forge test` **413/413**; `forge fmt --check` limpio; `check_coverage.sh` →
 agregado `src/` **96,94 %** y mínimo **91,53 %**; `abi_diff.sh` con deriva declarada y línea base
 regenerada; `.gas-snapshot` regenerado.
+
+---
+
+## 27. Cierre de deuda — H-07 (allowlist en factories) y H-13 (catálogo canónico)
+
+### 27.1 Conteo — antes / después
+
+| Métrica | Antes (§26) | Después |
+|---|---:|---:|
+| Tests (`forge test`) | 413 | **419** |
+| Suites | 24 | **24** |
+| Funciones `invariant_*` | 19 | **19** |
+| Cobertura `src/` (líneas) | 96,94 % (791/816) | **97,00 % (809/834)** |
+| Mínimo por contrato (líneas) | 91,53 % | **92,31 %** |
+
+`forge test` → `Ran 24 test suites ... 419 tests passed, 0 failed, 0 skipped` (`+6` pruebas de H-07:
+2 por factory).
+
+### 27.2 H-07 — allowlist de creadores en las 3 factories
+
+`TokenCloneFactory`, `IdentityCloneFactory` y `ClaimTopicsRegistryCloneFactory` ganan
+`authorizedCreators`, `setAuthorizedCreator(address,bool)` y el evento `CreatorAuthorized`, más el
+modificador `onlyCreator` en todas las funciones `create*`. `msg.sender == owner()` siempre puede
+crear; el resto debe estar autorizado y, si no, revierte `"Not authorized to create"`. Cierra el
+"primer llamador gana" de `createRegistryForToken`. La implementación clonada sigue siendo
+`immutable` (EIP-1167): el ciclo de vida vigente es **redeploy limpio** (D-009/D-019,
+`RUNBOOK_MIGRACION.md`). Pruebas: `test_H07_*` (6).
+
+### 27.3 H-13 — catálogo canónico de claim topics v1.0
+
+Fuente única: el seed `rwa.claim_topics` de `base_datos.sql` §8 (1=KYC, 7=Accreditation,
+9=Jurisdiction; 5/6 reservados). Se alinean `diccionario_datos.md` §3, `ARQUITECTURA_FINAL.md` y
+`REFERENCIA_TECNICA.md` (que publicaban catálogos divergentes). Gate nuevo
+`sc/script/ci/check_claim_topics.sh` (`ci_check_H13_catalogo_topics_unico`) integrado en `ci-checks`
+y en `run_local_ci.sh`: falla si el diccionario no declara un topic activo del seed o si los
+documentos raíz reintroducen el catálogo antiguo (`2=AML`, `9=Sanctions Check`, `[1, 2, 3, 4]`).
+
+### 27.4 Verificaciones
+
+`forge build` 0 errores; `forge test` **419/419**; `forge fmt --check` limpio; `check_coverage.sh`
+→ `src/` **97,00 %** y mínimo **92,31 %**; `abi_diff.sh` con deriva declarada y baseline regenerada;
+`check_docs.sh` OK; `check_claim_topics.sh` OK; `.gas-snapshot` regenerado.

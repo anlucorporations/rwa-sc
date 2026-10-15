@@ -20,6 +20,30 @@ contract ClaimTopicsRegistryCloneFactoryTest is Test {
 
         vm.prank(owner);
         factory = new ClaimTopicsRegistryCloneFactory(owner);
+
+        // H-07: la factory ya no es permissionless; el test se autoriza como creador.
+        vm.prank(owner);
+        factory.setAuthorizedCreator(address(this), true);
+    }
+
+    /// H-07: una cuenta no autorizada no puede reclamar el registro de un token ajeno.
+    function test_H07_CreateRegistryForToken_sin_autorizacion_revierte() public {
+        address stranger = makeAddr("strangerH07");
+        vm.prank(stranger);
+        vm.expectRevert("Not authorized to create");
+        factory.createRegistryForToken(makeAddr("admin"), tokenA);
+    }
+
+    /// H-07: el owner autoriza a un tercero y este puede crear.
+    function test_H07_SetAuthorizedCreator_autoriza() public {
+        address issuerCreator = makeAddr("issuerCreatorH07");
+        vm.prank(owner);
+        factory.setAuthorizedCreator(issuerCreator, true);
+
+        vm.prank(issuerCreator);
+        address registry = factory.createRegistry(makeAddr("admin"));
+        assertNotEq(registry, address(0));
+        assertTrue(factory.authorizedCreators(issuerCreator));
     }
 
     function test_CreateRegistry() public {

@@ -58,6 +58,12 @@ contract ComplianceAggregatorTest is Test {
         tokenFactory = new TokenCloneFactory(owner);
         identityFactory = new IdentityCloneFactory(owner);
 
+        // H-07: las factories ya no son permissionless; el test se autoriza como creador.
+        vm.startPrank(owner);
+        tokenFactory.setAuthorizedCreator(address(this), true);
+        identityFactory.setAuthorizedCreator(address(this), true);
+        vm.stopPrank();
+
         // Setup registries
         vm.startPrank(owner);
         identityRegistry = new IdentityRegistry(owner);

@@ -157,8 +157,8 @@ sc/script/deploy.sh                      # despliega, valida red, verifica on-ch
 
 ## 11. Métricas de referencia (medidas, no declaradas)
 
-Cifras vigentes (medidas, ver `metricas_ejecucion.md` §26): **413 tests / 413 pasan / 0 fallan** (24 suites,
-19 invariantes) y cobertura de `src/` **96,94 % de líneas** (D-017, sin interfaces; mínimo por contrato 91,53 %).
+Cifras vigentes (medidas, ver `metricas_ejecucion.md` §27): **419 tests / 419 pasan / 0 fallan** (24 suites,
+19 invariantes) y cobertura de `src/` **97,00 % de líneas** (D-017, sin interfaces; mínimo por contrato 92,31 %).
 Las cifras originales ("139 tests", "100 % passing", "coverage > 80 %") no estaban respaldadas; históricamente
 la auditoría V1 midió 98 ejecutados / 93 pasan / 5 fallan / 53 no arrancan / cobertura 42,86 % (2026-10-03).
 

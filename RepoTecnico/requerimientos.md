@@ -12,7 +12,7 @@
 
 Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
 
-- **`rwa-sc`** (Zona Contratos): 15 contratos Solidity 0.8.20 (11 en `src/` + 4 en `src/compliance/`) + 24 suites de test Forge (413 tests)
+- **`rwa-sc`** (Zona Contratos): 15 contratos Solidity 0.8.20 (11 en `src/` + 4 en `src/compliance/`) + 24 suites de test Forge (419 tests)
   + 7 scripts `.s.sol` de deploy + `deploy.sh` + gates de CI. Patrones: EIP-1167 clones, Compliance modular, Registry de identidades/claims.
 - **`rwa-web`** (Zona WEB): 5 micro-apps Next.js 16 / React 19 / TS / Tailwind v4 sobre Anvil + MongoDB
   (GridFS para documentos). Ethers v6 (viem en `web-registry-trusted2`). **Fuera de alcance de este ciclo (D-003).**
@@ -362,8 +362,8 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   Quedan **prohibidas** las referencias a archivos/contratos inexistentes (`Token.sol`, `Identity.sol`,
   `TOKEN_CLONE_FACTORY.md`, `COMPLIANCE_AGGREGATOR_FINAL.md`, `COMPLIANCE_AGGREGATOR_V2.md`,
   `DeployIdentityRegistry.s.sol`) y las afirmaciones "production-ready"/"ERC-3643 compliant" sin declaración
-  verificable. Cifras canónicas: **413 tests / 413 pasan** (24 suites), cobertura `src/` **96,94 % líneas**
-  (mínimo por contrato 91,53 %; D-017/D-042), ahorro de gas **45–59 %** con comparación equivalente.
+  verificable. Cifras canónicas: **419 tests / 419 pasan** (24 suites), cobertura `src/` **97,00 % líneas**
+  (mínimo por contrato 92,31 %; D-017/D-042), ahorro de gas **45–59 %** con comparación equivalente.
 - **D-059 (Ciclo 10 · `SECURITY.md`):** el documento de seguridad es **vivo** y refleja el estado de los 34
   hallazgos de la auditoría V1 (corregido + ciclo, parcial o backlog), los hallazgos base HB-01..HB-12, los
   controles implementados y los **riesgos residuales**; cada mitigación cita al menos una función `test_*` o un
@@ -416,7 +416,7 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   entradas en `.gas-snapshot`) queda publicado sin cambiar el significado de `tests_listed`.
 - **D-068 (Fase 4 · presupuesto de invariantes en la etapa de cobertura):** el job `coverage` ejecuta los
   invariantes con `FOUNDRY_INVARIANT_RUNS=1` y `FOUNDRY_INVARIANT_DEPTH=1` (65 s frente a 204 s con 64/64)
-  porque la cobertura de `src/` la fijan las suites unitarias y **no baja** (97,12 % / 91,53 % idénticos en
+  porque la cobertura de `src/` la fijan las suites unitarias y **no baja** (97,12 % / 92,31 % idénticos en
   ambos presupuestos). `run_local_ci.sh` aplica el mismo *override* para que el ensayo local refleje el
   pipeline.
 - **D-069 (Fase 4 · determinismo del fuzzer de invariantes):** Foundry v1.8.3 no expone semilla de
@@ -539,7 +539,7 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
   claims) → **CU-17**. Los tres están implementados y con etiqueta `IMPLEMENTADO (Ciclo N)` en los casos de uso.
 - Sin cobertura por alcance (D-003): RF-007, RF-008, RNF-006.
 - Datos reales de la suite (Fase 4, estado actual): **394 tests, 394 pasan, 0 fallan**, 24 suites (19 funciones
-  `invariant_*`); cobertura `src/` 97,05 % de líneas (691/712; mínimo por contrato 91,53 % de líneas; D-017/D-042), con
+  `invariant_*`); cobertura `src/` 97,05 % de líneas (691/712; mínimo por contrato 92,31 % de líneas; D-017/D-042), con
   el gate `check_coverage.sh` en el pipeline. Ver `metricas_ejecucion.md` §21 y §22.
   (Histórico de la auditoría V1, 2026-10-03: 151 declarados, 93 pasan, 5 fallan, 53 no arrancan, coverage 42,86 %.)
 
@@ -560,13 +560,13 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-04 | Build no reproducible: código sin versionar, submódulos, sin CI | **Cubierto** | RF-005, RF-009 |
 | H-05 | `isVerified()` fail-open sin `claimTopicsRegistry` | **Cubierto** | RF-011 (D-014) |
 | H-06 | Centralización de poderes: una EOA, `AGENT_ROLE` absoluto | **Cubierto (parcial)** | RF-004; gobernanza multisig/timelock al backlog R-7 |
-| H-07 | Factories permissionless; EIP-1167 sin ruta de upgrade | Backlog | M-7, R-6 |
+| H-07 | Factories permissionless; EIP-1167 sin ruta de upgrade | **Corregido** | Allowlist `setAuthorizedCreator`/`onlyCreator` (3 factories) + redeploy limpio (D-019); `test_H07_*` (6) |
 | H-08 | Claims sin vigencia ni revocación por el issuer | **Cubierto (implementado, Ciclo 8)** | RF-013 (D-014, D-045..D-047) |
 | H-09 | Catálogo RNF incompleto (ISO 25010) | Backlog | R-1 (ver §8.3) |
 | H-10 | Sin RNF de cumplimiento regulatorio (sanciones/PEP/AML) | Backlog | R-2 |
 | H-11 | PII/KYC sin custodio, base legal, cifrado ni retención | Backlog | R-3 |
 | H-12 | Sin RNF de observabilidad ni indexación de eventos | Backlog | R-4 (ver §8.3) |
-| H-13 | Catálogo de claim topics divergente | Backlog | M-8 |
+| H-13 | Catálogo de claim topics divergente | **Corregido** | Catálogo canónico v1.0 (1/7/9) + gate `ci_check_H13_catalogo_topics_unico` |
 | H-14 | `diccionario_datos.md` describe storage inexistente | **Corregido** | QW-6/H-14: sección on-chain contra `forge inspect storage-layout` |
 | H-15 | Docs y contratos citados como existentes que no existen | **Cubierto** | RF-006 / D-058 (`script/ci/check_docs.sh`) |
 | H-16 | "ERC-3643 compliant"/"production-ready" sin criterio | **Cubierto** | RF-006 / D-058 (declaración verificable en `SECURITY.md`); `LICENSE` en R-8 |
@@ -589,8 +589,8 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-33 | Estado de fases/rama contradictorio entre docs | **Cubierto** | RF-006 / D-058 (`estado_proyecto.md` y `entornos_globales.md` alineados) |
 | H-34 | Los cambios de `tokenContract` no emiten evento | **Corregido** | QW-8: evento `TokenContractSet` en los 3 módulos |
 
-**Resumen (tras el cierre de deuda QW-8/AF-12/H-14/H-19/H-20):** 20 hallazgos **cubiertos** (H-01, H-02, H-04, H-05, H-08, H-14, H-15, H-16, H-17, H-18, H-19, H-20, H-22, H-23, H-24, H-26, H-28, H-31, H-33, H-34),
-6 **parcialmente cubiertos** (H-03, H-06, H-21, H-27, H-29, H-32) y 8 **en backlog** (H-07, H-09, H-10, H-11, H-12, H-13, H-25, H-30).
+**Resumen (tras el cierre de deuda):** 22 hallazgos **cubiertos** (H-01, H-02, H-04, H-05, H-07, H-08, H-13, H-14, H-15, H-16, H-17, H-18, H-19, H-20, H-22, H-23, H-24, H-26, H-28, H-31, H-33, H-34),
+6 **parcialmente cubiertos** (H-03, H-06, H-21, H-27, H-29, H-32) y 6 **en backlog** (H-09, H-10, H-11, H-12, H-25, H-30).
 
 ### 8.2 Agrupación por el plan del informe V1 (§8) — esfuerzo S/M/L
 

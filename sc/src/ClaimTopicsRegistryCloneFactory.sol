@@ -25,9 +25,24 @@ contract ClaimTopicsRegistryCloneFactory is Ownable {
     // Optional: Mapping to track which registry belongs to which token
     mapping(address => address) public tokenRegistry;
 
+    /// @dev H-07: allowlist de creadores. `owner()` siempre puede crear. Cierra el "primer llamador
+    /// gana" en `createRegistryForToken` (cualquiera podia reclamar el registro de un token ajeno).
+    mapping(address => bool) public authorizedCreators;
+
     // Events
     event RegistryCreated(address indexed registry, address indexed owner);
     event RegistryCreatedForToken(address indexed registry, address indexed token, address indexed owner);
+
+    /// @dev H-07: traza de la allowlist de creadores.
+    event CreatorAuthorized(address indexed creator, bool authorized);
+
+    /**
+     * @dev H-07: solo el owner de la factory o una direccion autorizada pueden crear.
+     */
+    modifier onlyCreator() {
+        require(msg.sender == owner() || authorizedCreators[msg.sender], "Not authorized to create");
+        _;
+    }
 
     /**
      * @dev Constructor
@@ -39,11 +54,20 @@ contract ClaimTopicsRegistryCloneFactory is Ownable {
     }
 
     /**
+     * @dev H-07: autoriza o revoca una direccion para crear registries con esta factory.
+     */
+    function setAuthorizedCreator(address creator, bool authorized) external onlyOwner {
+        require(creator != address(0), "Invalid creator address");
+        authorizedCreators[creator] = authorized;
+        emit CreatorAuthorized(creator, authorized);
+    }
+
+    /**
      * @dev Create a new ClaimTopicsRegistry clone
      * @param owner Owner address for the registry
      * @return registry The address of the newly created registry clone
      */
-    function createRegistry(address owner) external returns (address registry) {
+    function createRegistry(address owner) external onlyCreator returns (address registry) {
         require(owner != address(0), "Invalid owner address");
 
         // Clone the implementation contract
@@ -67,7 +91,7 @@ contract ClaimTopicsRegistryCloneFactory is Ownable {
      * @param token Token address this registry will be associated with
      * @return registry The address of the newly created registry clone
      */
-    function createRegistryForToken(address owner, address token) external returns (address registry) {
+    function createRegistryForToken(address owner, address token) external onlyCreator returns (address registry) {
         require(owner != address(0), "Invalid owner address");
         require(token != address(0), "Invalid token address");
         require(tokenRegistry[token] == address(0), "Token already has a registry");
@@ -96,6 +120,7 @@ contract ClaimTopicsRegistryCloneFactory is Ownable {
      */
     function createRegistryWithTopics(address owner, uint256[] memory initialTopics)
         external
+        onlyCreator
         returns (address registry)
     {
         require(owner != address(0), "Invalid owner address");
@@ -133,6 +158,7 @@ contract ClaimTopicsRegistryCloneFactory is Ownable {
      */
     function createRegistryForTokenWithTopics(address owner, address token, uint256[] memory initialTopics)
         external
+        onlyCreator
         returns (address registry)
     {
         require(owner != address(0), "Invalid owner address");

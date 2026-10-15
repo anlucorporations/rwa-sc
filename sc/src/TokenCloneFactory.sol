@@ -22,8 +22,24 @@ contract TokenCloneFactory is Ownable {
     // Array of all created tokens
     address[] public allTokens;
 
+    /// @dev H-07: allowlist de creadores. El `owner()` de la factory siempre puede crear; cualquier
+    /// otra direccion debe estar autorizada explicitamente con `setAuthorizedCreator`. Antes
+    /// `createToken` era permissionless ("primer llamador gana").
+    mapping(address => bool) public authorizedCreators;
+
     // Events
     event TokenCreated(address indexed token, address indexed admin, string name, string symbol, uint8 decimals);
+
+    /// @dev H-07: traza de la allowlist de creadores.
+    event CreatorAuthorized(address indexed creator, bool authorized);
+
+    /**
+     * @dev H-07: solo el owner de la factory o una direccion autorizada pueden crear.
+     */
+    modifier onlyCreator() {
+        require(msg.sender == owner() || authorizedCreators[msg.sender], "Not authorized to create");
+        _;
+    }
 
     /**
      * @dev Constructor
@@ -32,6 +48,17 @@ contract TokenCloneFactory is Ownable {
     constructor(address initialOwner) Ownable(initialOwner) {
         // Deploy the implementation contract
         implementation = address(new TokenCloneable());
+    }
+
+    /**
+     * @dev H-07: autoriza o revoca una direccion para crear tokens con esta factory.
+     * @param creator Direccion a autorizar/revocar
+     * @param authorized `true` para autorizar, `false` para revocar
+     */
+    function setAuthorizedCreator(address creator, bool authorized) external onlyOwner {
+        require(creator != address(0), "Invalid creator address");
+        authorizedCreators[creator] = authorized;
+        emit CreatorAuthorized(creator, authorized);
     }
 
     /**
@@ -44,6 +71,7 @@ contract TokenCloneFactory is Ownable {
      */
     function createToken(string memory name_, string memory symbol_, uint8 decimals_, address admin)
         external
+        onlyCreator
         returns (address token)
     {
         require(admin != address(0), "Invalid admin address");
@@ -84,7 +112,7 @@ contract TokenCloneFactory is Ownable {
         address identityRegistry,
         address trustedIssuersRegistry,
         address claimTopicsRegistry
-    ) external returns (address token) {
+    ) external onlyCreator returns (address token) {
         require(admin != address(0), "Invalid admin address");
         require(bytes(name_).length > 0, "Token name required");
         require(bytes(symbol_).length > 0, "Token symbol required");

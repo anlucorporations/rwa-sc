@@ -23,6 +23,39 @@ contract TokenCloneFactoryTest is Test {
 
         vm.prank(owner);
         factory = new TokenCloneFactory(owner);
+
+        // H-07: la factory ya no es permissionless; el test se autoriza como creador.
+        vm.prank(owner);
+        factory.setAuthorizedCreator(address(this), true);
+    }
+
+    /// H-07: una cuenta no autorizada no puede crear tokens.
+    function test_H07_CreateToken_sin_autorizacion_revierte() public {
+        address stranger = makeAddr("strangerH07");
+        vm.prank(stranger);
+        vm.expectRevert("Not authorized to create");
+        factory.createToken("X", "X", 18, admin1);
+    }
+
+    /// H-07: el owner puede autorizar a un tercero y revocarlo.
+    function test_H07_SetAuthorizedCreator_autoriza_y_revoca() public {
+        address issuerCreator = makeAddr("issuerCreatorH07");
+
+        vm.prank(owner);
+        factory.setAuthorizedCreator(issuerCreator, true);
+        assertTrue(factory.authorizedCreators(issuerCreator));
+
+        vm.prank(issuerCreator);
+        address tokenAddress = factory.createToken("Auth", "AUT", 18, issuerCreator);
+        assertNotEq(tokenAddress, address(0));
+
+        vm.prank(owner);
+        factory.setAuthorizedCreator(issuerCreator, false);
+        assertFalse(factory.authorizedCreators(issuerCreator));
+
+        vm.prank(issuerCreator);
+        vm.expectRevert("Not authorized to create");
+        factory.createToken("Auth2", "AUT2", 18, issuerCreator);
     }
 
     function test_Deployment() public view {

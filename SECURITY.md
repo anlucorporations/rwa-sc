@@ -55,7 +55,7 @@ test o un gate que lo demuestre.
 | ID | Título breve | Estado | Ciclo / RF | Evidencia (test o gate) |
 |---|---|---|---|---|
 | **H-01** | Claims auto-forjados sin verificación de firma | **Corregido** | Ciclo 2 · RF-001 | `test/RF001_*` en `test/IdentityCloneable.t.sol` (`test_RF001_addClaim_firma_vacia_revierte`, `test_RF001_addClaim_firma_de_otra_clave_revierte`, `test_RF001_addClaim_firma_maleable_s_alto_revierte`, `test_RF001_addClaim_con_firma_valida`) |
-| **H-02** | "139 tests (100 % passing)" falso; suites muertas; cobertura 42,86 % | **Corregido** | Ciclos 1/1b · RF-005, y Ciclo 10 · RF-006 | `forge test` → **413/413**; cobertura `src/` **96,94 % líneas** (791/816; mínimo por contrato 91,53 %; D-017/D-042) |
+| **H-02** | "139 tests (100 % passing)" falso; suites muertas; cobertura 42,86 % | **Corregido** | Ciclos 1/1b · RF-005, y Ciclo 10 · RF-006 | `forge test` → **419/419**; cobertura `src/` **97,00 % líneas** (809/834; mínimo por contrato 92,31 %; D-017/D-042) |
 | **H-04** | Build no reproducible: submódulos, pin de `solc`, sin CI | **Corregido** | Ciclos 1 y 11 · RF-005/RF-009 | `.gitmodules` único + `sc/foundry.lock`; `solc_version = 0.8.20` y `evm_version` en `sc/foundry.toml`; `sc/.gitlab-ci.yml` (7 jobs) en verde (`2934202154`, `2934241152`) |
 | **H-05** | `isVerified()` fail-open sin `claimTopicsRegistry` | **Corregido** | Ciclo 6 · RF-011 | `test/RF011_FailClosed.t.sol` (`test_RF011_isVerified_sin_registry_topics_false`, `test_RF011_mint_transfer_bloqueados_sin_politica`) |
 | **H-08** | Claims sin vigencia ni revocación por el issuer | **Corregido** | Ciclos 8/8c · RF-013 | `test/RF013_ClaimLifecycle.t.sol` (`test_RF013_claim_expirado_isVerified_false`, `test_RF013_claim_revocado_por_issuer_isVerified_false`, `test_RF013_revocacion_replay_firma_original_revierte`) |
@@ -68,7 +68,7 @@ test o un gate que lo demuestre.
 | ID | Título breve | Estado | Backlog |
 |---|---|---|---|
 | **H-06** | Centralización de poderes en una EOA; `burn`/`forcedTransfer` sin límites | **Parcial**: RF-004 acota operaciones (whitelist/topes/`maxSupply`); falta multisig/timelock y reparto de roles | R-7 (D-021) |
-| **H-07** | Factories permissionless; EIP-1167 sin ruta de upgrade | Backlog | M-7, R-6 (D-019) |
+| **H-07** | Factories permissionless; EIP-1167 sin ruta de upgrade | **Corregido** | H-07: allowlist de creadores (`setAuthorizedCreator`, `onlyCreator`) en las 3 factories + decisión de ciclo de vida = **redeploy limpio** (D-009/D-019, `RUNBOOK_MIGRACION.md`); `test_H07_*` (6) |
 | **H-09** | Catálogo RNF incompleto (ISO 25010) | Backlog | R-1 |
 | **H-10** | Sin RNF de cumplimiento regulatorio (sanciones/PEP/AML) | Backlog | R-2 |
 | **H-11** | PII/KYC sin custodio, base legal, cifrado ni retención | Backlog | R-3 |
@@ -78,7 +78,7 @@ test o un gate que lo demuestre.
 
 | ID | Título breve | Estado | Backlog |
 |---|---|---|---|
-| **H-13** | Catálogo de claim topics divergente | Backlog | M-8 |
+| **H-13** | Catálogo de claim topics divergente | **Corregido** | H-13: catálogo canónico **v1.0** (1=KYC, 7=Accreditation, 9=Jurisdiction) con fuente única en el seed `rwa.claim_topics` + gate `sc/script/ci/check_claim_topics.sh`; documentos raíz alineados |
 | **H-14** | `diccionario_datos.md` describe storage inexistente | **Corregido** | QW-6/H-14: la sección on-chain se contrasta contra `forge inspect <C> storage-layout` (sin `_tokenName`/`_tokenSymbol`/`bypassCompliance`; con `claimNonce`, `expiresAt`/`revoked` y los 4 campos de RF-004) |
 | **H-15** | Docs citan archivos/contratos inexistentes | **Corregido** | Ciclo 10 · RF-006 (gate `script/ci/check_docs.sh`) |
 | **H-16** | "ERC-3643 compliant"/"production-ready" sin criterio | **Corregido** | Ciclo 10 · RF-006 (declaración verificable §0); `LICENSE` pendiente en R-8 |
@@ -120,7 +120,7 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
 | HB-08 | `web-registry-trusted2` duplicado (zona web) | **Pausado** | D-003 (fuera de alcance) |
 | HB-09 | Direcciones hardcodeadas en `rwa-web` | **Pausado** | D-003 (fuera de alcance) |
 | HB-10 | No hay CI/CD | **Corregido** | RF-009 / Ciclo 11 (`sc/.gitlab-ci.yml`, 7 jobs; pipelines `2934202154` y `2934241152` en verde) |
-| HB-11 | 151 tests no verificados en el entorno | **Corregido** | RF-005 / Ciclo 1; hoy **413/413** |
+| HB-11 | 151 tests no verificados en el entorno | **Corregido** | RF-005 / Ciclo 1; hoy **419/419** |
 | HB-12 | `deploy-besu.sh` maneja clave privada en claro | **Corregido** | RF-010 / Ciclo 9 (D-054/D-055) |
 
 ## 4. Controles implementados (con su prueba)
@@ -189,6 +189,14 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
     paginación en las vistas (`getComplianceModulesPaginated`, `getRegisteredAddressesPaginated`,
     `getTrustedIssuersPaginated`, `getClaimTopicsPaginated`, `getModulesPaginated`, `getTokensPaginated`,
     `removeComplianceModuleByAddress`). Pruebas: `test/H20_Escalabilidad.t.sol` (6).
+18. **Allowlist de creadores en las factories (H-07).** `createToken`, `createIdentity` y las cuatro
+    variantes de registry exigen `msg.sender == owner()` o estar en `authorizedCreators`; en caso
+    contrario revierten `"Not authorized to create"`. Cierra el "primer llamador gana" de
+    `createRegistryForToken`. Pruebas: `test_H07_*` (6) en las 3 suites de factories.
+19. **Catálogo único de claim topics (H-13).** Fuente única en el seed `rwa.claim_topics`
+    (`base_datos.sql`), replicada en `diccionario_datos.md` §3 y verificada por
+    `ci_check_H13_catalogo_topics_unico` (`sc/script/ci/check_claim_topics.sh`), que además rechaza
+    que `ARQUITECTURA_FINAL.md` o `REFERENCIA_TECNICA.md` reintroduzcan un catálogo divergente.
 
 ## 5. Riesgos residuales (declaración honesta)
 
