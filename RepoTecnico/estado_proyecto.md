@@ -2,7 +2,7 @@
 
 > **Proyecto:** Mejora y estabilización de la plataforma RWA (Real World Assets, inspirada en ERC-3643)
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
-> **Versión:** v2.4 · Fase 4 (Pruebas) cerrada — invariantes, matriz v2 (0 FALTA) y corrección de la auditoría adversarial final (AF-01..AF-15)
+> **Versión:** v2.5 · 2026-10-14 — Fases 1–4 cerradas (Fase 5 omitida, D-087), **backlog post-Fase 4 cerrado** (QW-8 · AF-04/AF-12/AF-14 · H-06/H-07/H-09/H-13/H-14/H-19/H-20/H-29/H-32 · RNF-107) y **etapa `@web` abierta** (D-088…D-102, ciclo O0 en curso)
 
 ## Fases
 
@@ -445,11 +445,11 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
 | Referencias a MongoDB en el código | **18** | No (es O0.3) |
 | `ignoreBuildErrors: true` | 3 apps | No |
 | Versiones de `next` / `react` | 4 / 2 | No |
-| Repositorio `rwa-web` | ✅ creado: rama `rwa-web-DSH`, 229 ficheros, commit `cd97c7d`, **sin remoto** | **Sí** (D-094 en curso) |
+| Repositorio `rwa-web` | ✅ creado: rama `rwa-web-DSH`, 229 ficheros, commit inicial `cd97c7d`; **5 commits** hasta `84bd35a` (contexto `@web` + sincronizaciones del espejo de datos), **sin remoto** | **Sí** (D-094 en curso) |
 | `web-registry-trusted2/env.local` | **eliminado** → `.env.example` versionado; `.env.local` ignorado (`.gitignore:19`) | **Sí** (HW-15 cerrado) |
 | `docker-build/` de 3 apps | **rastreado en git** (incluye ruta absoluta de desarrollador) | ⚠️ **Regresión de HW-11**: `git rm -r --cached` en O1/O3 |
 | Gate de sincronización de datos | `check_sincronizacion_datos.sh --check` → **exit 0** (3/3 idénticos, sha256 coincidentes) | Nuevo (D-102) |
-| Cambios pendientes en `rwa-sc` | `D RepoTecnico/INFORME_OPTIMIZACION_WEB_V1.md` + `M` en los 3 artefactos, `entornos_globales.md` y `estado_proyecto.md` (la reorganización no está commiteada en `@sc`) | ⚠️ Pendiente de commit |
+| Commit de la reorganización en `rwa-sc` | ✅ **commiteada en `688f737`** («docs: reorganiza @sc/@web y migra los artefactos de datos a PostgreSQL»); árbol de trabajo limpio y `rwa-sc-DSH-GCP` sincronizada con `origin` (0/0) | **Sí** (resuelto) |
 
 ### Decisiones de la etapa (D-088…D-102)
 
@@ -464,7 +464,7 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
 | **D-094** | **Se crea el repositorio `rwa-web`** y se publica en GitLab.com (`anlucorporations/rwa-web`, rama `rwa-web-DSH`); sin `push` sin orden explícita | ✅ **APROBADA** (bloque 2) |
 | **D-095** | **BD off-chain = PostgreSQL** (Cloud SQL, PG 15+, esquema `rwa`). **Sustituye a MongoDB** en el frontend y **resuelve Q6**. Esquema real: `base_datos.sql` v1.0 (10 tablas, 1 vista, catálogo sembrado); `document_files` cifrado sustituye a GridFS (matiza D-093) | ✅ **APROBADA** (directriz del usuario) |
 | **D-096** | **Red on-chain canónica = Anvil de GCP** (`MCC_ANVIL_RPC_URL`, chain 31337). **Matiza D-091**: la instancia canónica es la de GCP, no la local; Besu 81234 queda como alternativa documentada | ✅ **APROBADA** (directriz del usuario) |
-| **D-097** | **Hosting de la BD = Cloud SQL existente `truekeate-db-dev`** (PG 15.18, usuario `app`, Auth Proxy `127.0.0.1:5433`). Pendiente verificar la región (discrepancia `gcp-env.sh` southamerica-east1 vs `entornos_globales.md` us-east1) | ✅ **APROBADA** (bloque 3) |
+| **D-097** | **Hosting de la BD = Cloud SQL existente `truekeate-db-dev`** (PG 15.18, usuario `app`, Auth Proxy `127.0.0.1:5433`). **Región verificada: `southamerica-east1-a`** (V-3 resuelto; `entornos_globales.md` alineado) | ✅ **APROBADA** (bloque 3) |
 | **D-098** | **Documentos KYC = `bytea` cifrado AES-256-GCM en `rwa.document_files`** (sin almacenamiento externo); `sha256` + metadatos en la misma fila | ✅ **APROBADA** (bloque 3) |
 | **D-099** | **Arranque limpio:** no se migran los datos de MongoDB (solo había datos de prueba); el esquema se crea vacío con el catálogo de topics sembrado. El Anexo A de `base_datos.sql` queda como ETL opcional | ✅ **APROBADA** (bloque 3) |
 | **D-100** | **Se añade el ciclo O0 (fundación: esquema PostgreSQL + capa de datos + red Anvil de GCP) como primer ciclo**, antes de O1. Matiza D-090 | ✅ **APROBADA** (bloque 3) |

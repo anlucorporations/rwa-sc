@@ -8,8 +8,9 @@
 | Área | Comando | Ruta local | Contenido |
 |---|---|---|---|
 | Contratos | `@contratos` | `/home/dsh/workspace/RWA/rwa-sc/` | Foundry project en `sc/` (src/test/script), docs .md, `deploy-besu.sh` |
-| Web | `@web` | `/home/dsh/workspace/RWA/rwa-web/` | 5 apps Next.js + docs + `start-all.sh` |
-| Reportes | — | `/home/dsh/workspace/RWA/RepoTecnico/` | Documentación técnica (este skill) |
+| Web | `@web` | `/home/dsh/workspace/RWA/rwa-web/` | 5 apps Next.js + docs + `RepoTecnico/` + `start-all.sh` |
+| Reportes `@sc` | — | `/home/dsh/workspace/RWA/rwa-sc/RepoTecnico/` | Documentación técnica de la línea de contratos (**canónico** de los artefactos de datos) |
+| Reportes `@web` | — | `/home/dsh/workspace/RWA/rwa-web/RepoTecnico/` | Documentación técnica de la línea de frontend (**espejo** de los artefactos de datos, D-102) |
 
 ## 2. Repositorios remotos
 
@@ -31,7 +32,7 @@
 | `.env.global` | `/home/dsh/workspace/.env.global` (variables sin secretos) |
 | Proyecto default | `mcc-ecommerce` |
 | Anvil en GCP | RPC `MCC_ANVIL_RPC_URL` → `RPC_URL`, `CHAIN_ID=31337` |
-| Cloud SQL | `truekeate-main:us-east1:truekeate-db-dev` (BD `truekeate`, user `app`, PG 15.18) — proyecto `truekeate-main`; proxy en `[IP]:5433` |
+| Cloud SQL | `truekeate-main:southamerica-east1:truekeate-db-dev` (BD `truekeate`, user `app`, PG 15.18, región real **`southamerica-east1-a`**, IP pública `34.39.180.101`) — proyecto `truekeate-main`; proxy en `[IP]:5433` |
 | Secretos | Prefijo `DS_` (`DS_RPC_URL`, `DS_DATABASE_URL`, `DS_KYC_SECRET`, `DS_RELAYER_PRIVATE_KEY`, `DS_PINATA_JWT`) + `DATABASE_URL`, `ADMIN_PRIVATE_KEY`, `RELAYER_PRIVATE_KEY` |
 | SA de mínimos privilegios | `GCP_SA=ds-dev source gcp-env.sh` |
 
