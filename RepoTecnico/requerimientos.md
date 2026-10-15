@@ -562,7 +562,7 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-06 | Centralización de poderes: una EOA, `AGENT_ROLE` absoluto | **Parcial (R-7)** | RF-004 + `GovernanceMultisig` (M-de-N + timelock) probado; pendiente adoptarlo y auditarlo |
 | H-07 | Factories permissionless; EIP-1167 sin ruta de upgrade | **Corregido** | Allowlist `setAuthorizedCreator`/`onlyCreator` (3 factories) + redeploy limpio (D-019); `test_H07_*` (6) |
 | H-08 | Claims sin vigencia ni revocación por el issuer | **Cubierto (implementado, Ciclo 8)** | RF-013 (D-014, D-045..D-047) |
-| H-09 | Catálogo RNF incompleto (ISO 25010) | **Definido (R-1)** | `RepoTecnico/requerimientos_no_funcionales.md` §1 (RNF-101..109); pendiente fijar Slither |
+| H-09 | Catálogo RNF incompleto (ISO 25010) | **Corregido** | `requerimientos_no_funcionales.md` §1 (RNF-101..109) + gate Slither `ci_check_RNF107_slither_sin_high` |
 | H-10 | Sin RNF de cumplimiento regulatorio (sanciones/PEP/AML) | **Definido (R-2)** | §2 (RNF-201..206); **pendiente aprobación legal** |
 | H-11 | PII/KYC sin custodio, base legal, cifrado ni retención | **Parcial (R-3)** | §3 (RNF-301..306); cifrado en `@web`; pendiente DPIA/DPO |
 | H-12 | Sin RNF de observabilidad ni indexación de eventos | **Definido (R-4)** | §4 (RNF-401..405); indexer pendiente |
@@ -589,8 +589,8 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-33 | Estado de fases/rama contradictorio entre docs | **Cubierto** | RF-006 / D-058 (`estado_proyecto.md` y `entornos_globales.md` alineados) |
 | H-34 | Los cambios de `tokenContract` no emiten evento | **Corregido** | QW-8: evento `TokenContractSet` en los 3 módulos |
 
-**Resumen (tras el cierre de deuda):** 23 hallazgos **cubiertos** (H-01, H-02, H-04, H-05, H-07, H-08, H-13, H-14, H-15, H-16, H-17, H-18, H-19, H-20, H-22, H-23, H-24, H-26, H-28, H-31, H-32, H-33, H-34),
-11 **parciales o definidos** (H-03, H-06, H-09, H-10, H-11, H-12, H-21, H-25, H-27, H-29, H-30) y **0 en backlog** (los pendientes dependen de aprobación legal/dirección o de un componente off-chain).
+**Resumen (tras el cierre de deuda):** 24 hallazgos **cubiertos** (H-01, H-02, H-04, H-05, H-07, H-08, H-09, H-13, H-14, H-15, H-16, H-17, H-18, H-19, H-20, H-22, H-23, H-24, H-26, H-28, H-31, H-32, H-33, H-34),
+10 **parciales o definidos** (H-03, H-06, H-10, H-11, H-12, H-21, H-25, H-27, H-29, H-30) y **0 en backlog** (los pendientes dependen de aprobación legal/dirección o de un componente off-chain).
 
 ### 8.2 Agrupación por el plan del informe V1 (§8) — esfuerzo S/M/L
 

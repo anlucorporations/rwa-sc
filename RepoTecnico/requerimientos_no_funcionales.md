@@ -22,7 +22,7 @@
 | RNF-104 | Usabilidad (contratos) | N/A justificado: sin UI en `rwa-sc`; la accesibilidad WCAG 2.1 AA se cubre en la línea `@web` | — | — | N/A justificado |
 | RNF-105 | Fiabilidad | Ningún `invariant_*` con violación; 0 fallos en CI | `forge test` (19 invariantes) | Dev contratos | ✅ Verificado |
 | RNF-106 | Seguridad de la información | Sin secretos en el árbol; claims firmados EIP-712; fail-closed | `check_secrets.sh`, RF-001/RF-011/RF-012 | Seguridad | ✅ Verificado |
-| RNF-107 | Mantenibilidad | Cobertura de líneas `src/` ≥ 80 % agregada **y** por contrato; `forge fmt --check` limpio; análisis estático sin *High* | `check_coverage.sh`, `fmt`, `slither` (§7 pendiente) | Dev contratos | 🟡 Parcial (falta Slither fijado) |
+| RNF-107 | Mantenibilidad | Cobertura de líneas `src/` ≥ 80 % agregada **y** por contrato; `forge fmt --check` limpio; análisis estático (Slither) sin hallazgos ≥ medium | `check_coverage.sh`, `fmt`, `check_slither.sh` (job `slither`) | Dev contratos | ✅ Verificado (0 High / 0 Medium en `src/`) |
 | RNF-108 | Portabilidad | `solc 0.8.20` + optimizer + `evm_version=paris` fijados; bootstrap reproducible con submódulos; multi-red con validación de `chainId` | `validate` job, `deploy.sh` | DevOps | ✅ Verificado |
 | RNF-109 | Cumplimiento regulatorio y privacidad | Cubierto por §2 y §3 | — | Legal + Compliance | 🟡 Definido, pendiente de aprobación |
 
@@ -87,7 +87,7 @@
 
 | Hallazgo | Artefacto que lo cierra | Quién aprueba | Estado |
 |---|---|---|---|
-| H-09 | §1 catálogo RNF ISO 25010 | Dirección técnica | 🟡 Definido |
+| H-09 | §1 catálogo RNF ISO 25010 + gate Slither (RNF-107) | Dirección técnica | ✅ Corregido |
 | H-10 | §2 RNF regulatorios (RNF-201..206) | Legal + Compliance | 🟡 Pendiente de aprobación |
 | H-11 | §3 protección de datos (RNF-301..306) | Legal / DPO | 🟡 Pendiente de aprobación |
 | H-12 / H-21 | §4 observabilidad e indexación (RNF-401..405) | Arquitectura + backend | 🟡 Pendiente de implementación del indexer |

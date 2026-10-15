@@ -178,7 +178,17 @@ run_stage "fmt" stage_fmt
 run_stage "test" stage_test
 run_stage "coverage" stage_coverage
 run_stage "gas" stage_gas
+# --- slither: RNF-107 / H-09 -------------------------------------------------
+# Analisis estatico con Slither; si `slither` no esta disponible, el gate hace SKIP
+# (el job `slither` del pipeline lo instala y por tanto alli si es obligatorio).
+stage_slither() {
+    cd "${SC_ROOT}"
+    "${SCRIPT_DIR}/check_slither.sh" || return 1
+    return 0
+}
+
 run_stage "ci-checks" stage_ci_checks
+run_stage "slither" stage_slither
 
 print_summary
 

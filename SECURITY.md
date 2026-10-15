@@ -69,7 +69,7 @@ test o un gate que lo demuestre.
 |---|---|---|---|
 | **H-06** | Centralización de poderes en una EOA; `burn`/`forcedTransfer` sin límites | **Parcial**: RF-004 acota operaciones; **mecanismo multisig + timelock implementado** (`GovernanceMultisig`, `DeployGovernance.s.sol`, `RUNBOOK_MIGRACION.md` §8); falta **adoptarlo** en el despliegue canónico y auditarlo (R-7/D-021) |
 | **H-07** | Factories permissionless; EIP-1167 sin ruta de upgrade | **Corregido** | H-07: allowlist de creadores (`setAuthorizedCreator`, `onlyCreator`) en las 3 factories + decisión de ciclo de vida = **redeploy limpio** (D-009/D-019, `RUNBOOK_MIGRACION.md`); `test_H07_*` (6) |
-| **H-09** | Catálogo RNF incompleto (ISO 25010) | **Definido** | `RepoTecnico/requerimientos_no_funcionales.md` §1 (RNF-101..109); falta fijar Slither (RNF-107) |
+| **H-09** | Catálogo RNF incompleto (ISO 25010) | **Corregido** | `RepoTecnico/requerimientos_no_funcionales.md` §1 (RNF-101..109) + análisis estático obligatorio: gate Slither `ci_check_RNF107_slither_sin_high` (`sc/script/ci/check_slither.sh`, job `slither`) |
 | **H-10** | Sin RNF de cumplimiento regulatorio (sanciones/PEP/AML) | **Definido** | §2 (RNF-201..206); **pendiente de aprobación legal** |
 | **H-11** | PII/KYC sin custodio, base legal, cifrado ni retención | **Parcial** | §3 (RNF-301..306): cifrado AES-256-GCM implementado en `@web` (D-098); pendiente DPIA/DPO y retención |
 | **H-12** | Sin RNF de observabilidad ni indexación de eventos | **Definido** | §4 (RNF-401..405); indexer pendiente de implementación (R-4) |
@@ -98,13 +98,13 @@ test o un gate que lo demuestre.
 | **H-33** | Estado de fases/rama contradictorio | **Corregido** | Ciclo 10 · RF-006 (`RepoTecnico/estado_proyecto.md` actualizado) |
 | **H-34** | Los cambios de `tokenContract` no emiten evento | **Corregido** | QW-8: evento `TokenContractSet(address indexed)` en los 3 módulos (`test_QW8_SetTokenContract_emite_evento`) |
 
-**Recuento** (coherente con `RepoTecnico/requerimientos.md` §8.1): **23 corregidos** (H-01, H-02, H-04,
-H-05, H-07, H-08, H-13, H-14, H-15, H-16, H-17, H-18, H-19, H-20, H-22, H-23, H-24, H-26, H-28, H-31,
-H-32, H-33, H-34), **11 parciales o definidos** (H-03, H-06, H-09, H-10, H-11, H-12, H-21, H-25, H-27,
+**Recuento** (coherente con `RepoTecnico/requerimientos.md` §8.1): **24 corregidos** (H-01, H-02, H-04,
+H-05, H-07, H-08, H-09, H-13, H-14, H-15, H-16, H-17, H-18, H-19, H-20, H-22, H-23, H-24, H-26, H-28,
+H-31, H-32, H-33, H-34), **10 parciales o definidos** (H-03, H-06, H-10, H-11, H-12, H-21, H-25, H-27,
 H-29, H-30) y **0 en backlog**. Lo que resta no es implementación pendiente del equipo técnico: son
-**aprobaciones legal/dirección** (H-10, H-11, H-25, H-30), el **indexer off-chain** (H-12/H-21), el
-**multisig/timelock** (H-06, R-7) y el **análisis estático fijado** (H-09, RNF-107) — todos con artefacto
-verificable en `RepoTecnico/requerimientos_no_funcionales.md`.
+**aprobaciones legal/dirección** (H-10, H-11, H-25), el **indexer off-chain** (H-12/H-21) y la
+**adopción + auditoría del multisig** (H-06, R-7) — todos con artefacto verificable en
+`RepoTecnico/requerimientos_no_funcionales.md` (el análisis estático RNF-107 ya está en verde).
 
 ## 3. Hallazgos-base (HB-01..HB-12) y su cierre
 
@@ -206,6 +206,12 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
 21. **Escaneo de secretos en documentación (AF-14).** `check_secrets.sh` escanea también los `.md`
     (`DOC_RE`) buscando claves crudas **etiquetadas** (`Private key: 0x…`), sin marcar los hashes de
     evidencia de auditoría. Verificado con una prueba negativa (clave plantada en un `.md` ⇒ exit 1).
+23. **Análisis estático obligatorio (RNF-107 / H-09).** Gate `ci_check_RNF107_slither_sin_high`
+    (`sc/script/ci/check_slither.sh` + `sc/slither.config.json`): Slither sobre `src/` con
+    `--compile-force-framework foundry` falla ante impacto ≥ medium. Estado actual: **0 High y 0 Medium**
+    en `src/` (2 `unused-return` suprimidos con justificación y 2 `reentrancy-no-eth` falsos positivos
+    mitigados con `nonReentrant` y suprimidos). Job `slither` del pipeline (imagen Python + Foundry
+    fijado).
 22. **Gobernanza multisig + timelock (H-06/R-7).** `GovernanceMultisig` implementa M-de-N con umbral,
     timelock, propuestas auto-dirigidas para el propio mantenimiento y propagación del motivo de revert.
     Despliegue con `script/DeployGovernance.s.sol` y entrega de roles documentada en
@@ -223,7 +229,7 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
    DPIA y DPO** están definidos en `RepoTecnico/requerimientos_no_funcionales.md` §3 pero **pendientes
    de aprobación legal** (H-11).
 4. **Pipeline de CI en verde.** Los gates `validate`, `build`, `fmt`, `test`, `coverage`, `gas` y `ci-checks`
-   (`check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh`, `check_secrets.sh`, `check_claim_topics.sh`)
+   (`check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh`, `check_secrets.sh`, `check_claim_topics.sh`; y el job `slither` para RNF-107)
    están versionados en `sc/.gitlab-ci.yml` (RF-009) y se han ejecutado en remoto en verde: pipelines
    **`2934202154`**, **`2934241152`** y **`2935871780`**, **7/7 jobs** (H-04/HB-10).
    `sc/script/ci/run_local_ci.sh` reproduce el pipeline en local.

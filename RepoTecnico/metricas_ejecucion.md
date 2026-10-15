@@ -1707,3 +1707,38 @@ Contrato **nuevo** (no cambia ninguna ABI existente); `sc/abis/` pasa a 16 contr
 `forge build` 0 errores; `forge test` **443/443**; `forge fmt --check` limpio; `check_coverage.sh`
 → `src/` **97,18 %** (896/922); `DeployGovernance` simulado con `forge script`; `.gas-snapshot`
 regenerado.
+
+---
+
+## 30. Análisis estático obligatorio — Slither (RNF-107 / H-09)
+
+### 30.1 Estado
+
+| Métrica | Valor |
+|---|---|
+| Tests / suites | **443 / 25** (sin cambios) |
+| Cobertura `src/` (líneas) | **97,18 % (896/922)** (sin cambios) |
+| Slither `src/` (impacto) | **0 High · 0 Medium** · 56 Low · 58 Informational · 3 Optimization |
+
+Gate `sc/script/ci/check_slither.sh` (`ci_check_RNF107_slither_sin_high`) + `sc/slither.config.json`
+(filtra `lib/`, `test/`, `script/`). Falla ante impacto ≥ `medium` (`SLITHER_MAX_IMPACT`); el job
+`slither` del pipeline usa una imagen Python e instala Foundry `v1.8.3` (misma versión fijada).
+
+### 30.2 Hallazgos atendidos para dejar `src/` sin High/Medium
+
+- **2 `reentrancy-no-eth`** en `ClaimTopicsRegistryCloneFactory`: falso positivo aceptado (las llamadas
+  externas son a un clon recién creado por la propia factory). Mitigado con `nonReentrant`
+  (`ReentrancyGuard`) y suprimido en línea con justificación.
+- **2 `unused-return`** (`ECDSA.tryRecover` en `IdentityCloneable.addClaim` y `addClaim` en
+  `IdentityCreateWithClaim`): intencionales; suprimidos con justificación en línea.
+
+### 30.3 ABI
+
+**Aditiva:** el error `ReentrancyGuardReentrantCall()` aparece en la ABI de
+`ClaimTopicsRegistryCloneFactory`; ninguna firma/selector cambia. `sc/abis/` regenerado (16 contratos) y
+`CHANGELOG_ABIS.md` actualizado.
+
+### 30.4 Verificaciones
+
+`forge build` 0 errores; `forge test` **443/443**; `forge fmt --check` limpio; `abi_diff.sh` sin deriva;
+`check_slither.sh` en verde; `.gas-snapshot` regenerado (el `nonReentrant` cambia el gas de las factories).

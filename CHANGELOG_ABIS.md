@@ -627,3 +627,19 @@ Eventos: `OwnerAdded`, `OwnerRemoved`, `ThresholdUpdated`, `DelayUpdated`, `Prop
 Ninguno sobre las ABIs existentes. La adopción (conceder los roles admin al multisig y
 `renounceRole` de la EOA) es un paso **operativo** documentado en `RUNBOOK_MIGRACION.md`; el contrato
 nuevo requiere auditoría externa antes de producción (D-024).
+
+---
+
+## RNF-107 (H-09) — hardening para Slither en `ClaimTopicsRegistryCloneFactory` (ABI **aditiva**)
+
+**Motivo:** dejar el análisis estático (Slither) de `src/` sin hallazgos de impacto ≥ medium.
+
+- `ClaimTopicsRegistryCloneFactory` hereda de `ReentrancyGuard` (OpenZeppelin) y `createRegistryForToken`
+  / `createRegistryForTokenWithTopics` pasan a `nonReentrant` (defensa en profundidad frente a un
+  `reentrancy-no-eth` que Slither marca aunque el clon lo cree y controle la propia factory).
+- **ABI aditiva:** aparece el error `ReentrancyGuardReentrantCall()` en la ABI del contrato; no cambia
+  ninguna firma, selector ni salida de función.
+- Los dos `unused-return` (`ECDSA.tryRecover` y `addClaim`) se suprimen con
+  `// slither-disable-next-line` y justificación en línea.
+- Se añade `sc/slither.config.json` y el gate `sc/script/ci/check_slither.sh`
+  (`ci_check_RNF107_slither_sin_high`).

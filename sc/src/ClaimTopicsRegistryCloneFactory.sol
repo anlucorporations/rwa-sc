@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ClaimTopicsRegistryCloneable} from "./ClaimTopicsRegistryCloneable.sol";
 
 /**
@@ -10,7 +11,7 @@ import {ClaimTopicsRegistryCloneable} from "./ClaimTopicsRegistryCloneable.sol";
  * @dev Factory contract to create ClaimTopicsRegistry clones using EIP-1167 minimal proxy pattern
  * This significantly reduces gas costs when deploying multiple registry contracts
  */
-contract ClaimTopicsRegistryCloneFactory is Ownable {
+contract ClaimTopicsRegistryCloneFactory is Ownable, ReentrancyGuard {
     using Clones for address;
 
     // Implementation contract that will be cloned
@@ -90,8 +91,18 @@ contract ClaimTopicsRegistryCloneFactory is Ownable {
      * @param owner Owner address for the registry
      * @param token Token address this registry will be associated with
      * @return registry The address of the newly created registry clone
+     *
+     * Slither `reentrancy-no-eth`: falso positivo aceptado. Las llamadas externas son a un clon
+     * **recien creado por esta factory** (direccion devuelta por `Clones.clone()`), no a una
+     * direccion controlada por un atacante, y la funcion es `nonReentrant` (defensa en profundidad).
      */
-    function createRegistryForToken(address owner, address token) external onlyCreator returns (address registry) {
+    // slither-disable-next-line reentrancy-no-eth
+    function createRegistryForToken(address owner, address token)
+        external
+        onlyCreator
+        nonReentrant
+        returns (address registry)
+    {
         require(owner != address(0), "Invalid owner address");
         require(token != address(0), "Invalid token address");
         require(tokenRegistry[token] == address(0), "Token already has a registry");
@@ -155,10 +166,15 @@ contract ClaimTopicsRegistryCloneFactory is Ownable {
      * @param token Token address this registry will be associated with
      * @param initialTopics Array of initial claim topics to add
      * @return registry The address of the newly created registry clone
+     *
+     * Slither `reentrancy-no-eth`: falso positivo aceptado (misma razon que en `createRegistryForToken`:
+     * el clon lo crea y controla esta factory y la funcion es `nonReentrant`).
      */
+    // slither-disable-next-line reentrancy-no-eth
     function createRegistryForTokenWithTopics(address owner, address token, uint256[] memory initialTopics)
         external
         onlyCreator
+        nonReentrant
         returns (address registry)
     {
         require(owner != address(0), "Invalid owner address");

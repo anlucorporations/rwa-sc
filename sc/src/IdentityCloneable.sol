@@ -173,6 +173,7 @@ contract IdentityCloneable is OwnableUpgradeable {
         // ECDSA.tryRecover aplica las comprobaciones de maleabilidad de OpenZeppelin
         // (s en la mitad inferior y v en {27,28}); mapeamos el fallo a los literales
         // de RF-001 sin debilitar la comprobacion.
+        // slither-disable-next-line unused-return -- el enum `RecoverError` se mapea a los `require` de abajo (RF-001).
         (address recovered,,) = ECDSA.tryRecover(digest, _signature);
         require(recovered != address(0), "Invalid signature");
         require(recovered == _issuer, "Signature signer mismatch");

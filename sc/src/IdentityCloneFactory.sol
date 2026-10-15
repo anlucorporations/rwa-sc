@@ -127,6 +127,7 @@ contract IdentityCloneFactory is Ownable {
         identityContract.initialize(address(this));
 
         // Add the claim before transferring ownership
+        // slither-disable-next-line unused-return -- el `claimId` no se usa en esta ruta de creacion (D-027).
         identityContract.addClaim(topic, scheme, issuer, signature, data, uri, expiresAt);
 
         // Transfer ownership to the actual owner

@@ -137,6 +137,7 @@ Gobernanza:
 - ci/check_docs.sh                       (Gate RF-006 — documentación)
 - ci/check_secrets.sh                    (Gate RF-010 — secretos)
 - ci/check_claim_topics.sh               (Gate H-13 — catálogo de claim topics)
+- ci/check_slither.sh                    (Gate RNF-107 — análisis estático)
 ```
 
 ### Tests (`test/`)
@@ -352,6 +353,7 @@ El pipeline de GitLab vive en [`.gitlab-ci.yml`](.gitlab-ci.yml) y se ejecuta en
 | `coverage` | `forge coverage --report summary --report lcov` | **RNF-002 / D-017 / D-042**: agregado de `src/` ≥ 80 % (sin interfaces) **y** mínimo por contrato ≥ 80 % |
 | `gas` | `forge snapshot --check --tolerance 5` | **RNF-001 / D-039** |
 | `ci-checks` | `check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh`, `check_secrets.sh`, `check_claim_topics.sh` | RF-002 / RF-006 / RF-010 / H-13 |
+| `slither` | `check_slither.sh` (imagen Python + Foundry fijado) | **RNF-107 / H-09**: 0 High / 0 Medium en `src/` |
 
 Artefactos: `sc/ci-artifacts/test-count.txt` (conteo real, no escrito a mano) y `sc/lcov.info`.
 Sin secretos: el pipeline no despliega.

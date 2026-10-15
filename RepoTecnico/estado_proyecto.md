@@ -374,6 +374,10 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
   módulo. Simulado con 1 y 3 módulos.
 - [x] **H-32:** 0 referencias `.sol` rotas en `DEPENDENCIAS_CONTRATOS.md` + diccionario contra el storage
   real (H-14).
+- [x] **H-09 / RNF-107:** análisis estático obligatorio con Slither: gate `check_slither.sh` +
+  `slither.config.json` y job `slither` (imagen Python + Foundry v1.8.3). `src/` queda en **0 High y
+  0 Medium** (2 falsos positivos `reentrancy-no-eth` mitigados con `nonReentrant` y suprimidos, y 2
+  `unused-return` suprimidos con justificación).
 - [x] **H-09 · H-10 · H-11 · H-12 · H-25 · H-27 · H-30:** nuevo
   `RepoTecnico/requerimientos_no_funcionales.md` (catálogo RNF ISO 25010 + regulatorio + protección de
   datos + observabilidad + continuidad + soporte). Quedan **definidos y medibles**; las categorías
@@ -381,7 +385,7 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
   **indexer** (H-12/H-21) es un componente off-chain.
 - **Lo que queda (no lo cierra el equipo técnico):** aprobación **legal** (H-10, H-11, H-25), **ensayo
   de restauración** (H-30), **indexer off-chain** (H-12/H-21), **adopción + auditoría del multisig**
-  (H-06, R-7), **Slither fijado** (H-09/RNF-107) y la **auditoría externa** antes de activos reales (R-9).
+  (H-06, R-7) y la **auditoría externa** antes de activos reales (R-9).
 
 ## Cierre del proyecto (Fase 5 omitida)
 

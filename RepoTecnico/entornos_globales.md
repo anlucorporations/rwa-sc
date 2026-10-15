@@ -236,7 +236,8 @@ cast call "$AGG" 'getModuleCount(address)(uint256)' "$TOKEN" --rpc-url "$RPC_URL
 | `test` | `forge test` | 0 fallos; **conteo real** publicado como artefacto | RNF-003 |
 | `coverage` | `forge coverage --report summary --report lcov` + `check_coverage.sh` | agregado `src/` ≥ 80 % (sin `ICompliance.sol`/`IClaimTopicsRegistry.sol`) y mínimo por contrato ≥ 80 % | RNF-002 / D-017 / D-042 |
 | `gas` | `forge snapshot --check --tolerance 5` | dentro del 5 % del `.gas-snapshot` | RNF-001 / D-039 |
-| `ci-checks` | `check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh` | sin `bypassCompliance`, docs consistentes, sin deriva de ABIs | RF-002 / RF-006 |
+| `ci-checks` | `check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh`, `check_secrets.sh`, `check_claim_topics.sh` | sin `bypassCompliance`, docs consistentes, sin deriva de ABIs, sin secretos, catálogo de topics único | RF-002 / RF-006 / RF-010 / H-13 |
+| `slither` | `check_slither.sh` (imagen Python + Foundry `v1.8.3`) | 0 hallazgos Slither ≥ medium en `src/` | **RNF-107 / H-09** |
 
 Artefactos: `sc/ci-artifacts/test-count.txt` (conteo real + resumen), `sc/ci-artifacts/test-run.log`,
 `sc/ci-artifacts/coverage-summary.txt` y `sc/lcov.info`.
@@ -250,8 +251,10 @@ sc/script/ci/run_local_ci.sh        # exit 0 = pipeline local en verde
 # CI_KEEP_GOING=1 ... para no detenerse en la primera etapa que falle
 ```
 
-El script recorre `validate → build → fmt → test → coverage+gate → gas → ci-checks`, imprime un resumen por
+El script recorre `validate → build → fmt → test → coverage+gate → gas → ci-checks → slither`, imprime un resumen por
 etapa y devuelve exit 0/1. Los umbrales se leen de `COVERAGE_THRESHOLD` / `COVERAGE_CONTRACT_THRESHOLD`.
+El pipeline de GitLab tiene **8 jobs** (se añadió `slither` en RNF-107); los pipelines históricos
+`2934202154`, `2934241152` y `2935871780` corrieron con 7/7 jobs antes de ese añadido.
 
 ### 13.4 Estado real: el pipeline ha corrido en remoto en verde
 
