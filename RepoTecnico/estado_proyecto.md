@@ -356,11 +356,28 @@ sc/script/ci/run_local_ci.sh        # validate -> build -> fmt -> test -> covera
   9=Jurisdiction; 5/6 reservados) con fuente única en el seed `rwa.claim_topics`; `ARQUITECTURA_FINAL.md`
   y `REFERENCIA_TECNICA.md` alineados y gate nuevo `sc/script/ci/check_claim_topics.sh`
   (`ci_check_H13_catalogo_topics_unico`) integrado en `ci-checks`.
-- **Estado actual medido:** **419/419 tests en 24 suites**, cobertura `src/` **97,00 %** (809/834; mínimo
-  92,31 %), CI local 7/7. Detalle en `metricas_ejecucion.md` §25–§27 y `CHANGELOG_ABIS.md`.
-- **Pendiente relacionado:** **AF-04** (front-running de `createIdentityWithClaim`) y **AF-14**
-  (`check_secrets.sh` no escanea `.md`) siguen diferidos; **H-06** (multisig/timelock, R-7), **H-09/H-10/H-11/H-12**
-  (RNF ISO 25010, regulatorio, PII, observabilidad) y **H-25/H-30** (stakeholder regulador, backup/DR) quedan en backlog.
+- **Estado actual medido:** **420/420 tests en 24 suites**, cobertura `src/` **97,01 %** (810/835; mínimo
+  92,31 %), CI local 7/7. Detalle en `metricas_ejecucion.md` §25–§28 y `CHANGELOG_ABIS.md`.
+
+## Cierre de los hallazgos restantes (AF-04 · AF-14 · H-29 · H-32 · RNF)
+
+- [x] **AF-04:** `createIdentityWithClaim` exige `msg.sender == owner` (anti front-running del clon
+  predecible). `test_AF04_createIdentityWithClaim_tercero_revierte`.
+- [x] **AF-14:** `check_secrets.sh` escanea los `.md` con `DOC_RE` buscando claves crudas **etiquetadas**
+  (sin marcar hashes de evidencia); prueba negativa documentada.
+- [x] **H-29 (M-14):** `DeployFullStack.s.sol` activa hasta 3 módulos (MaxBalance obligatorio;
+  MaxHolders/TransferLock opcionales por env) y `deploy.sh` deriva y verifica el conteo real y cada
+  módulo. Simulado con 1 y 3 módulos.
+- [x] **H-32:** 0 referencias `.sol` rotas en `DEPENDENCIAS_CONTRATOS.md` + diccionario contra el storage
+  real (H-14).
+- [x] **H-09 · H-10 · H-11 · H-12 · H-25 · H-27 · H-30:** nuevo
+  `RepoTecnico/requerimientos_no_funcionales.md` (catálogo RNF ISO 25010 + regulatorio + protección de
+  datos + observabilidad + continuidad + soporte). Quedan **definidos y medibles**; las categorías
+  legal/regulatorias y el ensayo de restauración requieren **aprobación/ejecución externa**, y el
+  **indexer** (H-12/H-21) es un componente off-chain.
+- **Lo que queda (no lo cierra el equipo técnico):** aprobación **legal** (H-10, H-11, H-25), **ensayo
+  de restauración** (H-30), **indexer off-chain** (H-12/H-21), **multisig/timelock** (H-06, R-7),
+  **Slither fijado** (H-09/RNF-107) y la **auditoría externa** antes de activos reales (R-9).
 
 ## Cierre del proyecto (Fase 5 omitida)
 

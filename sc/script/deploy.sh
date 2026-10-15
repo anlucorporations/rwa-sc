@@ -241,17 +241,29 @@ for key in $CONTRACT_KEYS; do
     VERIFIED_COUNT=$((VERIFIED_COUNT + 1))
 done
 
-# Modulo de compliance (vive en .compliance, no en .contracts)
+# Modulos de compliance (viven en .compliance, no en .contracts).
+# H-29 (M-14): el despliegue puede activar 1..3 modulos. Se verifica cada modulo que el artefacto
+# declare con direccion no cero; el conteo esperado del aggregator se deriva de esa lista (no se
+# escribe a mano), de modo que la generalizacion no rompe el smoke test.
+MODULE_KEYS=(MaxBalanceCompliance MaxHoldersCompliance TransferLockCompliance)
+MODULE_ADDRS=()
+for mkey in "${MODULE_KEYS[@]}"; do
+    maddr="$(jq -r --arg k "$mkey" '.compliance[$k] // empty' "$DEPLOYMENT_JSON")"
+    [ -n "$maddr" ] && [ "$maddr" != "null" ] || continue
+    [ "$maddr" != "0x0000000000000000000000000000000000000000" ] || continue
+    mcode="$("$CAST" code "$maddr" --rpc-url "$RPC_URL" 2>/dev/null)"
+    case "$mcode" in
+        0x) fail "$mkey ($maddr) NO tiene bytecode on-chain" ;;
+        0x*) : ;;
+        *) fail "cast code inesperado para $mkey" ;;
+    esac
+    printf '  %-38s %s  code_len=%s\n' "$mkey" "$maddr" "$(( (${#mcode} - 2) / 2 ))"
+    VERIFIED_COUNT=$((VERIFIED_COUNT + 1))
+    MODULE_ADDRS+=("$maddr")
+done
+EXPECTED_MODULE_COUNT="${#MODULE_ADDRS[@]}"
+[ "$EXPECTED_MODULE_COUNT" -ge 1 ] || fail "el artefacto no declara ningun modulo de compliance (AF-05)"
 MODULE_ADDR="$(jq -r '.compliance.MaxBalanceCompliance' "$DEPLOYMENT_JSON")"
-[ -n "$MODULE_ADDR" ] && [ "$MODULE_ADDR" != "0x0000000000000000000000000000000000000000" ] || fail "direccion de modulo invalida"
-MODULE_CODE="$("$CAST" code "$MODULE_ADDR" --rpc-url "$RPC_URL" 2>/dev/null)"
-case "$MODULE_CODE" in
-    0x) fail "MaxBalanceCompliance ($MODULE_ADDR) NO tiene bytecode on-chain" ;;
-    0x*) : ;;
-    *) fail "cast code inesperado para MaxBalanceCompliance" ;;
-esac
-printf '  %-38s %s  code_len=%s\n' "MaxBalanceCompliance" "$MODULE_ADDR" "$(( (${#MODULE_CODE} - 2) / 2 ))"
-VERIFIED_COUNT=$((VERIFIED_COUNT + 1))
 ok "cast code OK en $VERIFIED_COUNT contratos"
 
 lower() { printf '%s' "$1" | tr 'A-Z' 'a-z'; }
@@ -287,16 +299,18 @@ TOKEN_CTR="$("$CAST" call "$TOKEN" 'claimTopicsRegistry()(address)' --rpc-url "$
 printf '  token.claimTopicsRegistry()     = %s\n' "$TOKEN_CTR"
 
 MODULE_COUNT="$("$CAST" call "$AGG" 'getModuleCount(address)(uint256)' "$TOKEN" --rpc-url "$RPC_URL" 2>/dev/null)"
-[ "$MODULE_COUNT" = "1" ] || fail "aggregator.getModuleCount(token) = '$MODULE_COUNT' (esperado 1)"
+[ "$MODULE_COUNT" = "$EXPECTED_MODULE_COUNT" ] || fail "aggregator.getModuleCount(token) = '$MODULE_COUNT' (esperado $EXPECTED_MODULE_COUNT)"
 printf '  aggregator.getModuleCount()     = %s\n' "$MODULE_COUNT"
 
-MODULE_ACTIVE="$("$CAST" call "$AGG" 'isModuleActiveForToken(address,address)(bool)' "$TOKEN" "$MODULE_ADDR" --rpc-url "$RPC_URL" 2>/dev/null)"
-[ "$MODULE_ACTIVE" = "true" ] || fail "el modulo no esta activo en el aggregator para el token"
-printf '  aggregator.isModuleActiveForToken() = %s\n' "$MODULE_ACTIVE"
-
-MODULE_TOKEN="$("$CAST" call "$MODULE_ADDR" 'tokenContract()(address)' --rpc-url "$RPC_URL" 2>/dev/null)"
-[ "$(lower "$MODULE_TOKEN")" = "$(lower "$TOKEN")" ] || fail "module.tokenContract() ($MODULE_TOKEN) != token ($TOKEN)"
-printf '  module.tokenContract()          = %s\n' "$MODULE_TOKEN"
+# H-29: cada modulo declarado debe estar activo para el token y vinculado a el (AF-01/H-19).
+for maddr in "${MODULE_ADDRS[@]}"; do
+    MODULE_ACTIVE="$("$CAST" call "$AGG" 'isModuleActiveForToken(address,address)(bool)' "$TOKEN" "$maddr" --rpc-url "$RPC_URL" 2>/dev/null)"
+    [ "$MODULE_ACTIVE" = "true" ] || fail "el modulo $maddr no esta activo en el aggregator para el token"
+    MODULE_TOKEN="$("$CAST" call "$maddr" 'tokenContract()(address)' --rpc-url "$RPC_URL" 2>/dev/null)"
+    [ "$(lower "$MODULE_TOKEN")" = "$(lower "$TOKEN")" ] || fail "module.tokenContract() ($MODULE_TOKEN) != token ($TOKEN)"
+done
+printf '  aggregator.isModuleActiveForToken() = true (%s modulos)\n' "${#MODULE_ADDRS[@]}"
+printf '  module.tokenContract()          = %s (todos)\n' "$TOKEN"
 
 # AF-05: el token es fail-closed sin modulos; el despliegue debe dejar al menos uno registrado o el
 # token queda inoperable para transferencias. Se verifica el indice 0 del array publico del token y
@@ -349,7 +363,7 @@ ok "Verificacion on-chain correcta (estado del token y de su compliance)"
 # 7. Enriquecimiento con ABIs relevantes + comprobacion anti-secretos
 # --------------------------------------------------------------------------------------
 log "Anexando ABIs relevantes al artefacto..."
-ABI_CONTRACTS="IdentityRegistry TrustedIssuersRegistry TokenCloneFactory IdentityCloneFactory ClaimTopicsRegistryCloneFactory ComplianceAggregator ClaimTopicsRegistryCloneable TokenCloneable IdentityCloneable MaxBalanceCompliance"
+ABI_CONTRACTS="IdentityRegistry TrustedIssuersRegistry TokenCloneFactory IdentityCloneFactory ClaimTopicsRegistryCloneFactory ComplianceAggregator ClaimTopicsRegistryCloneable TokenCloneable IdentityCloneable MaxBalanceCompliance MaxHoldersCompliance TransferLockCompliance"
 ABIS="{}"
 for c in $ABI_CONTRACTS; do
     abi_json="$("$FORGE" inspect "$c" abi --json 2>/dev/null)"
@@ -379,7 +393,7 @@ ok "Artefacto sin secretos: $DEPLOYMENT_JSON"
 echo ""
 log "================ RESUMEN DEL DESPLIEGUE ================"
 jq -r '.contracts | to_entries[] | "  \(.key): \(.value)"' "$DEPLOYMENT_JSON"
-jq -r '"  MaxBalanceCompliance: \(.compliance.MaxBalanceCompliance)"' "$DEPLOYMENT_JSON"
+jq -r '.compliance | to_entries[] | select(.value | type == "string") | select(.value != "0x0000000000000000000000000000000000000000") | "  \(.key): \(.value)"' "$DEPLOYMENT_JSON"
 echo "  chainId: $CHAIN_ID   bloque: $(jq -r '.block' "$DEPLOYMENT_JSON")   deployer: $SENDER"
 echo "  artefacto: $DEPLOYMENT_JSON"
 ok "Despliegue verificado correctamente."

@@ -12,7 +12,7 @@
 
 Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
 
-- **`rwa-sc`** (Zona Contratos): 15 contratos Solidity 0.8.20 (11 en `src/` + 4 en `src/compliance/`) + 24 suites de test Forge (419 tests)
+- **`rwa-sc`** (Zona Contratos): 15 contratos Solidity 0.8.20 (11 en `src/` + 4 en `src/compliance/`) + 24 suites de test Forge (420 tests)
   + 7 scripts `.s.sol` de deploy + `deploy.sh` + gates de CI. Patrones: EIP-1167 clones, Compliance modular, Registry de identidades/claims.
 - **`rwa-web`** (Zona WEB): 5 micro-apps Next.js 16 / React 19 / TS / Tailwind v4 sobre Anvil + MongoDB
   (GridFS para documentos). Ethers v6 (viem en `web-registry-trusted2`). **Fuera de alcance de este ciclo (D-003).**
@@ -362,7 +362,7 @@ Plataforma de tokenización RWA tipo **ERC-3643** en dos zonas:
   Quedan **prohibidas** las referencias a archivos/contratos inexistentes (`Token.sol`, `Identity.sol`,
   `TOKEN_CLONE_FACTORY.md`, `COMPLIANCE_AGGREGATOR_FINAL.md`, `COMPLIANCE_AGGREGATOR_V2.md`,
   `DeployIdentityRegistry.s.sol`) y las afirmaciones "production-ready"/"ERC-3643 compliant" sin declaración
-  verificable. Cifras canónicas: **419 tests / 419 pasan** (24 suites), cobertura `src/` **97,00 % líneas**
+  verificable. Cifras canónicas: **420 tests / 420 pasan** (24 suites), cobertura `src/` **97,01 % líneas**
   (mínimo por contrato 92,31 %; D-017/D-042), ahorro de gas **45–59 %** con comparación equivalente.
 - **D-059 (Ciclo 10 · `SECURITY.md`):** el documento de seguridad es **vivo** y refleja el estado de los 34
   hallazgos de la auditoría V1 (corregido + ciclo, parcial o backlog), los hallazgos base HB-01..HB-12, los
@@ -562,10 +562,10 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-06 | Centralización de poderes: una EOA, `AGENT_ROLE` absoluto | **Cubierto (parcial)** | RF-004; gobernanza multisig/timelock al backlog R-7 |
 | H-07 | Factories permissionless; EIP-1167 sin ruta de upgrade | **Corregido** | Allowlist `setAuthorizedCreator`/`onlyCreator` (3 factories) + redeploy limpio (D-019); `test_H07_*` (6) |
 | H-08 | Claims sin vigencia ni revocación por el issuer | **Cubierto (implementado, Ciclo 8)** | RF-013 (D-014, D-045..D-047) |
-| H-09 | Catálogo RNF incompleto (ISO 25010) | Backlog | R-1 (ver §8.3) |
-| H-10 | Sin RNF de cumplimiento regulatorio (sanciones/PEP/AML) | Backlog | R-2 |
-| H-11 | PII/KYC sin custodio, base legal, cifrado ni retención | Backlog | R-3 |
-| H-12 | Sin RNF de observabilidad ni indexación de eventos | Backlog | R-4 (ver §8.3) |
+| H-09 | Catálogo RNF incompleto (ISO 25010) | **Definido (R-1)** | `RepoTecnico/requerimientos_no_funcionales.md` §1 (RNF-101..109); pendiente fijar Slither |
+| H-10 | Sin RNF de cumplimiento regulatorio (sanciones/PEP/AML) | **Definido (R-2)** | §2 (RNF-201..206); **pendiente aprobación legal** |
+| H-11 | PII/KYC sin custodio, base legal, cifrado ni retención | **Parcial (R-3)** | §3 (RNF-301..306); cifrado en `@web`; pendiente DPIA/DPO |
+| H-12 | Sin RNF de observabilidad ni indexación de eventos | **Definido (R-4)** | §4 (RNF-401..405); indexer pendiente |
 | H-13 | Catálogo de claim topics divergente | **Corregido** | Catálogo canónico v1.0 (1/7/9) + gate `ci_check_H13_catalogo_topics_unico` |
 | H-14 | `diccionario_datos.md` describe storage inexistente | **Corregido** | QW-6/H-14: sección on-chain contra `forge inspect storage-layout` |
 | H-15 | Docs y contratos citados como existentes que no existen | **Cubierto** | RF-006 / D-058 (`script/ci/check_docs.sh`) |
@@ -578,19 +578,19 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-22 | `ComplianceAggregator` fail-open y owner global | **Cubierto** | RF-012 (D-014) |
 | H-23 | Rúbrica de evaluación no operacional | **Cubierto** | RF-006 / D-058 (rúbrica con comandos y umbrales en `EJERCICIOS_PRACTICOS.md`) |
 | H-24 | `deploy-besu.sh` parcial (no despliega registries/token) | **Cubierto** | Ciclo 9 · RF-010 (`DeployFullStack.s.sol` + `deploy.sh`) |
-| H-25 | Falta stakeholder regulador/supervisor y reporte | Backlog | R-2 |
+| H-25 | Falta stakeholder regulador/supervisor y reporte | **Definido (R-2)** | §2 RNF-206; pendiente validación legal |
 | H-26 | Sin operador de red Besu ni validación de `chainId` | **Cubierto** | Ciclo 9 · D-055 (`deploy.sh` aborta si `CHAIN_ID` no coincide) |
-| H-27 | Sin soporte al inversor / recuperación auditable | **Cubierto (parcial)** | RF-004 (whitelist/topes); actor de soporte al backlog |
+| H-27 | Sin soporte al inversor / recuperación auditable | **Parcial** | RF-004/AF-02 (recuperación auditable) + §6 (RNF-601..603) |
 | H-28 | Clave privada en claro en `deploy-besu.sh` | **Cubierto** | RF-010, RNF-004 |
 | H-29 | El deploy no instancia/activa módulos de compliance | **Cubierto (parcial)** | Ciclo 9 despliega y activa `MaxBalanceCompliance`; generalización en M-14 |
-| H-30 | Sin backup/DR, RPO/RTO ni runbook de recuperación | Backlog | R-5 (ver §8.3) |
+| H-30 | Sin backup/DR, RPO/RTO ni runbook de recuperación | **Parcial (R-5)** | §5 (RNF-501..505) + `RUNBOOK_MIGRACION.md`; pendiente ensayo |
 | H-31 | Éxito del deploy decidido por `grep` de logs | **Cubierto** | Ciclo 9 · D-056 (verificación on-chain con `cast code`/`cast call`) |
-| H-32 | Exactitud documental (`DEPENDENCIAS_CONTRATOS`, `metricas_ejecucion`) | **Cubierto (parcial)** | RF-006 corrige el import inexistente de `IdentityCloneable`; `diccionario_datos.md` sigue en QW-6 |
+| H-32 | Exactitud documental (`DEPENDENCIAS_CONTRATOS`, `metricas_ejecucion`) | **Corregido** | Import corregido + diccionario contra el storage real (H-14) + 0 referencias `.sol` rotas (H-32) |
 | H-33 | Estado de fases/rama contradictorio entre docs | **Cubierto** | RF-006 / D-058 (`estado_proyecto.md` y `entornos_globales.md` alineados) |
 | H-34 | Los cambios de `tokenContract` no emiten evento | **Corregido** | QW-8: evento `TokenContractSet` en los 3 módulos |
 
-**Resumen (tras el cierre de deuda):** 22 hallazgos **cubiertos** (H-01, H-02, H-04, H-05, H-07, H-08, H-13, H-14, H-15, H-16, H-17, H-18, H-19, H-20, H-22, H-23, H-24, H-26, H-28, H-31, H-33, H-34),
-6 **parcialmente cubiertos** (H-03, H-06, H-21, H-27, H-29, H-32) y 6 **en backlog** (H-09, H-10, H-11, H-12, H-25, H-30).
+**Resumen (tras el cierre de deuda):** 23 hallazgos **cubiertos** (H-01, H-02, H-04, H-05, H-07, H-08, H-13, H-14, H-15, H-16, H-17, H-18, H-19, H-20, H-22, H-23, H-24, H-26, H-28, H-31, H-32, H-33, H-34),
+11 **parciales o definidos** (H-03, H-06, H-09, H-10, H-11, H-12, H-21, H-25, H-27, H-29, H-30) y **0 en backlog** (los pendientes dependen de aprobación legal/dirección o de un componente off-chain).
 
 ### 8.2 Agrupación por el plan del informe V1 (§8) — esfuerzo S/M/L
 

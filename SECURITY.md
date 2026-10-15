@@ -55,7 +55,7 @@ test o un gate que lo demuestre.
 | ID | Título breve | Estado | Ciclo / RF | Evidencia (test o gate) |
 |---|---|---|---|---|
 | **H-01** | Claims auto-forjados sin verificación de firma | **Corregido** | Ciclo 2 · RF-001 | `test/RF001_*` en `test/IdentityCloneable.t.sol` (`test_RF001_addClaim_firma_vacia_revierte`, `test_RF001_addClaim_firma_de_otra_clave_revierte`, `test_RF001_addClaim_firma_maleable_s_alto_revierte`, `test_RF001_addClaim_con_firma_valida`) |
-| **H-02** | "139 tests (100 % passing)" falso; suites muertas; cobertura 42,86 % | **Corregido** | Ciclos 1/1b · RF-005, y Ciclo 10 · RF-006 | `forge test` → **419/419**; cobertura `src/` **97,00 % líneas** (809/834; mínimo por contrato 92,31 %; D-017/D-042) |
+| **H-02** | "139 tests (100 % passing)" falso; suites muertas; cobertura 42,86 % | **Corregido** | Ciclos 1/1b · RF-005, y Ciclo 10 · RF-006 | `forge test` → **420/420**; cobertura `src/` **97,01 % líneas** (810/835; mínimo por contrato 92,31 %; D-017/D-042) |
 | **H-04** | Build no reproducible: submódulos, pin de `solc`, sin CI | **Corregido** | Ciclos 1 y 11 · RF-005/RF-009 | `.gitmodules` único + `sc/foundry.lock`; `solc_version = 0.8.20` y `evm_version` en `sc/foundry.toml`; `sc/.gitlab-ci.yml` (7 jobs) en verde (`2934202154`, `2934241152`) |
 | **H-05** | `isVerified()` fail-open sin `claimTopicsRegistry` | **Corregido** | Ciclo 6 · RF-011 | `test/RF011_FailClosed.t.sol` (`test_RF011_isVerified_sin_registry_topics_false`, `test_RF011_mint_transfer_bloqueados_sin_politica`) |
 | **H-08** | Claims sin vigencia ni revocación por el issuer | **Corregido** | Ciclos 8/8c · RF-013 | `test/RF013_ClaimLifecycle.t.sol` (`test_RF013_claim_expirado_isVerified_false`, `test_RF013_claim_revocado_por_issuer_isVerified_false`, `test_RF013_revocacion_replay_firma_original_revierte`) |
@@ -69,10 +69,10 @@ test o un gate que lo demuestre.
 |---|---|---|---|
 | **H-06** | Centralización de poderes en una EOA; `burn`/`forcedTransfer` sin límites | **Parcial**: RF-004 acota operaciones (whitelist/topes/`maxSupply`); falta multisig/timelock y reparto de roles | R-7 (D-021) |
 | **H-07** | Factories permissionless; EIP-1167 sin ruta de upgrade | **Corregido** | H-07: allowlist de creadores (`setAuthorizedCreator`, `onlyCreator`) en las 3 factories + decisión de ciclo de vida = **redeploy limpio** (D-009/D-019, `RUNBOOK_MIGRACION.md`); `test_H07_*` (6) |
-| **H-09** | Catálogo RNF incompleto (ISO 25010) | Backlog | R-1 |
-| **H-10** | Sin RNF de cumplimiento regulatorio (sanciones/PEP/AML) | Backlog | R-2 |
-| **H-11** | PII/KYC sin custodio, base legal, cifrado ni retención | Backlog | R-3 |
-| **H-12** | Sin RNF de observabilidad ni indexación de eventos | Backlog | R-4 |
+| **H-09** | Catálogo RNF incompleto (ISO 25010) | **Definido** | `RepoTecnico/requerimientos_no_funcionales.md` §1 (RNF-101..109); falta fijar Slither (RNF-107) |
+| **H-10** | Sin RNF de cumplimiento regulatorio (sanciones/PEP/AML) | **Definido** | §2 (RNF-201..206); **pendiente de aprobación legal** |
+| **H-11** | PII/KYC sin custodio, base legal, cifrado ni retención | **Parcial** | §3 (RNF-301..306): cifrado AES-256-GCM implementado en `@web` (D-098); pendiente DPIA/DPO y retención |
+| **H-12** | Sin RNF de observabilidad ni indexación de eventos | **Definido** | §4 (RNF-401..405); indexer pendiente de implementación (R-4) |
 
 ### 2.3 Medios y bajos
 
@@ -87,22 +87,24 @@ test o un gate que lo demuestre.
 | **H-21** | Sin indexación de eventos ni artefactos de despliegue | **Parcial**: el Ciclo 9 persiste `sc/deployments/<chainId>-<timestamp>.json`; falta indexer | M-15, R-4 |
 | **H-23** | Rúbrica de evaluación no operacional | **Corregido** | Ciclo 10 · RF-006 (rúbrica con comandos y umbrales en `EJERCICIOS_PRACTICOS.md`) |
 | **H-24** | `deploy-besu.sh` parcial | **Corregido** | Ciclo 9 · RF-010 (`DeployFullStack.s.sol` + `deploy.sh`) |
-| **H-25** | Falta stakeholder regulador/supervisor | Backlog | R-2 |
+| **H-25** | Falta stakeholder regulador/supervisor | **Definido** | §2 RNF-206 (marco MiCA/Reg D-S/CNMV); pendiente validación legal |
 | **H-26** | Sin operador de red ni validación de `chainId` | **Corregido** | Ciclo 9 · D-055 (`deploy.sh` aborta si `CHAIN_ID` no coincide) |
-| **H-27** | Sin soporte al inversor / recuperación auditable | **Parcial**: RF-004 añade whitelist/topes; falta actor de soporte | R-7 |
+| **H-27** | Sin soporte al inversor / recuperación auditable | **Parcial** | Recuperación on-chain ya acotada y auditable (RF-004/AF-02); §6 define actor y SLA (RNF-601..603) |
 | **H-28** | Clave privada en claro en scripts | **Corregido** | Ciclo 9 · RF-010 (D-054/D-055; keystore efímero, sin `keys.json`) |
 | **H-29** | El deploy no instancia/activa módulos de compliance | **Parcial**: Ciclo 9 despliega y activa `MaxBalanceCompliance` (`metricas_ejecucion.md` §17.2); generalización | M-14 |
-| **H-30** | Sin backup/DR, RPO/RTO ni runbook | Backlog | R-5 |
+| **H-30** | Sin backup/DR, RPO/RTO ni runbook | **Parcial** | §5 (RNF-501..505) + `RUNBOOK_MIGRACION.md`; pendiente ensayo de restauración |
 | **H-31** | Éxito del deploy por `grep` de logs | **Corregido** | Ciclo 9 · D-056 (verificación con `cast code`/`cast call`) |
-| **H-32** | Exactitud documental (`DEPENDENCIAS_CONTRATOS`, `metricas_ejecucion`) | **Parcial**: import inexistente de `IdentityCloneable` corregido en el Ciclo 10; `diccionario_datos.md` corregido contra el storage real (H-14) | QW-6 |
+| **H-32** | Exactitud documental (`DEPENDENCIAS_CONTRATOS`, `metricas_ejecucion`) | **Corregido** | Import inexistente corregido (Ciclo 10) + `diccionario_datos.md` contra el storage real (H-14) + 0 referencias `.sol` rotas en `DEPENDENCIAS_CONTRATOS.md` |
 | **H-33** | Estado de fases/rama contradictorio | **Corregido** | Ciclo 10 · RF-006 (`RepoTecnico/estado_proyecto.md` actualizado) |
 | **H-34** | Los cambios de `tokenContract` no emiten evento | **Corregido** | QW-8: evento `TokenContractSet(address indexed)` en los 3 módulos (`test_QW8_SetTokenContract_emite_evento`) |
 
-**Recuento** (coherente con `RepoTecnico/requerimientos.md` §8.1): 34 hallazgos totales; están
-**corregidos o parcialmente corregidos** los críticos/altos de seguridad y, tras el cierre de deuda
-(QW-8, AF-12, H-14, H-19, H-20), también la escalabilidad y la trazabilidad de eventos. Permanecen en
-**backlog** los relacionados con gobernanza avanzada, cumplimiento regulatorio, privacidad,
-observabilidad y backup/DR.
+**Recuento** (coherente con `RepoTecnico/requerimientos.md` §8.1): **23 corregidos** (H-01, H-02, H-04,
+H-05, H-07, H-08, H-13, H-14, H-15, H-16, H-17, H-18, H-19, H-20, H-22, H-23, H-24, H-26, H-28, H-31,
+H-32, H-33, H-34), **11 parciales o definidos** (H-03, H-06, H-09, H-10, H-11, H-12, H-21, H-25, H-27,
+H-29, H-30) y **0 en backlog**. Lo que resta no es implementación pendiente del equipo técnico: son
+**aprobaciones legal/dirección** (H-10, H-11, H-25, H-30), el **indexer off-chain** (H-12/H-21), el
+**multisig/timelock** (H-06, R-7) y el **análisis estático fijado** (H-09, RNF-107) — todos con artefacto
+verificable en `RepoTecnico/requerimientos_no_funcionales.md`.
 
 ## 3. Hallazgos-base (HB-01..HB-12) y su cierre
 
@@ -120,7 +122,7 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
 | HB-08 | `web-registry-trusted2` duplicado (zona web) | **Pausado** | D-003 (fuera de alcance) |
 | HB-09 | Direcciones hardcodeadas en `rwa-web` | **Pausado** | D-003 (fuera de alcance) |
 | HB-10 | No hay CI/CD | **Corregido** | RF-009 / Ciclo 11 (`sc/.gitlab-ci.yml`, 7 jobs; pipelines `2934202154` y `2934241152` en verde) |
-| HB-11 | 151 tests no verificados en el entorno | **Corregido** | RF-005 / Ciclo 1; hoy **419/419** |
+| HB-11 | 151 tests no verificados en el entorno | **Corregido** | RF-005 / Ciclo 1; hoy **420/420** |
 | HB-12 | `deploy-besu.sh` maneja clave privada en claro | **Corregido** | RF-010 / Ciclo 9 (D-054/D-055) |
 
 ## 4. Controles implementados (con su prueba)
@@ -197,6 +199,13 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
     (`base_datos.sql`), replicada en `diccionario_datos.md` §3 y verificada por
     `ci_check_H13_catalogo_topics_unico` (`sc/script/ci/check_claim_topics.sh`), que además rechaza
     que `ARQUITECTURA_FINAL.md` o `REFERENCIA_TECNICA.md` reintroduzcan un catálogo divergente.
+20. **Anti front-running en `createIdentityWithClaim` (AF-04).** La ruta exige `msg.sender == owner`:
+    la firma del issuer (cuyo `verifyingContract` es predecible por CREATE) solo la puede consumir el
+    propio titular, de modo que un tercero no puede adelantarse y dejar sin efecto su transacción.
+    Pruebas: `test_AF04_createIdentityWithClaim_tercero_revierte` en `test/IdentityCloneFactory.t.sol`.
+21. **Escaneo de secretos en documentación (AF-14).** `check_secrets.sh` escanea también los `.md`
+    (`DOC_RE`) buscando claves crudas **etiquetadas** (`Private key: 0x…`), sin marcar los hashes de
+    evidencia de auditoría. Verificado con una prueba negativa (clave plantada en un `.md` ⇒ exit 1).
 
 ## 5. Riesgos residuales (declaración honesta)
 
@@ -205,16 +214,19 @@ Los `HB-xx` provienen del análisis base (`RepoTecnico/requerimientos.md` §2).
 2. **Gobernanza concentrada.** Los roles `DEFAULT_ADMIN_ROLE`, `AGENT_ROLE` y `COMPLIANCE_ROLE` pueden
    recaer en una sola EOA; no hay multisig ni timelock (H-06). El modelo objetivo está en D-021 y el
    backlog R-7.
-3. **PII off-chain sin política formal.** Los documentos KYC viven en MongoDB/GridFS sin base legal,
-   cifrado ni retención documentados (H-11).
+3. **PII off-chain.** Cifrado AES-256-GCM implementado en `@web` (D-098); la **base legal, retención,
+   DPIA y DPO** están definidos en `RepoTecnico/requerimientos_no_funcionales.md` §3 pero **pendientes
+   de aprobación legal** (H-11).
 4. **Pipeline de CI en verde.** Los gates `validate`, `build`, `fmt`, `test`, `coverage`, `gas` y `ci-checks`
-   (`check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh`, `check_secrets.sh`) están versionados en
-   `sc/.gitlab-ci.yml` (RF-009) y se han ejecutado en remoto en verde: pipelines **`2934202154`**,
-   **`2934241152`** y **`2935871780`**, **7/7 jobs** (H-04/HB-10). `sc/script/ci/run_local_ci.sh` reproduce
-   el pipeline en local.
-5. **Claim topics no canónicos.** El catálogo de topics diverge entre documentos (H-13).
-6. **Escalabilidad y observabilidad.** Arrays O(n), vistas sin paginación, sin indexer de eventos
-   (H-12/H-20/H-21).
+   (`check_no_bypass_flag.sh`, `check_docs.sh`, `abi_diff.sh`, `check_secrets.sh`, `check_claim_topics.sh`)
+   están versionados en `sc/.gitlab-ci.yml` (RF-009) y se han ejecutado en remoto en verde: pipelines
+   **`2934202154`**, **`2934241152`** y **`2935871780`**, **7/7 jobs** (H-04/HB-10).
+   `sc/script/ci/run_local_ci.sh` reproduce el pipeline en local.
+5. **Claim topics canónicos.** Catálogo v1.0 único (1/7/9) con gate `check_claim_topics.sh` (H-13
+   corregido); la **operación** del catálogo (altas/bajas de topics) queda bajo gobernanza (R-7).
+6. **Escalabilidad y observabilidad.** Los arrays O(n) y las vistas sin paginación están **corregidos**
+   (H-20: índices O(1) + 6 vistas paginadas); **falta el indexer de eventos off-chain** (H-12/H-21, R-4),
+   cuyos RNF están definidos en `RepoTecnico/requerimientos_no_funcionales.md` §4.
 
 ## 6. Política de reporte de vulnerabilidades
 

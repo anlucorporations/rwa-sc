@@ -99,6 +99,12 @@ contract IdentityCloneFactory is Ownable {
      * (onlyOwner), el `walletOwner` firmado en esta ruta concreta es la direccion de
      * la factory (ver D-027). El anti-replay entre identidades sigue garantizado por
      * `verifyingContract`, que es unico por clon.
+     *
+     * AF-04: **solo el propio titular** (`msg.sender == owner`) puede consumir la firma. Como el
+     * `verifyingContract` es predecible (CREATE), un tercero podia hacer *front-running*: consumia
+     * la firma y la transaccion legitima del titular revertia. Al exigir que el llamante sea el
+     * titular, el front-running deja de tener efecto (la copia solo la puede enviar el titular).
+     * Esta ruta no usa `onlyCreator` porque es autoservicio del titular, no una creacion delegada.
      */
     function createIdentityWithClaim(
         address owner,
@@ -109,8 +115,9 @@ contract IdentityCloneFactory is Ownable {
         bytes memory data,
         string memory uri,
         uint256 expiresAt
-    ) external onlyCreator returns (address identity) {
+    ) external returns (address identity) {
         require(owner != address(0), "Invalid owner address");
+        require(msg.sender == owner, "Only owner can create with claim");
 
         // Clone the implementation contract
         identity = implementation.clone();

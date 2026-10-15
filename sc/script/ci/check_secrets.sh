@@ -51,11 +51,13 @@ DOC_RE='\.(md|txt|rst)$|^RepoTecnico/'
 SCRIPT_RE='\.(sh|bash|zsh|yml|yaml|env|toml|ini|cfg|conf|py|js|ts|mjs|cjs)$|(^|/)\.env($|\.)'
 
 script_files=()
+doc_files=()
 all_files=()
 for f in "${FILES[@]}"; do
     [[ "${f}" =~ ${EXCLUDE_RE} ]] && continue
     [[ -f "${ROOT}/${f}" ]] || continue
     all_files+=("${f}")
+    [[ "${f}" =~ ${DOC_RE} ]] && doc_files+=("${f}")
     if [[ "${f}" =~ ${SCRIPT_RE} ]]; then
         # Un gate que DOCUMENTA los patrones prohibidos no debe escanearse a si mismo:
         # sus comentarios citan `keys.json` y `--private-key` y generaban un falso
@@ -109,7 +111,20 @@ if [ "${#script_files[@]}" -gt 0 ]; then
     fi
 fi
 
-# --- (5) .env ignorado por git ----------------------------------------------
+# --- (5) claves crudas **etiquetadas** en documentacion (AF-14) --------------
+# AF-14: un `.md` con `Private key: 0x<64 hex>` pasaba el gate porque la documentacion
+# queda excluida de (1) (cita hashes/topic0 legitimamente). Se escanean los `.md` solo
+# cuando el hex va precedido de una etiqueta de clave, para no marcar hashes de evidencia.
+DOC_KEY_RE='(private[ _-]?key|clave[ _-]?privada|priv[ _-]?key|mnemonic|seed[ _-]?phrase)[^\n]{0,60}0x[0-9a-fA-F]{64}'
+if [ "${#doc_files[@]}" -gt 0 ]; then
+    doc_hits="$(grep -HnIiE "${DOC_KEY_RE}" "${doc_files[@]/#/${ROOT}/}" 2>/dev/null || true)"
+    if [ -n "${doc_hits}" ]; then
+        err "clave privada etiquetada en documentacion versionada:"
+        printf '%s\n' "${doc_hits}" >&2
+    fi
+fi
+
+# --- (6) .env ignorado por git ----------------------------------------------
 if [ -f "${ROOT}/.gitignore" ]; then
     if ! grep -qE '(^|/)\.env[[:space:]]*$' "${ROOT}/.gitignore"; then
         err ".gitignore no ignora '.env'"
@@ -121,7 +136,7 @@ else
     err "falta .gitignore en la raiz"
 fi
 
-# --- (6) deploy.sh toma la clave del entorno / Secret Manager ---------------
+# --- (7) deploy.sh toma la clave del entorno / Secret Manager ---------------
 DEPLOY="${ROOT}/sc/script/deploy.sh"
 if [ -f "${DEPLOY}" ]; then
     grep -qE 'PRIVATE_KEY' "${DEPLOY}" || err "deploy.sh no referencia ninguna variable de entorno con la clave"

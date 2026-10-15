@@ -532,8 +532,8 @@ RF-012 `ComplianceAggregator.sol:115-135,50-53`; RF-013 `IdentityCloneable.sol:4
 | RNF | Cómo se materializa (resumen) | CU | Estado | Evidencia |
 |---|---|---|---|---|
 | RNF-001 | Gas EIP-1167 medido y comparado de forma equivalente; `.gas-snapshot` versionado | CU-08 | **IMPLEMENTADO** (medido; **gate en CI**: `forge snapshot --check --tolerance 5`, Ciclo 11) | `metricas_ejecucion.md` §19; `casos_uso.md:1079` |
-| RNF-002 | `forge coverage` ≥ 80 % sobre `src/` excluyendo interfaces y `test/` (D-017) | CU-11 | **IMPLEMENTADO** (97,00 % de líneas; **gate en CI** agregado + por contrato, Ciclo 11) | `metricas_ejecucion.md` §19 y §27; `requerimientos.md:117-118`; `casos_uso.md:1080` |
-| RNF-003 | 100 % de tests en CI antes de cada merge | CU-11 | **IMPLEMENTADO** (**419/419**; **gate en CI** `forge test` con conteo real como artefacto, Ciclo 11) | `metricas_ejecucion.md` §19 y §27; `casos_uso.md:1081` |
+| RNF-002 | `forge coverage` ≥ 80 % sobre `src/` excluyendo interfaces y `test/` (D-017) | CU-11 | **IMPLEMENTADO** (97,01 % de líneas; **gate en CI** agregado + por contrato, Ciclo 11) | `metricas_ejecucion.md` §19 y §27; `requerimientos.md:117-118`; `casos_uso.md:1080` |
+| RNF-003 | 100 % de tests en CI antes de cada merge | CU-11 | **IMPLEMENTADO** (**420/420**; **gate en CI** `forge test` con conteo real como artefacto, Ciclo 11) | `metricas_ejecucion.md` §19 y §27; `casos_uso.md:1081` |
 | RNF-004 | Ningún secreto en repo/scripts (Secret Manager GCP `DS_`, `.env` ignorado) | CU-13 | **IMPLEMENTADO** (Ciclo 9) | `sc/script/deploy.sh:1-370`; `casos_uso.md:1082`; `entornos_globales.md:35` |
 | RNF-005 | Reglas de compliance extensibles sin tocar el token (módulos + aggregator) | CU-07, CU-14 | **PARCIALMENTE IMPLEMENTADO** | `ComplianceAggregator.sol:61-135`; `casos_uso.md:1083` |
 | RNF-006 | *(docker compose de las apps web)* | — | **NO APLICA (D-003)** | `requerimientos.md:77`; `casos_uso.md:1084` |
@@ -699,11 +699,11 @@ material sensible). **Besu** se ejecuta con el mismo script cambiando `RPC_URL`/
 
 | Métrica | Valor real (Fase 4 · cierre) | Objetivo | Estado | Fuente |
 |---|---|---|---|---|
-| Tests ejecutados por Forge | **419** (24 suites; 19 `invariant_*`) | 419 | ✅ | `forge test`; `metricas_ejecucion.md` §27 |
-| Tests que pasan | **419** | 100 % | ✅ | `forge test` → `419 tests passed, 0 failed, 0 skipped` |
+| Tests ejecutados por Forge | **420** (24 suites; 19 `invariant_*`) | 420 | ✅ | `forge test`; `metricas_ejecucion.md` §27 |
+| Tests que pasan | **420** | 100 % | ✅ | `forge test` → `420 tests passed, 0 failed, 0 skipped` |
 | Tests que fallan | **0** | 0 | ✅ | idem |
 | Tests que nunca arrancan | **0** (ninguna suite revierte en `setUp`) | 0 | ✅ | `metricas_ejecucion.md` §27 |
-| Cobertura de líneas `src/` (D-017) | **97,00 %** (809/834; mínimo por contrato 92,31 %) | ≥ 80 % (RNF-002/D-042) | ✅ | `metricas_ejecucion.md` §27 |
+| Cobertura de líneas `src/` (D-017) | **97,01 %** (810/835; mínimo por contrato 92,31 %) | ≥ 80 % (RNF-002/D-042) | ✅ | `metricas_ejecucion.md` §27 |
 | Cobertura de ramas `src/` (D-017) | **86,13 %** | — | ✅ | `metricas_ejecucion.md` §19 |
 | `.gas-snapshot` | **versionado** (`forge snapshot --check --tolerance 5` → exit 0) | RNF-001 | ✅ | `metricas_ejecucion.md` §27 |
 | Ahorro de gas (comparación equivalente) | **45–59 %** | sin cifra sin respaldo | ✅ | `README.md`; `metricas_ejecucion.md` §7.3 |
@@ -817,7 +817,7 @@ como **D-019..D-024** (mismo texto que en `requerimientos.md:122-139`, donde se 
 |---|---|---|
 | **B-1** | Verificación criptográfica de claims en todas las rutas (sin firmas vacías) + test adversarial del PoC de forja | **RF-001**; concreta el dominio/tipo por **D-020** |
 | **B-2** | Fail-closed de `isVerified` con registry ausente o sin topics + test de regresión | **RF-011** |
-| **B-3** | Las 8 suites en verde con **0 fallos**, conteo real como artefacto, cobertura ≥ 80 % y pipeline por commit/MR | **RF-005, RF-009, RNF-002, RNF-003** · **IMPLEMENTADO (Ciclos 11/Fase 4)**: `.gitlab-ci.yml` con `test` (conteo real como artefacto) y `coverage` (agregado + por contrato); **419/419 y 97,00 %** medidos |
+| **B-3** | Las 8 suites en verde con **0 fallos**, conteo real como artefacto, cobertura ≥ 80 % y pipeline por commit/MR | **RF-005, RF-009, RNF-002, RNF-003** · **IMPLEMENTADO (Ciclos 11/Fase 4)**: `.gitlab-ci.yml` con `test` (conteo real como artefacto) y `coverage` (agregado + por contrato); **420/420 y 97,01 %** medidos |
 | **B-4** | Gobernanza mínima: los tres roles no recaen en una única cuenta **sin decisión documentada**; `burn`/`forcedTransfer` acotados; clave privada fuera de `argv`/`keys.json` | **RF-004, RF-010**; **responsable y reparto por D-021** (multisig 2-de-3, timelock, custodio con rotación) y **tope de `mint` por D-022** |
 | **B-5** | Reproducibilidad del clon limpio y toolchain fijada (`solc`/optimizer/`evm_version`, `foundry.lock`) | **RF-005** · **IMPLEMENTADO (Ciclos 1/1b/11)**: submódulos pinneados y etapa `validate` de CI que los comprueba (sin `-`/`+`) |
 | **B-6** | Claims con vigencia y revocación + test que bloquea transferencias de claim caducado/revocado | **RF-013**; `expiresAt` firmado por **D-020** |
@@ -863,7 +863,7 @@ como **D-019..D-024** (mismo texto que en `requerimientos.md:122-139`, donde se 
 | `diagrama_er.md` | v1.1 · 2026-10-03 | Diagramas entidad-relación (on-chain, off-chain y planificado) sincronizados con el diccionario |
 | `base_datos.sql` | v0.2 · 2026-10-03 | Borrador documental PostgreSQL (no ejecutable) y catálogo canónico de topics |
 | `entornos_globales.md` | — | Rutas, repos, GCP, redes, cuentas, toolchain real y rama de trabajo |
-| `metricas_ejecucion.md` | — | Métricas reales medidas: **419/419 tests**, cobertura **97,00 % líneas / 86,13 % ramas**, `.gas-snapshot`, Ciclo 10 (RF-006, gates de docs y ABIs) y cierre de Fase 4 y deuda (§24/§27), con reproducibilidad |
+| `metricas_ejecucion.md` | — | Métricas reales medidas: **420/420 tests**, cobertura **97,01 % líneas / 86,13 % ramas**, `.gas-snapshot`, Ciclo 10 (RF-006, gates de docs y ABIs) y cierre de Fase 4 y deuda (§24/§27), con reproducibilidad |
 | `estado_proyecto.md` | 2026-10-03 | Estado de fases e hitos y compendio de decisiones D-001..D-011 (D-019..D-024 según `requerimientos.md`), con el hito del Ciclo 10 |
 | `plan_desarrollo.md` | v1.0 · 2026-10-03 | Plan de desarrollo vertical de la Fase 3 (ciclos de entrega sobre RF-001..RF-013): consumidor de este documento técnico |
 | `AUDITORIA_DOCUMENTO_TECNICO.md` | — | Auditoría adversarial de la **v1.0** de este documento: hallazgos DT-01..DT-13 y preguntas P1..P6 (resueltas por D-019..D-024) |
@@ -874,7 +874,7 @@ como **D-019..D-024** (mismo texto que en `requerimientos.md:122-139`, donde se 
 
 - Contratos: `rwa-sc/sc/src/` (11 archivos) y `rwa-sc/sc/src/compliance/` (4 archivos) = **15 contratos**
   (`INFORME_OPTIMIZACION_V1.md:82`).
-- Tests: `rwa-sc/sc/test/` — **24 suites** (419 tests): `Token`, `TokenCloneFactory`, `TokenLimits`,
+- Tests: `rwa-sc/sc/test/` — **24 suites** (420 tests): `Token`, `TokenCloneFactory`, `TokenLimits`,
   `TokenReentrancy`, `ComplianceAggregator`, `RF012_AggregatorFailClosed`, `IdentityCloneFactory`,
   `IdentityCloneable` (RF-001), `RF013_ClaimLifecycle`, `IdentityRegistry`, `TrustedIssuersRegistry`,
   `ClaimTopicsRegistry`, `ClaimTopicsRegistryCloneFactory`, `RF011_FailClosed`, `RF003_ERC165`,

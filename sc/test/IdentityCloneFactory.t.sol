@@ -146,11 +146,32 @@ contract IdentityCloneFactoryTest is Test {
         address predicted = vm.computeCreateAddress(address(factory), vm.getNonce(address(factory)));
         bytes memory signature = _sign(predicted, address(factory), 1, data, EXPIRES_AT, uri);
 
+        // AF-04: la ruta es autoservicio del titular.
+        vm.prank(user1);
         address identity = factory.createIdentityWithClaim(user1, 1, 1, issuer, signature, data, uri, EXPIRES_AT);
         assertEq(identity, predicted, "la direccion del clon debe ser predecible");
         assertEq(IdentityCloneable(identity).owner(), user1);
 
         _assertClaimStored(IdentityCloneable(identity), 1, 1, issuer, signature, data, uri, EXPIRES_AT);
+    }
+
+    /// AF-04: un tercero no puede consumir la firma de otro titular (front-running).
+    function test_AF04_createIdentityWithClaim_tercero_revierte() public {
+        bytes memory data = abi.encode(user1, true);
+        string memory uri = "https://kyc.example.com";
+        address predicted = vm.computeCreateAddress(address(factory), vm.getNonce(address(factory)));
+        bytes memory signature = _sign(predicted, address(factory), 1, data, EXPIRES_AT, uri);
+
+        address stranger = makeAddr("strangerAF04");
+        vm.prank(stranger);
+        vm.expectRevert("Only owner can create with claim");
+        factory.createIdentityWithClaim(user1, 1, 1, issuer, signature, data, uri, EXPIRES_AT);
+
+        // La firma sigue disponible para el titular legitimo.
+        vm.prank(user1);
+        address identity = factory.createIdentityWithClaim(user1, 1, 1, issuer, signature, data, uri, EXPIRES_AT);
+        assertEq(identity, predicted);
+        assertEq(IdentityCloneable(identity).owner(), user1);
     }
 
     /// @dev Comprueba los 8 campos de un claim almacenado (RF-001 + RF-013). Se lee `getClaim`
@@ -232,6 +253,7 @@ contract IdentityCloneFactoryTest is Test {
         bytes memory signature = _sign(predicted, address(factory), 1, data, EXPIRES_AT, uri);
 
         gasBefore = gasleft();
+        vm.prank(user1);
         factory.createIdentityWithClaim(user1, 1, 1, issuer, signature, data, uri, EXPIRES_AT);
         uint256 cloneClaimGas = gasBefore - gasleft();
 

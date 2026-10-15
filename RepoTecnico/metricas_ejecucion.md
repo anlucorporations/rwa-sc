@@ -1622,3 +1622,54 @@ documentos raíz reintroducen el catálogo antiguo (`2=AML`, `9=Sanctions Check`
 `forge build` 0 errores; `forge test` **419/419**; `forge fmt --check` limpio; `check_coverage.sh`
 → `src/` **97,00 %** y mínimo **92,31 %**; `abi_diff.sh` con deriva declarada y baseline regenerada;
 `check_docs.sh` OK; `check_claim_topics.sh` OK; `.gas-snapshot` regenerado.
+
+---
+
+## 28. Cierre de deuda — AF-04 · AF-14 · H-29 · H-32 y catálogo RNF (H-09/H-10/H-11/H-12/H-25/H-27/H-30)
+
+### 28.1 Conteo — antes / después
+
+| Métrica | Antes (§27) | Después |
+|---|---:|---:|
+| Tests (`forge test`) | 419 | **420** |
+| Suites | 24 | **24** |
+| Cobertura `src/` (líneas) | 97,00 % (809/834) | **97,01 % (810/835)** |
+| Mínimo por contrato (líneas) | 92,31 % | **92,31 %** |
+
+`forge test` → `Ran 24 test suites ... 420 tests passed, 0 failed, 0 skipped` (`+1`: AF-04).
+
+### 28.2 AF-04 — anti front-running en `createIdentityWithClaim`
+
+`IdentityCloneFactory.createIdentityWithClaim` exige `msg.sender == owner`: como el `verifyingContract`
+del clon es predecible (CREATE), un tercero podía consumir la firma y dejar sin efecto la transacción
+del titular. Prueba: `test_AF04_createIdentityWithClaim_tercero_revierte`.
+
+### 28.3 AF-14 — escaneo de secretos en documentación
+
+`check_secrets.sh` usa `DOC_RE` para escanear los `.md` buscando claves crudas **etiquetadas**
+(`private key … 0x<64 hex>`), sin marcar los hashes de evidencia. Verificado con prueba negativa
+(clave plantada en un `.md` ⇒ exit 1).
+
+### 28.4 H-29 (M-14) — despliegue generalizado de módulos
+
+`DeployFullStack.s.sol` activa hasta 3 módulos (`MAX_BALANCE` obligatorio; `MAX_HOLDERS` y `LOCK_PERIOD`
+opcionales, `0` = desactivado) por la ruta `token → aggregator → módulo`, persiste las 3 direcciones y
+el conteo real. `deploy.sh` deriva el conteo esperado del artefacto (ya no asume 1), verifica cada
+módulo (`cast code`, `isModuleActiveForToken`, `tokenContract()`) y lista los 3 en `ABI_CONTRACTS`.
+Verificado por simulación `forge script` (1 y 3 módulos).
+
+### 28.5 H-32 y catálogo RNF (H-09/H-10/H-11/H-12/H-25/H-27/H-30)
+
+- **H-32 cerrado:** 0 referencias `.sol` rotas en `DEPENDENCIAS_CONTRATOS.md` + diccionario contra el
+  storage real (H-14) + import inexistente corregido en el Ciclo 10.
+- **H-09/H-10/H-11/H-12/H-25/H-27/H-30:** nuevo `RepoTecnico/requerimientos_no_funcionales.md` con el
+  catálogo RNF ISO 25010 (RNF-101..109), regulatorio (RNF-201..206), protección de datos
+  (RNF-301..306), observabilidad (RNF-401..405), continuidad (RNF-501..505) y soporte al inversor
+  (RNF-601..603). Estado: **definido y medible**; las categorías `LEGAL`/`DIR` quedan **pendientes de
+  aprobación** (no las aprueba el equipo técnico) y el indexer (H-12/H-21) es un componente off-chain.
+
+### 28.6 Verificaciones
+
+`forge build` 0 errores; `forge test` **420/420**; `forge fmt --check` limpio; `check_coverage.sh`
+→ `src/` **97,01 %** (810/835); `check_secrets.sh` (con escaneo de docs) y `check_docs.sh` OK;
+`deploy.sh` simulado con 1 y 3 módulos; `.gas-snapshot` regenerado.

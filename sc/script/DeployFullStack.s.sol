@@ -10,6 +10,8 @@ import {IdentityRegistry} from "../src/IdentityRegistry.sol";
 import {TrustedIssuersRegistry} from "../src/TrustedIssuersRegistry.sol";
 import {ComplianceAggregator} from "../src/compliance/ComplianceAggregator.sol";
 import {MaxBalanceCompliance} from "../src/compliance/MaxBalanceCompliance.sol";
+import {MaxHoldersCompliance} from "../src/compliance/MaxHoldersCompliance.sol";
+import {TransferLockCompliance} from "../src/compliance/TransferLockCompliance.sol";
 
 /**
  * @title DeployFullStack
@@ -51,7 +53,14 @@ contract DeployFullStack is Script {
         address claimTopicsRegistry;
         address token;
         address complianceModule;
+        address maxHoldersModule;
+        address transferLockModule;
         address identity;
+        uint256 maxBalance;
+        uint256 maxBurnPerTx;
+        uint256 maxForcedPerTx;
+        uint256 maxHolders;
+        uint256 lockPeriod;
     }
 
     function run() external {
@@ -65,6 +74,12 @@ contract DeployFullStack is Script {
         uint256 maxBurnPerTx = vm.envOr("MAX_BURN_PER_TX", maxBalance);
         uint256 maxForcedPerTx = vm.envOr("MAX_FORCED_PER_TX", maxBalance);
 
+        // H-29 (M-14): modulos adicionales opcionales. `0` = modulo desactivado (no se despliega ni
+        // se registra), de modo que el despliegue por defecto conserva exactamente el comportamiento
+        // verificado (1 modulo) y la generalizacion es aditiva.
+        uint256 maxHolders = vm.envOr("MAX_HOLDERS", uint256(0));
+        uint256 lockPeriod = vm.envOr("LOCK_PERIOD", uint256(0));
+
         uint256[] memory topics = new uint256[](1);
         topics[0] = 1; // KYC
 
@@ -74,6 +89,11 @@ contract DeployFullStack is Script {
         console.log("Max balance del modulo:", maxBalance);
 
         Deployment memory d;
+        d.maxBalance = maxBalance;
+        d.maxBurnPerTx = maxBurnPerTx;
+        d.maxForcedPerTx = maxForcedPerTx;
+        d.maxHolders = maxHolders;
+        d.lockPeriod = lockPeriod;
 
         vm.startBroadcast();
 
@@ -119,6 +139,20 @@ contract DeployFullStack is Script {
         tokenContract.addComplianceModule(d.aggregator);
         tokenContract.addModuleThroughAggregator(d.aggregator, d.complianceModule);
 
+        // H-29 (M-14): generalizacion del despliegue. El token puede activar mas de un modulo por
+        // la misma ruta de produccion (token -> aggregator -> modulo); cada modulo de un solo token
+        // se vincula antes con `setTokenContract` (AF-01) y es *bind-once* (H-19).
+        if (maxHolders > 0) {
+            d.maxHoldersModule = address(new MaxHoldersCompliance(deployer, maxHolders));
+            MaxHoldersCompliance(d.maxHoldersModule).setTokenContract(d.token);
+            tokenContract.addModuleThroughAggregator(d.aggregator, d.maxHoldersModule);
+        }
+        if (lockPeriod > 0) {
+            d.transferLockModule = address(new TransferLockCompliance(deployer, lockPeriod));
+            TransferLockCompliance(d.transferLockModule).setTokenContract(d.token);
+            tokenContract.addModuleThroughAggregator(d.aggregator, d.transferLockModule);
+        }
+
         // AF-07: configuracion obligatoria para que el token sea operable tras el despliegue.
         // (La identidad de ejemplo no tiene claims: `isVerified` es fail-closed, por lo que la
         // emision real requiere registrar una identidad con claim; el smoke test de `deploy.sh`
@@ -133,7 +167,7 @@ contract DeployFullStack is Script {
 
         vm.stopBroadcast();
 
-        _persistArtifact(d, deployer, maxBalance, maxBurnPerTx, maxForcedPerTx);
+        _persistArtifact(d, deployer);
 
         console.log("=== Despliegue completo ===");
         console.log("IdentityRegistry:", d.identityRegistry);
@@ -145,22 +179,21 @@ contract DeployFullStack is Script {
         console.log("ClaimTopicsRegistry:", d.claimTopicsRegistry);
         console.log("Token:", d.token);
         console.log("Compliance module (MaxBalance):", d.complianceModule);
+        console.log("Compliance module (MaxHolders):", d.maxHoldersModule);
+        console.log("Compliance module (TransferLock):", d.transferLockModule);
         console.log("Identity:", d.identity);
         console.log("maxBurnPerTx:", maxBurnPerTx);
         console.log("maxForcedPerTx:", maxForcedPerTx);
+        console.log("maxHolders:", maxHolders);
+        console.log("lockPeriod:", lockPeriod);
         console.log("Destino autorizado (forcedTransfer):", deployer);
     }
 
     /// @dev Escribe el artefacto JSON trazable (sin secretos) en `DEPLOYMENT_JSON` o, por defecto,
     /// en `deployments/<chainId>-<block>.json`. El directorio debe existir (lo crea `deploy.sh`).
-    function _persistArtifact(
-        Deployment memory d,
-        address deployer,
-        uint256 maxBalance,
-        uint256 maxBurnPerTx,
-        uint256 maxForcedPerTx
-    ) internal {
+    function _persistArtifact(Deployment memory d, address deployer) internal {
         TokenCloneable tokenContract = TokenCloneable(d.token);
+        uint256 moduleCount = ComplianceAggregator(d.aggregator).getModuleCount(d.token);
 
         string memory contracts = "contracts";
         vm.serializeAddress(contracts, "IdentityRegistry", d.identityRegistry);
@@ -175,7 +208,11 @@ contract DeployFullStack is Script {
 
         string memory compliance = "compliance";
         vm.serializeAddress(compliance, "MaxBalanceCompliance", d.complianceModule);
-        string memory complianceJson = vm.serializeUint(compliance, "maxBalance", maxBalance);
+        vm.serializeAddress(compliance, "MaxHoldersCompliance", d.maxHoldersModule);
+        vm.serializeAddress(compliance, "TransferLockCompliance", d.transferLockModule);
+        vm.serializeUint(compliance, "maxBalance", d.maxBalance);
+        vm.serializeUint(compliance, "maxHolders", d.maxHolders);
+        string memory complianceJson = vm.serializeUint(compliance, "lockPeriod", d.lockPeriod);
 
         string memory token = "token";
         vm.serializeAddress(token, "address", d.token);
@@ -186,11 +223,11 @@ contract DeployFullStack is Script {
         vm.serializeAddress(token, "trustedIssuersRegistry", address(tokenContract.trustedIssuersRegistry()));
         vm.serializeAddress(token, "claimTopicsRegistry", address(tokenContract.claimTopicsRegistry()));
         vm.serializeAddress(token, "complianceAggregator", d.aggregator);
-        vm.serializeUint(token, "complianceModuleCount", ComplianceAggregator(d.aggregator).getModuleCount(d.token));
+        vm.serializeUint(token, "complianceModuleCount", moduleCount);
         // AF-07: los topes se serializan como string para que `jq` los devuelva exactos
         // (independientemente de la version/precision numerica de jq) y `deploy.sh` los compare.
-        vm.serializeString(token, "maxBurnPerTx", vm.toString(maxBurnPerTx));
-        vm.serializeString(token, "maxForcedPerTx", vm.toString(maxForcedPerTx));
+        vm.serializeString(token, "maxBurnPerTx", vm.toString(d.maxBurnPerTx));
+        vm.serializeString(token, "maxForcedPerTx", vm.toString(d.maxForcedPerTx));
         vm.serializeAddress(token, "authorizedDestination", deployer);
         string memory tokenJson = vm.serializeAddress(token, "complianceModule", d.complianceModule);
 

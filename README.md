@@ -21,8 +21,8 @@ Este proyecto implementa un **sistema de tokenización RWA** (Real World Assets)
 - ⚠️ **Inspirado en ERC-3643 / T-REX**, no "ERC-3643 compliant": implementa un subconjunto propio de interfaces (ver declaración verificable en [`SECURITY.md`](SECURITY.md)). **No auditado y no apto para producción con activos reales** (ver [`RepoTecnico/INFORME_OPTIMIZACION_V1.md`](RepoTecnico/INFORME_OPTIMIZACION_V1.md)).
 - ✅ **Clone Factory** (EIP-1167) — ahorro de gas medido con comparación equivalente: **45–59 %** (Token 55 %, Identity 59 %, Identity+claim 45 %, Registry 53 %; ver `.gas-snapshot`).
 - ✅ **Compliance Aggregator** — gestión modular de compliance (fail-closed).
-- ✅ **419 tests** (419 pasando, 0 fallos, 0 skipped) — `forge test`, cifra respaldada por [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
-- ✅ **Cobertura de `src/`**: **97,00 % de líneas** (mínimo por contrato 92,31 %; D-017: sin interfaces ni `test/`; `metricas_ejecucion.md`).
+- ✅ **420 tests** (420 pasando, 0 fallos, 0 skipped) — `forge test`, cifra respaldada por [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
+- ✅ **Cobertura de `src/`**: **97,01 % de líneas** (mínimo por contrato 92,31 %; D-017: sin interfaces ni `test/`; `metricas_ejecucion.md`).
 - ✅ **Gas medido** con baseline versionado (`sc/.gas-snapshot`); **no production-ready** sin auditoría externa (D-024).
 
 ---
@@ -140,7 +140,7 @@ Compliance:
 ```
 - Token.t.sol                          (30 tests)
 - TokenCloneFactory.t.sol              (17 tests)
-- IdentityCloneFactory.t.sol           (14 tests)
+- IdentityCloneFactory.t.sol           (15 tests)
 - IdentityCloneable.t.sol              (24 tests)
 - IdentityRegistry.t.sol               (41 tests)
 - TrustedIssuersRegistry.t.sol         (34 tests)
@@ -163,7 +163,7 @@ Compliance:
 - invariant/RegistryInvariants.t.sol   (2 tests)
 - invariant/TokenInvariants.t.sol      (2 tests)
 
-Total: 419 tests en 24 suites (419 pasando, 0 fallos, 0 skipped)
+Total: 420 tests en 24 suites (420 pasando, 0 fallos, 0 skipped)
 ```
 
 ---
@@ -271,6 +271,7 @@ forge script script/CreateTokenWithCloneFactory.s.sol --rpc-url localhost --broa
 |-----------|-------------|
 | **RepoTecnico/estado_proyecto.md** | Estado de fases, hitos y decisiones |
 | **RepoTecnico/requerimientos.md** | Requisitos, decisiones (D-xxx) y backlog |
+| **RepoTecnico/requerimientos_no_funcionales.md** | Catálogo RNF ISO 25010 y políticas (regulatorio, PII, observabilidad, continuidad, soporte) |
 | **RepoTecnico/plan_desarrollo.md** | Ciclos de desarrollo y trazabilidad |
 | **RepoTecnico/INFORME_OPTIMIZACION_V1.md** | Auditoría V1: 34 hallazgos y plan de acción |
 
@@ -307,7 +308,7 @@ forge coverage
 | TokenReentrancyTest | 18 | Anti-reentrancia (RF-002) |
 | ComplianceAggregatorTest | 25 | Compliance aggregator |
 | RF012_AggregatorFailClosedTest | 9 | Aggregator fail-closed (RF-012) |
-| IdentityCloneFactoryTest | 14 | Identity factory |
+| IdentityCloneFactoryTest | 15 | Identity factory |
 | IdentityCloneableRF001Test | 24 | Claims EIP-712 (RF-001) |
 | RF013_ClaimLifecycleTest | 20 | Vigencia/revocación de claims (RF-013) |
 | IdentityRegistryTest | 41 | Registro de identidades |
@@ -326,7 +327,7 @@ forge coverage
 | TokenInvariantsTest | 2 | Invariantes con estado del token |
 | H20EscalabilidadTest | 6 | Índices O(1) y vistas paginadas (H-20) |
 
-**Total: 419 tests en 24 suites (419 pasando, 0 fallos, 0 skipped)** — verificado con `forge test` y enlazado a [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
+**Total: 420 tests en 24 suites (420 pasando, 0 fallos, 0 skipped)** — verificado con `forge test` y enlazado a [`RepoTecnico/metricas_ejecucion.md`](RepoTecnico/metricas_ejecucion.md).
 
 ---
 
@@ -478,4 +479,4 @@ code START_HERE.md
 
 **¡Feliz aprendizaje! 🚀📚**
 
-*Este proyecto representa 419 tests (419 pasando, 0 fallos) con baseline de gas versionado, miles de líneas de código, y múltiples patrones avanzados de Solidity. Tómate tu tiempo para entenderlo bien.*
+*Este proyecto representa 420 tests (420 pasando, 0 fallos) con baseline de gas versionado, miles de líneas de código, y múltiples patrones avanzados de Solidity. Tómate tu tiempo para entenderlo bien.*
