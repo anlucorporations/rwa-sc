@@ -1,6 +1,6 @@
 -- =============================================================================
 -- base_datos.sql — Creación de la BD off-chain (PostgreSQL) de la plataforma RWA
--- Versión: 1.0 · 2026-10-14
+-- Versión: 1.1 · 2026-10-14
 -- =============================================================================
 -- ARTEFACTO DE DATOS COMPARTIDO — COPIA ESPEJO SINCRONIZADA (2026-10-14):
 --   Canónico: rwa-sc/RepoTecnico/base_datos.sql   (línea @sc)
@@ -32,6 +32,12 @@
 --     `rwa-web/RepoTecnico/requerimientos_web.md`
 --     v1.1 (RF-W-02/05/06, RNF-W-02), D-092/D-093/D-095, y `diccionario_datos.md` v1.2
 --     + `diagrama_er.md` v1.2 (sincronizados en el mismo turno).
+--   v1.1 (O2.3, 2026-10-14): **payload EIP-712 del claim** (RF-W-10, D-020/D-083).
+--     `claim_requests` gana `identity_address`, `claim_chain_id`, `claim_scheme`,
+--     `claim_wallet_owner`, `claim_nonce`, `claim_expires_at`, `claim_data`,
+--     `claim_uri`, `claim_uri_hash`, `claim_data_hash` y `claim_signature`, con un
+--     CHECK de completitud al resolver. `issuer_signature`/`issuer_signed_message`
+--     conservan la firma EIP-712 y su JSON (compatibilidad con HW-01).
 --
 -- Convenciones: snake_case · tablas en plural · PK `id` (uuid salvo catálogos) ·
 --   FK `<tabla_singular>_id` · timestamps `created_at`/`updated_at`.
@@ -119,6 +125,18 @@ CREATE TABLE IF NOT EXISTS rwa.claim_requests (
     issuer_signature      text,
     reviewed_by           text,
     reviewed_at           timestamptz,
+    -- O2.3 (v1.1): payload EIP-712 firmado por el emisor (`IdentityCloneable.addClaim`)
+    identity_address      text,
+    claim_chain_id        integer,
+    claim_scheme          smallint               NOT NULL DEFAULT 1,
+    claim_wallet_owner    text,
+    claim_nonce           numeric(78,0),
+    claim_expires_at      numeric(78,0),
+    claim_data            text,
+    claim_uri             text,
+    claim_uri_hash        text,
+    claim_data_hash       text,
+    claim_signature       text,
     created_at            timestamptz            NOT NULL DEFAULT now(),
     updated_at            timestamptz            NOT NULL DEFAULT now(),
     CONSTRAINT claim_requests_requester_lower_hex CHECK (requester_address ~ '^0x[0-9a-f]{40}$'),
@@ -128,6 +146,22 @@ CREATE TABLE IF NOT EXISTS rwa.claim_requests (
         (status = 'pending'  AND reviewed_at IS NULL AND issuer_signature IS NULL AND reviewed_by IS NULL)
         OR
         (status <> 'pending' AND reviewed_at IS NOT NULL AND issuer_signature IS NOT NULL AND reviewed_by IS NOT NULL)
+    ),
+    -- Al resolver, el payload EIP-712 debe estar completo (O2.3).
+    CONSTRAINT claim_requests_claim_payload_consistency CHECK (
+        (status <> 'approved')
+        OR
+        (identity_address IS NOT NULL AND claim_chain_id IS NOT NULL
+         AND claim_wallet_owner IS NOT NULL AND claim_nonce IS NOT NULL
+         AND claim_expires_at IS NOT NULL AND claim_data IS NOT NULL
+         AND claim_uri IS NOT NULL AND claim_uri_hash IS NOT NULL
+         AND claim_data_hash IS NOT NULL AND claim_signature IS NOT NULL)
+    ),
+    CONSTRAINT claim_requests_identity_lower_hex CHECK (
+        identity_address IS NULL OR identity_address ~ '^0x[0-9a-f]{40}$'
+    ),
+    CONSTRAINT claim_requests_wallet_owner_lower_hex CHECK (
+        claim_wallet_owner IS NULL OR claim_wallet_owner ~ '^0x[0-9a-f]{40}$'
     )
 );
 
@@ -253,6 +287,49 @@ CREATE TABLE IF NOT EXISTS rwa.schema_migrations (
 );
 
 -- =============================================================================
+-- SECCIÓN 4.1 — Migraciones incrementales (idempotentes)
+-- =============================================================================
+-- v1.1 (O2.3): payload EIP-712 del claim. Reejecutable sobre instalaciones v1.0.
+
+ALTER TABLE rwa.claim_requests ADD COLUMN IF NOT EXISTS identity_address   text;
+ALTER TABLE rwa.claim_requests ADD COLUMN IF NOT EXISTS claim_chain_id     integer;
+ALTER TABLE rwa.claim_requests ADD COLUMN IF NOT EXISTS claim_scheme       smallint NOT NULL DEFAULT 1;
+ALTER TABLE rwa.claim_requests ADD COLUMN IF NOT EXISTS claim_wallet_owner text;
+ALTER TABLE rwa.claim_requests ADD COLUMN IF NOT EXISTS claim_nonce        numeric(78,0);
+ALTER TABLE rwa.claim_requests ADD COLUMN IF NOT EXISTS claim_expires_at   numeric(78,0);
+ALTER TABLE rwa.claim_requests ADD COLUMN IF NOT EXISTS claim_data         text;
+ALTER TABLE rwa.claim_requests ADD COLUMN IF NOT EXISTS claim_uri          text;
+ALTER TABLE rwa.claim_requests ADD COLUMN IF NOT EXISTS claim_uri_hash     text;
+ALTER TABLE rwa.claim_requests ADD COLUMN IF NOT EXISTS claim_data_hash    text;
+ALTER TABLE rwa.claim_requests ADD COLUMN IF NOT EXISTS claim_signature    text;
+
+ALTER TABLE rwa.claim_requests DROP CONSTRAINT IF EXISTS claim_requests_claim_payload_consistency;
+
+DO $$ BEGIN
+    ALTER TABLE rwa.claim_requests ADD CONSTRAINT claim_requests_claim_payload_consistency CHECK (
+        (status <> 'approved')
+        OR
+        (identity_address IS NOT NULL AND claim_chain_id IS NOT NULL
+         AND claim_wallet_owner IS NOT NULL AND claim_nonce IS NOT NULL
+         AND claim_expires_at IS NOT NULL AND claim_data IS NOT NULL
+         AND claim_uri IS NOT NULL AND claim_uri_hash IS NOT NULL
+         AND claim_data_hash IS NOT NULL AND claim_signature IS NOT NULL)
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    ALTER TABLE rwa.claim_requests ADD CONSTRAINT claim_requests_identity_lower_hex CHECK (
+        identity_address IS NULL OR identity_address ~ '^0x[0-9a-f]{40}$'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    ALTER TABLE rwa.claim_requests ADD CONSTRAINT claim_requests_wallet_owner_lower_hex CHECK (
+        claim_wallet_owner IS NULL OR claim_wallet_owner ~ '^0x[0-9a-f]{40}$'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- =============================================================================
 -- SECCIÓN 5 — Función y triggers de `updated_at`
 -- =============================================================================
 
@@ -343,6 +420,9 @@ ON CONFLICT (id) DO UPDATE
         active      = EXCLUDED.active;
 
 INSERT INTO rwa.schema_migrations (version) VALUES ('1.0')
+ON CONFLICT (version) DO NOTHING;
+
+INSERT INTO rwa.schema_migrations (version) VALUES ('1.1')
 ON CONFLICT (version) DO NOTHING;
 
 -- =============================================================================

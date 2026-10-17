@@ -5,7 +5,7 @@
 > Deben ser **idénticos byte a byte**: edita solo el canónico y ejecuta `rwa-web/RepoTecnico/check_sincronizacion_datos.sh --sync`
 > (regla de sincronización en `rwa-web/RepoTecnico/ARTEFACTOS_DATOS_SINCRONIZADOS.md`).
 >
-> **Versión: v1.2 · 2026-10-14.** Cubre el modelo de datos del proyecto: on-chain (contratos de
+> **Versión: v1.3 · 2026-10-14.** Cubre el modelo de datos del proyecto: on-chain (contratos de
 > `rwa-sc/sc/src/`) y off-chain (**PostgreSQL**, esquema `rwa`).
 > **Sincronizado con `diccionario_datos.md` v1.2** (mismo nombre para cada entidad, campo y topic) y con
 > `base_datos.sql` v1.0.
@@ -154,6 +154,17 @@ erDiagram
         text issuer_signature "opcional"
         text reviewed_by "opcional, nuevo HW-01"
         timestamptz reviewed_at "opcional"
+        text identity_address "opcional, O2.3 verifyingContract"
+        integer claim_chain_id "opcional, 31337"
+        smallint claim_scheme "default 1"
+        text claim_wallet_owner "opcional"
+        numeric claim_nonce "uint256"
+        numeric claim_expires_at "uint256, 0=perpetuo"
+        text claim_data "hex"
+        text claim_uri
+        text claim_uri_hash "keccak(uri)"
+        text claim_data_hash "keccak(data)"
+        text claim_signature "firma EIP-712"
         timestamptz created_at
         timestamptz updated_at
     }

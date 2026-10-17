@@ -5,7 +5,7 @@
 > Deben ser **idénticos byte a byte**: edita solo el canónico y ejecuta `rwa-web/RepoTecnico/check_sincronizacion_datos.sh --sync`
 > (regla de sincronización en `rwa-web/RepoTecnico/ARTEFACTOS_DATOS_SINCRONIZADOS.md`).
 >
-> **Versión: v1.2 · 2026-10-14.** Fuente de verdad de datos del proyecto. Cubre el **modelo on-chain**
+> **Versión: v1.3 · 2026-10-14.** Fuente de verdad de datos del proyecto. Cubre el **modelo on-chain**
 > (contratos, storage) y el **modelo off-chain** (PostgreSQL, esquema `rwa`).
 >
 > **Changelog v1.2 (2026-10-14):**
@@ -197,11 +197,27 @@ Los tres módulos **sí** emiten `TokenContractSet(address indexed tokenContract
 | `issuer_signature` | text? | — | Firma del emisor (verificada en servidor, RF-W-03) |
 | `reviewed_by` | text? | — | **Nuevo (HW-01):** dirección derivada de la firma del revisor |
 | `reviewed_at` | timestamptz? | — | Fecha de revisión |
+| `identity_address` | text? | CHECK `0x…` | **O2.3:** clon de identidad del inversor = `verifyingContract` del dominio EIP-712 |
+| `claim_chain_id` | integer? | — | chainId firmado (31337 canónico) |
+| `claim_scheme` | smallint | default `1` | Scheme del claim (único soportado: `1`) |
+| `claim_wallet_owner` | text? | CHECK `0x…` | `owner()` del clon en el momento de firmar |
+| `claim_nonce` | numeric(78,0)? | — | `claimNonce(topic, issuer)` firmado (uint256) |
+| `claim_expires_at` | numeric(78,0)? | — | Unix seconds firmado (uint256); `0` = perpetuo (D-038) |
+| `claim_data` | text? | — | Bytes `_data` del claim en hex (`0x…`) |
+| `claim_uri` | text? | — | Referencia documental firmada (D-083) |
+| `claim_uri_hash` | text? | — | `keccak256(bytes(uri))` |
+| `claim_data_hash` | text? | — | `keccak256(data)` |
+| `claim_signature` | text? | — | Firma **EIP-712** del emisor (65 bytes) |
 | `created_at` / `updated_at` | timestamptz | — | Timestamps |
 
 > **CHECK `claim_requests_review_consistency`:** si `status <> 'pending'`, entonces `reviewed_at`,
 > `issuer_signature` y `reviewed_by` son obligatorios; si `status = 'pending'`, los tres son `NULL`.
 > Hace **imposible** una aprobación sin trazabilidad (HW-01).
+
+> **CHECK `claim_requests_claim_payload_consistency` (O2.3):** al **aprobar** (`status = 'approved'`) el payload
+> EIP-712 debe estar completo (`identity_address`, `claim_chain_id`, `claim_wallet_owner`, `claim_nonce`,
+> `claim_expires_at`, `claim_data`, `claim_uri`, `claim_uri_hash`, `claim_data_hash` y `claim_signature`).
+> `issuer_signature` conserva la **misma** firma EIP-712 y `issuer_signed_message` su JSON (compatibilidad HW-01).
 
 ### Tabla: `rwa.document_files` (sustituye a GridFS `claim_documents`)
 | Campo | Tipo | Clave | Descripción |
