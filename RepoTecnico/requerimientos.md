@@ -559,7 +559,7 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-03 | Cifras de ahorro de gas contradictorias; RNF-001 sin criterio operativo | **Cubierto (parcial)** | RNF-001; operacionalización (`.gas-snapshot`) al backlog M-2 |
 | H-04 | Build no reproducible: código sin versionar, submódulos, sin CI | **Cubierto** | RF-005, RF-009 |
 | H-05 | `isVerified()` fail-open sin `claimTopicsRegistry` | **Cubierto** | RF-011 (D-014) |
-| H-06 | Centralización de poderes: una EOA, `AGENT_ROLE` absoluto | **Parcial (R-7)** | RF-004 + `GovernanceMultisig` (M-de-N + timelock) probado; pendiente adoptarlo y auditarlo |
+| H-06 | Centralización de poderes: una EOA, `AGENT_ROLE` absoluto | **Cubierto (mecanismo + adopción)** | `GovernanceMultisig` (M-de-N + timelock) probado; **adopción automatizada** (`script/AdoptGovernance.s.sol` + `adopt_governance.sh`) y **drill end-to-end en verde** (`script/ci/test_adopt_governance.sh`, evidencia `pruebas/h06_adopcion_multisig.md`); pendiente auditoría externa (D-024) y decisión sobre `IdentityRegistry` |
 | H-07 | Factories permissionless; EIP-1167 sin ruta de upgrade | **Corregido** | Allowlist `setAuthorizedCreator`/`onlyCreator` (3 factories) + redeploy limpio (D-019); `test_H07_*` (6) |
 | H-08 | Claims sin vigencia ni revocación por el issuer | **Cubierto (implementado, Ciclo 8)** | RF-013 (D-014, D-045..D-047) |
 | H-09 | Catálogo RNF incompleto (ISO 25010) | **Corregido** | `requerimientos_no_funcionales.md` §1 (RNF-101..109) + gate Slither `ci_check_RNF107_slither_sin_high` |

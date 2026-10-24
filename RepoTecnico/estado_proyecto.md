@@ -2,7 +2,7 @@
 
 > **Proyecto:** Mejora y estabilización de la plataforma RWA (Real World Assets, inspirada en ERC-3643)
 > **Directivo:** Asistente de Proyecto (`@asistenteProyecto`)
-> **Versión:** v2.5 · 2026-10-14 — Fases 1–4 cerradas (Fase 5 omitida, D-087), **backlog post-Fase 4 cerrado** (QW-8 · AF-04/AF-12/AF-14 · H-06/H-07/H-09/H-13/H-14/H-19/H-20/H-29/H-32 · RNF-107) y **etapa `@web` abierta** (D-088…D-102, ciclo O0 en curso)
+> **Versión:** v2.6 · 2026-10-24 — Fases 1–4 cerradas (Fase 5 omitida, D-087), backlog post-Fase 4 cerrado, etapa `@web` cerrada (O0–O5) y **nueva etapa técnica `@sc`** en curso: gobernanza (H-06/R-7), backup/DR (H-30) e indexer off-chain (H-12/H-21)
 
 ## Fases
 
@@ -490,3 +490,32 @@ Se toman como criterios los **bloqueantes B-1…B-6** y de **calidad C-1…C-5**
 0 endpoints públicos con PII · flujo identidad → claim → aprobación → `isVerified` operativo en la red canónica ·
 CI en verde sobre `rwa-web` · una sola versión de `next`/`react` por workspace · sin `ignoreBuildErrors` ·
 0 errores de dependencia devueltos como `200`.
+
+---
+
+## Nueva etapa técnica de `@sc` — gobernanza, continuidad e indexación (2026-10-24)
+
+> Abierta por decisión del usuario tras cerrar la etapa `@web`. **No reabre** las Fases 1–4: es una
+> etapa nueva sobre la línea de contratos para cerrar los pendientes de producción (H-06/R-7, H-30,
+> H-12/H-21).
+
+### Alcance y decisiones
+
+| ID | Decisión | Estado |
+|---|---|---|
+| **D-106** | Nueva etapa técnica `@sc` con 3 frentes: gobernanza (H-06/R-7), backup/DR (H-30) e indexer off-chain (H-12/H-21) | ✅ APROBADA (usuario) |
+| **D-107** | La adopción del multisig se entrega **automatizada y verificada**, pero **no se ejecuta sobre el Anvil de GCP** sin decisión explícita (operación irreversible). Se puede excluir `IdentityRegistry` con `ADOPT_SKIP_IDENTITY_REGISTRY=1` por su impacto en el alta de identidades de `@web` | ✅ APLICADA (implementación + drill) |
+| **D-108** | El indexer off-chain persistirá eventos en **PostgreSQL** (esquema `rwa`) con reconstrucción desde el bloque del despliegue; la tabla se añade a los artefactos de datos compartidos (canónico `@sc` + espejo `@web`) | 🟡 Aprobada en diseño; implementación en curso |
+
+### H-06 / R-7 — Gobernanza (✅ mecanismo + adopción; ⏳ auditoría externa)
+
+- `script/AdoptGovernance.s.sol` + `script/adopt_governance.sh`: entrega `Ownable` y roles
+  `AccessControl` del token al `GovernanceMultisig`; la EOA renuncia. Preflight y verificación en cerrado.
+- Drill end-to-end en verde (`script/ci/test_adopt_governance.sh`, opt-in `RUN_H06_DRILL=1`):
+  despliegue → multisig 2-de-3 → adopción → EOA sin poderes → propuesta + 2 aprobaciones + timelock + `execute`.
+- Evidencia: `pruebas/h06_adopcion_multisig.md`; procedimiento en `RUNBOOK_MIGRACION.md` §8.1b.
+- Pendiente: auditoría externa del multisig (D-024) y decisión de producto sobre `IdentityRegistry`.
+
+### H-30 — Backup/DR (🟡 en curso)
+
+### H-12 / H-21 — Indexer off-chain (🟡 en curso)

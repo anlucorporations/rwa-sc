@@ -180,6 +180,25 @@ forge script script/DeployGovernance.s.sol:DeployGovernance \
 
 Los owners deben ser **custodios de claves distintos** (D-021) y `GOVERNANCE_DELAY` ≥ 24 h.
 
+### 8.1b Adopción automatizada (recomendado)
+
+```bash
+cd rwa-sc/sc
+GOVERNANCE_MULTISIG=0x... sc/script/adopt_governance.sh
+#   ADOPT_SKIP_IDENTITY_REGISTRY=1  → no transfiere IdentityRegistry (registro operativo)
+```
+
+El script valida la red (`cast chain-id`) y el multisig (`threshold` ≥ 2, owners ≥ 3, `delay` ≥ 24 h),
+usa **keystore efímero** (la clave no pasa por `argv`), ejecuta `script/AdoptGovernance.s.sol` y
+**verifica con `cast`** las postcondiciones (owner/roles del multisig y ausencia de roles de la EOA).
+El drill end-to-end está en `script/ci/test_adopt_governance.sh`; evidencia en
+`RepoTecnico/pruebas/h06_adopcion_multisig.md`.
+
+> **Atención (impacto cross-línea):** tras adoptar, `IdentityRegistry.registerIdentity` (onlyOwner)
+> pasa a requerir una propuesta del multisig (umbral + timelock) para el alta de identidades desde
+> `@web`. Decidir si se excluye (`ADOPT_SKIP_IDENTITY_REGISTRY=1`, gobernanza parcial documentada) o
+> se asume el flujo de gobernanza.
+
 ### 8.2 Entrega de roles (por cada contrato administrado)
 
 1. Desde el multisig, proponer y ejecutar `grantRole(<ROL>, <multisig>)` sobre el contrato:

@@ -190,6 +190,18 @@ stage_slither() {
 run_stage "ci-checks" stage_ci_checks
 run_stage "slither" stage_slither
 
+# --- H-06: drill de adopcion de gobernanza (opt-in; requiere anvil/jq/fuser) --
+# Se ejecuta solo con RUN_H06_DRILL=1 porque levanta una red efimera y tarda ~1-2 min.
+stage_h06() {
+    cd "${SC_ROOT}"
+    bash script/ci/test_adopt_governance.sh || return 1
+    return 0
+}
+
+if [ "${RUN_H06_DRILL:-0}" = "1" ]; then
+    run_stage "h06-governance" stage_h06
+fi
+
 print_summary
 
 if [ "${failed}" -ne 0 ]; then
