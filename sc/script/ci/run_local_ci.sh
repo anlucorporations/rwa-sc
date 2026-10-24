@@ -201,6 +201,16 @@ stage_h06() {
 if [ "${RUN_H06_DRILL:-0}" = "1" ]; then
     run_stage "h06-governance" stage_h06
 fi
+# --- H-30: drill de backup/DR on-chain (opt-in; requiere anvil/jq/sha256sum) ---
+stage_h30() {
+    cd "${SC_ROOT}"
+    bash script/ci/test_backup_restore.sh || return 1
+    return 0
+}
+
+if [ "${RUN_H30_DRILL:-0}" = "1" ]; then
+    run_stage "h30-backup" stage_h30
+fi
 
 print_summary
 

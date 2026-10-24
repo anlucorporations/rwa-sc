@@ -69,11 +69,11 @@
 
 | ID | Requisito | Criterio operativo | Estado |
 |---|---|---|---|
-| RNF-501 | RPO de la BD off-chain | Pérdida máxima de datos ≤ 24 h (backup diario) y PITR de Cloud SQL | 🟡 Definido |
-| RNF-502 | RTO | Restauración de servicio ≤ 4 h desde incidente declarado | 🟡 Definido |
-| RNF-503 | Restauración ensayada | Prueba de restauración documentada con resultado y fecha | 🟡 Pendiente de ensayo |
-| RNF-504 | Recuperación on-chain | Runbook de recuperación de roles/registries y de **redeploy limpio** | ✅ `RUNBOOK_MIGRACION.md` |
-| RNF-505 | Custodia de claves | Custodio designado con rotación y respaldo; sin claves en repo | 🟡 Definido (R-7) |
+| RNF-501 | RPO de la BD off-chain | Pérdida máxima de datos ≤ 24 h (backup diario) y PITR de Cloud SQL; on-chain: bloque del último backup (`backup_state.sh`) | ✅ Mecanismo (off-chain `rwa-web` + on-chain `@sc`) |
+| RNF-502 | RTO | Restauración de servicio ≤ 4 h desde incidente declarado | ✅ Ensayado: 484 ms (Anvil local); producción según host |
+| RNF-503 | Restauración ensayada | Prueba de restauración documentada con resultado y fecha | ✅ **Cerrado** (2026-10-24, `pruebas/h30_backup_restore.md`) |
+| RNF-504 | Recuperación on-chain | Runbook de recuperación de roles/registries y de **redeploy limpio** | ✅ `RUNBOOK_MIGRACION.md` §9 |
+| RNF-505 | Custodia de claves | Custodio designado con rotación y respaldo; sin claves en repo | 🟡 Definido (R-7; pendiente designar custodios y probar recuperación) |
 
 ## 6. Soporte al inversor y recuperación auditable (H-27)
 

@@ -226,7 +226,46 @@ exceder el número de owners.
 
 ---
 
-## 9. Referencias
+## 9. Backup/DR y continuidad on-chain (H-30)
+
+### 9.1 Backup
+
+```bash
+cd rwa-sc/sc
+source /home/dsh/workspace/gcp-env.sh
+DEPLOYMENT_JSON=sc/deployments/<artefacto>.json ./script/backup_state.sh
+# → backups/<timestamp>/{anvil-state.hex, deployment.json, metadata.json, MANIFEST.sha256}
+```
+
+- **RPO on-chain** = bloque del último backup; conservar ≥ 12 meses (RNF-403).
+- El nodo debe exponer `anvil_dumpState` (admin RPC). El backup **no** contiene claves.
+
+### 9.2 Restauración
+
+```bash
+RPC_URL=http://nodo-limpio:8545 BACKUP_DIR=backups/<ts> VERIFY_DEPLOYMENT=1 ./script/restore_state.sh
+```
+
+- Exige un nodo **limpio** (bloque 0) salvo `FORCE=1`; verifica el manifiesto sha256, el bloque y
+  (opcional) contratos/roles/datos. Mide el **RTO** (RNF-502: ≤ 4 h).
+- El volcado supera el límite de `argv`, por eso se carga por **HTTP JSON-RPC** (`python3`).
+
+### 9.3 Plan alternativo sin admin RPC: redeploy limpio
+
+1. `git checkout <commit/tag>` que contiene el artefacto de despliegue.
+2. Redesplegar con `deploy.sh` y verificar on-chain (`RUNBOOK` §3–§4).
+3. Reconfigurar registries/roles (y, si aplica, re-adoptar gobernanza con `adopt_governance.sh`).
+
+RTO mayor que la restauración de estado, pero reproduce el sistema desde artefactos versionados.
+
+### 9.4 Ensayo
+
+`./script/ci/test_backup_restore.sh` — drill end-to-end (backup → caída → restauración verificada).
+Evidencia: `RepoTecnico/pruebas/h30_backup_restore.md`.
+
+---
+
+## 10. Referencias
 
 - `RepoTecnico/requerimientos.md` — D-019 (líneas 129-130), D-037, D-009/RT-008 (línea 95).
 - `RepoTecnico/documento_tecnico.md` — ciclo de vida (§8.2.1, líneas 270, 775, 789).

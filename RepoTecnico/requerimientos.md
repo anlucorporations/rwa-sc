@@ -583,7 +583,7 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-27 | Sin soporte al inversor / recuperación auditable | **Parcial** | RF-004/AF-02 (recuperación auditable) + §6 (RNF-601..603) |
 | H-28 | Clave privada en claro en `deploy-besu.sh` | **Cubierto** | RF-010, RNF-004 |
 | H-29 | El deploy no instancia/activa módulos de compliance | **Cubierto (parcial)** | Ciclo 9 despliega y activa `MaxBalanceCompliance`; generalización en M-14 |
-| H-30 | Sin backup/DR, RPO/RTO ni runbook de recuperación | **Parcial (R-5)** | §5 (RNF-501..505) + `RUNBOOK_MIGRACION.md`; pendiente ensayo |
+| H-30 | Sin backup/DR, RPO/RTO ni runbook de recuperación | **Cubierto (R-5)** | `backup_state.sh` + `restore_state.sh` + drill `script/ci/test_backup_restore.sh` (ensayo en verde, RTO 484 ms; `pruebas/h30_backup_restore.md`) + `RUNBOOK_MIGRACION.md` §9; pendiente ejecución periódica en el Anvil canónico |
 | H-31 | Éxito del deploy decidido por `grep` de logs | **Cubierto** | Ciclo 9 · D-056 (verificación on-chain con `cast code`/`cast call`) |
 | H-32 | Exactitud documental (`DEPENDENCIAS_CONTRATOS`, `metricas_ejecucion`) | **Corregido** | Import corregido + diccionario contra el storage real (H-14) + 0 referencias `.sol` rotas (H-32) |
 | H-33 | Estado de fases/rama contradictorio entre docs | **Cubierto** | RF-006 / D-058 (`estado_proyecto.md` y `entornos_globales.md` alineados) |

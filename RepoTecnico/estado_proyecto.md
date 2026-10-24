@@ -516,6 +516,12 @@ CI en verde sobre `rwa-web` · una sola versión de `next`/`react` por workspace
 - Evidencia: `pruebas/h06_adopcion_multisig.md`; procedimiento en `RUNBOOK_MIGRACION.md` §8.1b.
 - Pendiente: auditoría externa del multisig (D-024) y decisión de producto sobre `IdentityRegistry`.
 
-### H-30 — Backup/DR (🟡 en curso)
+### H-30 — Backup/DR (✅ mecanismo + ensayo; ⏳ operación periódica)
+
+- `script/backup_state.sh`: volcado de estado (`anvil_dumpState`) + artefacto de despliegue + `metadata.json` + `MANIFEST.sha256`.
+- `script/restore_state.sh`: restauración verificada (`anvil_loadState` por HTTP JSON-RPC) con medida de RTO.
+- Drill end-to-end en verde (`script/ci/test_backup_restore.sh`, opt-in `RUN_H30_DRILL=1`): backup → caída → nodo nuevo → restauración **484 ms** (RTO ≤ 4 h) → datos on-chain verificados.
+- Evidencia: `pruebas/h30_backup_restore.md`; RUNBOOK §9. **RNF-503 cerrado.**
+- Pendiente: backup periódico del Anvil canónico (requiere admin RPC) o ensayo periódico del redeploy limpio.
 
 ### H-12 / H-21 — Indexer off-chain (🟡 en curso)
