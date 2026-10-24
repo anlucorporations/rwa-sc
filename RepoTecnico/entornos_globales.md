@@ -85,13 +85,30 @@
 
 > Fuente de verdad histórica: pendiente RF-008 (`.env` + módulo compartido).
 
-### 7.2 Despliegue canónico verificado en el Anvil de GCP (Ciclo 9 / RF-010)
+### 7.2 Despliegue canónico en el Anvil de GCP (Ciclo 9 / RF-010 + redespliegue 2026-10-23 / O2.7)
 
-Fuente de verdad: artefacto versionado `sc/deployments/31337-20261010T162639Z.json` (chain-id 31337,
-bloque **517**, `deployer` `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`, 10 contratos verificados por
-`cast code` y estado por `cast call`). Ya hay por tanto un **despliegue real en el Anvil de GCP**.
+**Fuente de verdad vigente:** artefacto versionado `sc/deployments/31337-20261023T185622Z.json` (chain-id 31337,
+bloque **549**, `deployer` `0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266`, 9 contratos + token de demo), consumido por
+`@web` (`packages/shared/src/contracts/deployments.ts` y `.env.example`). Es el artefacto que fija el gate
+`rwa-web/scripts/check-contract-drift.sh`.
 
-| Contrato | Dirección |
+| Contrato (vigente 2026-10-23) | Dirección |
+|---|---|
+| IdentityRegistry | `0xA3f7BF5b0fa93176c260BBa57ceE85525De2BaF4` |
+| TrustedIssuersRegistry | `0x25A1DF485cFBb93117f12fc673D87D1cddEb845a` |
+| ClaimTopicsRegistry | `0x6f25545058AE90D2A2168B1e62C37063013d290E` |
+| ComplianceAggregator | `0x5A569Ad19272Afa97103fD4DbadF33B2FcbaA175` |
+| TokenCloneFactory | `0xD855cE0C298537ad5b5b96060Cf90e663696bbf6` |
+| IdentityCloneFactory | `0xF45B1CdbA9AACE2e9bbE80bf376CE816bb7E73FB` |
+| ClaimTopicsRegistryCloneFactory | `0x22b1c5C2C9251622f7eFb76E356104E5aF0e996A` |
+| Token (`RWA Demo Token` / `RWAD`, 18 dec) | `0x7d5dC0378b776A63D479869d22711df1b20672c9` |
+| MaxBalanceCompliance (módulo del token) | `0x5c932424AcBfab036969b3B9D94bA9eCbae7565D` |
+| Identity (clon de ejemplo, registrado) | `0x9B2B010a6F61Ea07eB102DaDB2C07A10d09b881b` |
+
+> **Referencia histórica — Ciclo 9 (`31337-20261010T162639Z.json`, bloque 517).** La tabla siguiente se
+> conserva como evidencia del despliegue del Ciclo 9; **no** es la fuente de direcciones vigente.
+
+| Contrato (Ciclo 9 — histórico) | Dirección |
 |---|---|
 | IdentityRegistry | `0xF5b81Fe0B6F378f9E6A3fb6A6cD1921FCeA11799` |
 | TrustedIssuersRegistry | `0x67baFF31318638F497f4c4894Cd73918563942c8` |
@@ -280,7 +297,7 @@ El pipeline de GitLab tiene **8 jobs** (se añadió `slither` en RNF-107); los p
 |---|---|
 | Red on-chain | **Anvil de GCP** · `MCC_ANVIL_RPC_URL` = `https://mcc-foundry-anvil-1095249147821.europe-west1.run.app` · **chain 31337** (verificado: `0x7a69`, `anvil/v1.5.1`) — D-096 |
 | Anvil local | `http://localhost:8545` (31337) — alternativa de desarrollo offline; misma cadena |
-| Fuente de direcciones | `rwa-sc/sc/deployments/31337-20261010T162639Z.json` (**nunca literales en el código**); verificado on-chain: 9/9 contratos con código, EIP-712 + RF-004 + AF-01 presentes |
+| Fuente de direcciones | `rwa-sc/sc/deployments/31337-20261023T185622Z.json` (artefacto canónico vigente; **nunca literales en el código**); verificado on-chain: 9/9 contratos con código, EIP-712 + RF-004 + AF-01 presentes |
 | Fuente de ABIs | `rwa-sc/sc/abis/*.json` (con gate de deriva en CI) |
 | BD off-chain | **PostgreSQL en GCP** (Cloud SQL **`truekeate-db-dev`**, **PG 15.18**, usuario `app`, proyecto `truekeate-main`, región **`southamerica-east1-a`**, IP pública **`34.39.180.101`**) — esquema **`rwa`** ✅ aplicado (D-095/D-097) |
 | Esquema | `RepoTecnico/base_datos.sql` v1.0 — **aplicado y verificado**: 10 tablas + 1 vista + 29 índices + catálogo (5 topics) + `schema_migrations` 1.0; **idempotente** (2ª ejecución sin errores). **Arranque limpio, sin ETL** (D-099) |

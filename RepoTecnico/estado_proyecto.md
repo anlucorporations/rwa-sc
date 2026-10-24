@@ -108,8 +108,10 @@
   **keystore cifrado efímero** (`--keystore`+`--password-file`, modo 600, borrado al terminar) creado con
   `eth_keyfile` sin pasar la clave por `argv`. Script canónico `sc/script/DeployFullStack.s.sol`: despliega
   registries + 3 factories + aggregator + token de ejemplo (con su claim topics registry) + un módulo de
-  compliance dado de alta **por la ruta del token** + una identidad registrada; persiste el artefacto
-  `sc/deployments/31337-20261010T162639Z.json` (`chainId`, bloque, direcciones, ABIs y `deployer`), versionado
+  compliance dado de alta **por la ruta del token** + una identidad registrada; persiste un artefacto de
+  despliegue versionado (el del Ciclo 9 fue `sc/deployments/31337-20261010T162639Z.json`; la **fuente
+  canónica vigente** es `sc/deployments/31337-20261023T185622Z.json`, redespliegue O2.7 del 2026-10-23)
+  con `chainId`, bloque, direcciones, ABIs y `deployer`, versionado
   y sin secretos. Verificación post-deploy on-chain con `cast code` (10/10) y `cast call` (`name()`, registries,
   `getModuleCount` = 1), **no** con `grep`. Despliegue real contra el **Anvil de GCP** (chain-id 31337, bloque
   517) verificado; Besu queda como alternativa vía el wrapper `deploy-besu.sh`. **353/353 tests sin regresión**.
