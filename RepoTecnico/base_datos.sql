@@ -1,6 +1,6 @@
 -- =============================================================================
 -- base_datos.sql — Creación de la BD off-chain (PostgreSQL) de la plataforma RWA
--- Versión: 1.1 · 2026-10-14
+-- Versión: 1.2 · 2026-10-24
 -- =============================================================================
 -- ARTEFACTO DE DATOS COMPARTIDO — COPIA ESPEJO SINCRONIZADA (2026-10-14):
 --   Canónico: rwa-sc/RepoTecnico/base_datos.sql   (línea @sc)
@@ -38,6 +38,11 @@
 --     `claim_uri`, `claim_uri_hash`, `claim_data_hash` y `claim_signature`, con un
 --     CHECK de completitud al resolver. `issuer_signature`/`issuer_signed_message`
 --     conservan la firma EIP-712 y su JSON (compatibilidad con HW-01).
+--   v1.2 (H-12/H-21, 2026-10-24): **indexación off-chain de eventos on-chain**.
+--     Nuevas tablas `chain_events` (eventos decodificados con historial consultable)
+--     e `indexer_state` (punto de control del último bloque procesado); índices por
+--     bloque/evento/contrato. Sirve al indexer `@rwa/indexer` y a las alertas de
+--     riesgo (RNF-401..404). Trazabilidad: R-4, H-12, H-21.
 --
 -- Convenciones: snake_case · tablas en plural · PK `id` (uuid salvo catálogos) ·
 --   FK `<tabla_singular>_id` · timestamps `created_at`/`updated_at`.
@@ -330,6 +335,40 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- =============================================================================
+-- SECCIÓN 4b — Indexación on-chain (H-12/H-21, RNF-401..404)
+-- =============================================================================
+
+CREATE TABLE IF NOT EXISTS rwa.indexer_state (
+    indexer_id  text        PRIMARY KEY,
+    chain_id    bigint      NOT NULL,
+    last_block  bigint      NOT NULL,
+    updated_at  timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT indexer_state_nonneg CHECK (last_block >= 0)
+);
+
+COMMENT ON TABLE rwa.indexer_state IS 'Punto de control del indexer off-chain: último bloque procesado por `indexer_id`. Permite reanudar y reconstruir desde el bloque de despliegue (RNF-403).';
+
+CREATE TABLE IF NOT EXISTS rwa.chain_events (
+    id            bigserial   PRIMARY KEY,
+    chain_id      bigint      NOT NULL,
+    block_number  bigint      NOT NULL,
+    block_hash    text        NOT NULL,
+    tx_hash       text        NOT NULL,
+    log_index     integer     NOT NULL,
+    address       text        NOT NULL,
+    contract_type text,
+    event_name    text        NOT NULL,
+    args          jsonb       NOT NULL DEFAULT '{}'::jsonb,
+    removed       boolean     NOT NULL DEFAULT false,
+    indexed_at    timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT chain_events_address_lower_hex CHECK (address ~ '^0x[0-9a-f]{40}$'),
+    CONSTRAINT chain_events_log_index_nonneg CHECK (log_index >= 0),
+    CONSTRAINT chain_events_unique UNIQUE (chain_id, tx_hash, log_index)
+);
+
+COMMENT ON TABLE rwa.chain_events IS 'Eventos on-chain indexados (RNF-401): Transfer, ClaimAdded/Revoked/Removed, ComplianceModuleAdded/Removed, ModuleAdded/Removed, IdentityRegistered/Removed y eventos privilegiados (roles, freeze, gobernanza). `args` en JSON con enteros como string y direcciones en minúsculas.';
+
+-- =============================================================================
 -- SECCIÓN 5 — Función y triggers de `updated_at`
 -- =============================================================================
 
@@ -379,6 +418,12 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_actor_at       ON rwa.audit_log (actor_
 CREATE INDEX IF NOT EXISTS idx_audit_log_resource       ON rwa.audit_log (resource_type, resource_id, at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_log_request_id     ON rwa.audit_log (request_id);
 
+-- chain_events: consultas de historial, alertas y auditoría on-chain (RNF-401..404)
+CREATE INDEX IF NOT EXISTS idx_chain_events_block    ON rwa.chain_events (chain_id, block_number, log_index);
+CREATE INDEX IF NOT EXISTS idx_chain_events_event    ON rwa.chain_events (event_name, block_number DESC);
+CREATE INDEX IF NOT EXISTS idx_chain_events_address  ON rwa.chain_events (address, block_number DESC);
+CREATE INDEX IF NOT EXISTS idx_chain_events_tx       ON rwa.chain_events (tx_hash);
+
 -- =============================================================================
 -- SECCIÓN 7 — Vista de apoyo para la UI (solicitudes con nombre de emisor y nº de documentos)
 -- =============================================================================
@@ -423,6 +468,9 @@ INSERT INTO rwa.schema_migrations (version) VALUES ('1.0')
 ON CONFLICT (version) DO NOTHING;
 
 INSERT INTO rwa.schema_migrations (version) VALUES ('1.1')
+ON CONFLICT (version) DO NOTHING;
+
+INSERT INTO rwa.schema_migrations (version) VALUES ('1.2')
 ON CONFLICT (version) DO NOTHING;
 
 -- =============================================================================
@@ -472,4 +520,4 @@ $$;
 -- [NUEVAS TABLAS] sessions (SIWE, D-092) · audit_log (RNF-W-02) · schema_migrations
 -- =============================================================================
 
--- Fin de base_datos.sql v1.0
+-- Fin de base_datos.sql v1.2

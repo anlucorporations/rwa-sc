@@ -524,4 +524,23 @@ CI en verde sobre `rwa-web` · una sola versión de `next`/`react` por workspace
 - Evidencia: `pruebas/h30_backup_restore.md`; RUNBOOK §9. **RNF-503 cerrado.**
 - Pendiente: backup periódico del Anvil canónico (requiere admin RPC) o ensayo periódico del redeploy limpio.
 
-### H-12 / H-21 — Indexer off-chain (🟡 en curso)
+### H-12 / H-21 — Indexer off-chain (✅ implementado y ensayado; ⏳ canal de alertas)
+
+- **Esquema (base_datos v1.2, §4b):** `rwa.chain_events` (historial consultable, `args` jsonb, `removed`
+  para reorgs) e `rwa.indexer_state` (punto de control). Aplicado en Cloud SQL (12 tablas, migración 1.2).
+- **Servicio `@rwa/indexer`** (`rwa-web/apps/indexer`): catálogo generado desde las ABIs canónicas,
+  `eth_getLogs` por chunks, decodificación por `topic0` (incluye clones dinámicos), persistencia
+  transaccional idempotente y clasificación de riesgo (mint/burn, freeze, roles, módulos, gobernanza).
+- **Pruebas:** 14/14 unitarias; drill de integración en verde (**26 eventos**, 9 de riesgo alto,
+  `last_block=3`, idempotente) con esquema temporal; **dry-run contra el Anvil canónico: 235 eventos**.
+- **Evidencia:** `rwa-web/RepoTecnico/pruebas/h12_indexer.md` · operación en `apps/indexer/README.md`.
+- **Pendiente:** canal de alertas externo (RNF-402/404), archivado a 12 meses (RNF-403) y despliegue del
+  servicio (compose/Cloud Run).
+
+### Fin de la etapa (estado)
+
+Los tres frentes de la etapa están entregados con evidencia: **H-06/R-7** (adopción + drill),
+**H-30** (backup/DR + ensayo) y **H-12/H-21** (indexer + pruebas). Quedan como decisiones externas la
+adopción en el Anvil canónico, la auditoría externa y el canal de alertas.
+
+*Fin del documento — estado_proyecto.md*

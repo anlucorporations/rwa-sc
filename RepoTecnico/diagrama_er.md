@@ -5,10 +5,13 @@
 > Deben ser **idénticos byte a byte**: edita solo el canónico y ejecuta `rwa-web/RepoTecnico/check_sincronizacion_datos.sh --sync`
 > (regla de sincronización en `rwa-web/RepoTecnico/ARTEFACTOS_DATOS_SINCRONIZADOS.md`).
 >
-> **Versión: v1.3 · 2026-10-14.** Cubre el modelo de datos del proyecto: on-chain (contratos de
+> **Versión: v1.4 · 2026-10-24.** Cubre el modelo de datos del proyecto: on-chain (contratos de
 > `rwa-sc/sc/src/`) y off-chain (**PostgreSQL**, esquema `rwa`).
-> **Sincronizado con `diccionario_datos.md` v1.2** (mismo nombre para cada entidad, campo y topic) y con
-> `base_datos.sql` v1.0.
+> **Sincronizado con `diccionario_datos.md` v1.4** (mismo nombre para cada entidad, campo y topic) y con
+> `base_datos.sql` v1.2.
+>
+> **Changelog v1.4 (2026-10-24):** **indexación on-chain (H-12/H-21, RNF-401..404):** nuevas entidades
+> `CHAIN_EVENTS` e `INDEXER_STATE` en §2.
 >
 > **Changelog v1.2 (2026-10-14):** **Q6 resuelta (D-095):** el modelo off-chain pasa de MongoDB a
 > **PostgreSQL**; §2 se reescribe con entidades del esquema `rwa` (nuevas `CLAIM_TOPICS`, `SESSIONS`,
@@ -237,6 +240,26 @@ erDiagram
         text version PK
         timestamptz applied_at
     }
+    CHAIN_EVENTS {
+        bigserial id PK
+        bigint chain_id "UK con tx_hash+log_index"
+        bigint block_number
+        text block_hash
+        text tx_hash
+        integer log_index
+        text address "contrato emisor"
+        text contract_type "opcional"
+        text event_name
+        jsonb args "decodificados"
+        boolean removed "reorg"
+        timestamptz indexed_at
+    }
+    INDEXER_STATE {
+        text indexer_id PK
+        bigint chain_id
+        bigint last_block "reanudacion"
+        timestamptz updated_at
+    }
 ```
 
 > **Relaciones:** `CLAIM_REQUESTS → ISSUERS` es **lógica** (no hay FK: la tabla `issuers` es solo el nombre
@@ -244,7 +267,9 @@ erDiagram
 > la solicitud (`ON DELETE CASCADE`) y es la unidad de autorización de acceso (RF-W-06). Las tablas puente
 > `TOKEN_REQUIRED_CLAIMS` y `TOKEN_COMPLIANCE_MODULES` normalizan los antiguos arrays
 > `requiredClaims`/`complianceModules`. `SESSIONS` y `AUDIT_LOG` no tienen FK (identifican wallets por
-> dirección, no por usuario). Vista de apoyo: `rwa.v_claim_request_summary`.
+> dirección, no por usuario). `CHAIN_EVENTS` es el histórico on-chain indexado (sin FK: referencia
+> direcciones/bloques) e `INDEXER_STATE` guarda el punto de control del indexer por `indexer_id`.
+> Vista de apoyo: `rwa.v_claim_request_summary`.
 
 ## 3. Cambios on-chain implementados en Fase 3 (referencia histórica)
 

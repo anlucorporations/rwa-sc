@@ -59,10 +59,10 @@
 
 | ID | Requisito | Criterio operativo | Estado |
 |---|---|---|---|
-| RNF-401 | Indexer de eventos operativo | Indexa `Transfer`, `ClaimAdded`, `ClaimRevoked`, `ClaimRemoved`, `ComplianceModuleAdded/Removed`, `ModuleAdded/Removed`, `IdentityRegistered/Removed` hacia la BD off-chain con historial consultable | 🟡 Pendiente (componente off-chain) |
-| RNF-402 | Alertas de riesgo | Alertas por: mint/burn fuera de umbral, `forcedTransfer`, congelación, revocación de claim, retirada del último módulo (fail-closed) | 🟡 Definido |
-| RNF-403 | Retención de logs/índice | Retención ≥ 12 meses y capacidad de reconstrucción desde el bloque génesis del despliegue | 🟡 Definido |
-| RNF-404 | Canal y tiempos de incidentes | Detección ≤ 15 min para eventos privilegiados; canal de incidentes con escalado | 🟡 Definido |
+| RNF-401 | Indexer de eventos operativo | Indexa `Transfer`, `ClaimAdded`, `ClaimRevoked`, `ClaimRemoved`, `ComplianceModuleAdded/Removed`, `ModuleAdded/Removed`, `IdentityRegistered/Removed` hacia la BD off-chain con historial consultable | ✅ Implementado (`@rwa/indexer`; drill 26 eventos, dry-run canónico 235) |
+| RNF-402 | Alertas de riesgo | Alertas por: mint/burn fuera de umbral, `forcedTransfer`, congelación, revocación de claim, retirada del último módulo (fail-closed) | 🟡 Detección clasificada (`eventRisk`); falta canal externo |
+| RNF-403 | Retención de logs/índice | Retención ≥ 12 meses y capacidad de reconstrucción desde el bloque génesis del despliegue | ✅ Reconstrucción desde bloque 0; política de archivado a 12 meses pendiente |
+| RNF-404 | Canal y tiempos de incidentes | Detección ≤ 15 min para eventos privilegiados; canal de incidentes con escalado | 🟡 Detección con `INDEXER_POLL_INTERVAL_MS`; falta canal de incidentes |
 | RNF-405 | Artefactos de despliegue | Un JSON versionado por despliegue (direcciones, ABIs, `chainId`, bloque) | ✅ Implementado (Ciclo 9, H-29) |
 
 ## 5. Continuidad y backup/DR (H-30 / R-5)

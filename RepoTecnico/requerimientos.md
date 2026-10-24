@@ -565,7 +565,7 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-09 | Catálogo RNF incompleto (ISO 25010) | **Corregido** | `requerimientos_no_funcionales.md` §1 (RNF-101..109) + gate Slither `ci_check_RNF107_slither_sin_high` |
 | H-10 | Sin RNF de cumplimiento regulatorio (sanciones/PEP/AML) | **Definido (R-2)** | §2 (RNF-201..206); **pendiente aprobación legal** |
 | H-11 | PII/KYC sin custodio, base legal, cifrado ni retención | **Parcial (R-3)** | §3 (RNF-301..306); cifrado en `@web`; pendiente DPIA/DPO |
-| H-12 | Sin RNF de observabilidad ni indexación de eventos | **Definido (R-4)** | §4 (RNF-401..405); indexer pendiente |
+| H-12 | Sin RNF de observabilidad ni indexación de eventos | **Cubierto (R-4)** | Indexer `@rwa/indexer` (apps/indexer): 26 eventos indexados en drill, dry-run 235 en cadena canónica; tablas `chain_events`/`indexer_state` (base_datos v1.2); evidencia `rwa-web/RepoTecnico/pruebas/h12_indexer.md`; pendiente canal de alertas externo |
 | H-13 | Catálogo de claim topics divergente | **Corregido** | Catálogo canónico v1.0 (1/7/9) + gate `ci_check_H13_catalogo_topics_unico` |
 | H-14 | `diccionario_datos.md` describe storage inexistente | **Corregido** | QW-6/H-14: sección on-chain contra `forge inspect storage-layout` |
 | H-15 | Docs y contratos citados como existentes que no existen | **Cubierto** | RF-006 / D-058 (`script/ci/check_docs.sh`) |
@@ -574,7 +574,7 @@ en `casos_uso/diagramas_casos_uso.md` (v1.1).
 | H-18 | Reentrancia en callbacks / flag `bypassCompliance` | **Cubierto** | RF-002 |
 | H-19 | Estado singleton cross-token en módulos de compliance | **Corregido** | `setTokenContract` bind-once + AF-01; `test_H19_*` (6) |
 | H-20 | Arrays no acotados O(n) y vistas sin paginación | **Corregido** | Índices O(1) + 6 vistas paginadas; `test/H20_Escalabilidad.t.sol` (6) |
-| H-21 | Sin indexación de eventos ni artefactos de despliegue | **Cubierto (parcial)** | Ciclo 9 persiste `sc/deployments/<chainId>-<timestamp>.json`; indexer en R-4 |
+| H-21 | Sin indexación de eventos ni artefactos de despliegue | **Cubierto** | Ciclo 9 persiste `sc/deployments/<chainId>-<timestamp>.json`; indexer `@rwa/indexer` con historial consultable en PostgreSQL (base_datos v1.2) |
 | H-22 | `ComplianceAggregator` fail-open y owner global | **Cubierto** | RF-012 (D-014) |
 | H-23 | Rúbrica de evaluación no operacional | **Cubierto** | RF-006 / D-058 (rúbrica con comandos y umbrales en `EJERCICIOS_PRACTICOS.md`) |
 | H-24 | `deploy-besu.sh` parcial (no despliega registries/token) | **Cubierto** | Ciclo 9 · RF-010 (`DeployFullStack.s.sol` + `deploy.sh`) |

@@ -5,8 +5,12 @@
 > Deben ser **idénticos byte a byte**: edita solo el canónico y ejecuta `rwa-web/RepoTecnico/check_sincronizacion_datos.sh --sync`
 > (regla de sincronización en `rwa-web/RepoTecnico/ARTEFACTOS_DATOS_SINCRONIZADOS.md`).
 >
-> **Versión: v1.3 · 2026-10-14.** Fuente de verdad de datos del proyecto. Cubre el **modelo on-chain**
+> **Versión: v1.4 · 2026-10-24.** Fuente de verdad de datos del proyecto. Cubre el **modelo on-chain**
 > (contratos, storage) y el **modelo off-chain** (PostgreSQL, esquema `rwa`).
+>
+> **Changelog v1.4 (2026-10-24):** **indexación on-chain (H-12/H-21, RNF-401..404):** nuevas tablas
+> `rwa.chain_events` (eventos decodificados con historial consultable) y `rwa.indexer_state` (punto de
+> control del último bloque). Sincronizado con `base_datos.sql` v1.2 y `diagrama_er.md` v1.4.
 >
 > **Changelog v1.2 (2026-10-14):**
 > - **D-095 (decisión del usuario — Q6 resuelta):** la BD off-chain del frontend es **PostgreSQL**
@@ -281,6 +285,32 @@ Los tres módulos **sí** emiten `TokenContractSet(address indexed tokenContract
 | `detail` | jsonb? | — | Detalle |
 | `at` | timestamptz | — | `default now()` |
 
+### Tabla: `rwa.chain_events` (nueva — H-12/H-21, RNF-401)
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| `id` | bigserial | PK | Secuencia |
+| `chain_id` | bigint | UK* | Red (31337 Anvil de GCP) |
+| `block_number` | bigint | — | Bloque del evento |
+| `block_hash` | text | — | Hash de bloque (detección de reorg) |
+| `tx_hash` | text | UK* | Transacción |
+| `log_index` | integer | UK* | Índice del log en la transacción |
+| `address` | text | — | Contrato emisor (`0x…` minúsculas) |
+| `contract_type` | text? | — | Tipo de contrato/ABI canónica |
+| `event_name` | text | — | `Transfer`, `ClaimAdded`, `ModuleAdded`, `RoleGranted`… |
+| `args` | jsonb | — | Argumentos decodificados (enteros como string) |
+| `removed` | boolean | — | `true` si el log fue removido (reorg) |
+| `indexed_at` | timestamptz | — | `default now()` |
+
+\* UK compuesta: `(chain_id, tx_hash, log_index)` — idempotencia del indexer.
+
+### Tabla: `rwa.indexer_state` (nueva — H-12/H-21)
+| Campo | Tipo | Clave | Descripción |
+|---|---|---|---|
+| `indexer_id` | text | PK | Identificador del indexer (p. ej. `default`) |
+| `chain_id` | bigint | — | Red |
+| `last_block` | bigint | — | Último bloque procesado (reanudación) |
+| `updated_at` | timestamptz | — | `default now()` |
+
 ### Tabla: `rwa.schema_migrations`
 | Campo | Tipo | Clave | Descripción |
 |---|---|---|---|
@@ -295,7 +325,8 @@ Solicitud + `issuer_name` + `claim_topic_name` + `document_count` (lectura del p
 `(status, created_at DESC)` · `(claim_topic_id)` · `document_files (claim_request_id)` · `(sha256)` ·
 `tokens (admin_address, created_at DESC)` · `(block_number)` · `sessions (address, expires_at DESC)` ·
 `(expires_at) WHERE revoked_at IS NULL` · `audit_log (actor_address, at DESC)` ·
-`(resource_type, resource_id, at DESC)` · `(request_id)`.
+`(resource_type, resource_id, at DESC)` · `(request_id)` · `chain_events (chain_id, block_number, log_index)` ·
+`(event_name, block_number DESC)` · `(address, block_number DESC)` · `(tx_hash)`.
 
 ## 3. Catálogo canónico de Claim Topics (compartido on/off-chain)
 
