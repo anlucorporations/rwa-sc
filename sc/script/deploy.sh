@@ -278,6 +278,11 @@ log "Verificando estado on-chain con 'cast call'..."
 # `cast call` devuelve los `string` entre comillas ("RWA Demo Token"); se normalizan.
 strip_quotes() { v="$1"; v="${v#\"}"; v="${v%\"}"; printf '%s' "$v"; }
 
+# `cast call` (Foundry >= 1.8) anexa la notacion cientifica entre corchetes a los enteros
+# grandes, p. ej. "1000000000000000000000000 [1e24]"; se elimina el sufijo y los espacios
+# para comparar con el valor canonico del artefacto (H-11).
+norm_num() { printf '%s' "$1" | sed -E 's/[[:space:]]*\[[^]]*\][[:space:]]*$//' | tr -d '[:space:]'; }
+
 NAME="$(strip_quotes "$("$CAST" call "$TOKEN" 'name()(string)' --rpc-url "$RPC_URL" 2>/dev/null)")"
 [ "$NAME" = "RWA Demo Token" ] || fail "token.name() inesperado: '$NAME'"
 printf '  token.name()                    = %s\n' "$NAME"
@@ -298,7 +303,7 @@ TOKEN_CTR="$("$CAST" call "$TOKEN" 'claimTopicsRegistry()(address)' --rpc-url "$
 [ "$(lower "$TOKEN_CTR")" = "$(lower "$CTR")" ] || fail "token.claimTopicsRegistry() ($TOKEN_CTR) != ClaimTopicsRegistry ($CTR)"
 printf '  token.claimTopicsRegistry()     = %s\n' "$TOKEN_CTR"
 
-MODULE_COUNT="$("$CAST" call "$AGG" 'getModuleCount(address)(uint256)' "$TOKEN" --rpc-url "$RPC_URL" 2>/dev/null)"
+MODULE_COUNT="$(norm_num "$("$CAST" call "$AGG" 'getModuleCount(address)(uint256)' "$TOKEN" --rpc-url "$RPC_URL" 2>/dev/null)")"
 [ "$MODULE_COUNT" = "$EXPECTED_MODULE_COUNT" ] || fail "aggregator.getModuleCount(token) = '$MODULE_COUNT' (esperado $EXPECTED_MODULE_COUNT)"
 printf '  aggregator.getModuleCount()     = %s\n' "$MODULE_COUNT"
 
@@ -333,12 +338,12 @@ EXPECTED_FORCED="$(jq -r '.token.maxForcedPerTx' "$DEPLOYMENT_JSON")"
 
 log "Smoke test de operatividad (AF-07)..."
 
-ONCHAIN_BURN="$("$CAST" call "$TOKEN" 'maxBurnPerTx()(uint256)' --rpc-url "$RPC_URL" 2>/dev/null)"
+ONCHAIN_BURN="$(norm_num "$("$CAST" call "$TOKEN" 'maxBurnPerTx()(uint256)' --rpc-url "$RPC_URL" 2>/dev/null)")"
 [ "$ONCHAIN_BURN" = "$EXPECTED_BURN" ] || fail "token.maxBurnPerTx() ($ONCHAIN_BURN) != artefacto ($EXPECTED_BURN)"
 [ "$ONCHAIN_BURN" != "0" ] || fail "maxBurnPerTx es 0: la quema esta DESACTIVADA (token inoperable)"
 printf '  token.maxBurnPerTx()            = %s\n' "$ONCHAIN_BURN"
 
-ONCHAIN_FORCED="$("$CAST" call "$TOKEN" 'maxForcedPerTx()(uint256)' --rpc-url "$RPC_URL" 2>/dev/null)"
+ONCHAIN_FORCED="$(norm_num "$("$CAST" call "$TOKEN" 'maxForcedPerTx()(uint256)' --rpc-url "$RPC_URL" 2>/dev/null)")"
 [ "$ONCHAIN_FORCED" = "$EXPECTED_FORCED" ] || fail "token.maxForcedPerTx() ($ONCHAIN_FORCED) != artefacto ($EXPECTED_FORCED)"
 [ "$ONCHAIN_FORCED" != "0" ] || fail "maxForcedPerTx es 0: la recuperacion forzada esta DESACTIVADA"
 printf '  token.maxForcedPerTx()          = %s\n' "$ONCHAIN_FORCED"
