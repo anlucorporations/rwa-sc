@@ -7,7 +7,7 @@
 > **Ejecución:** revisión y verificación adversarial realizadas directamente sobre el árbol real (comandos reproducibles en el Anexo A). El orquestador paralelo de subagentes no completó la Fase 1 por latencia del backend en esta sesión; **no se incluye ningún hallazgo que no haya sido contrastado contra archivos/comandos**.
 > **Naturaleza:** el árbol está en movimiento (trabajo concurrente en ambas líneas); este informe fotografía el snapshot indicado.
 >
-> **🟢 Estado de resolución (2026-10-24):** **10/10 hallazgos resueltos** — ver [INFORME_SINCRONIZACION_LINEAS_V1_RESOLUCION.md](INFORME_SINCRONIZACION_LINEAS_V1_RESOLUCION.md). Ambos repos publicados (0/0) y `RWA_SC_REF` fijado al SHA publicado. **Nuevo hallazgo H-11 (`@sc`)**: el smoke test de `deploy.sh` es incompatible con Foundry 1.8.3 (ver §5 del registro de resolución).
+> **🟢 Estado de resolución (2026-10-24):** **10/10 hallazgos resueltos** — ver [INFORME_SINCRONIZACION_LINEAS_V1_RESOLUCION.md](INFORME_SINCRONIZACION_LINEAS_V1_RESOLUCION.md). Ambos repos publicados (0/0) y `RWA_SC_REF` fijado al SHA publicado. **H-11 (`@sc`: `deploy.sh` vs Foundry 1.8.3) y H-12 (`@web`: CSP bloqueaba el RPC) detectados y corregidos; E2E claim-flow en verde (`E2E_EXIT=0`)** — ver §5 del registro de resolución.
 
 ---
 
