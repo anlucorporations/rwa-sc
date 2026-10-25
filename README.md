@@ -280,6 +280,7 @@ forge script script/CreateTokenWithCloneFactory.s.sol --rpc-url localhost --broa
 | **RepoTecnico/requerimientos_no_funcionales.md** | Catálogo RNF ISO 25010 y políticas (regulatorio, PII, observabilidad, continuidad, soporte) |
 | **RepoTecnico/plan_desarrollo.md** | Ciclos de desarrollo y trazabilidad |
 | **RepoTecnico/INFORME_OPTIMIZACION_V1.md** | Auditoría V1: 34 hallazgos y plan de acción |
+| **RepoTecnico/INFORME_EVALUACION_GUIAS_ESTUDIANTE_V1.md** | Evaluación del proyecto frente a las guías estudiantiles (122 criterios, porcentajes) |
 
 ---
 
