@@ -157,7 +157,7 @@ Token 3 ──┘                          ├── MaxHoldersCompliance
     ┌───┴───┐        ┌───┴───┐         ┌───┴───┐
     │       │        │       │         │       │
 Token  TokenClone  Identity Identity  Modules Aggregator
-.sol   Factory    .sol     Factory   (3 tipos)  .sol
+Cloneable  Factory  Cloneable Factory  (3 tipos)  .sol
 ```
 
 ### Flujo de una Transferencia
@@ -274,6 +274,10 @@ function addTrustedIssuer(
 // Verificar si un issuer puede emitir un claim topic
 function hasClaimTopic(address issuer, uint256 claimTopic) 
     external view returns (bool)
+
+// Ver qué topics puede emitir un issuer
+function getIssuerClaimTopics(address issuer) 
+    external view returns (uint256[] memory)
 ```
 
 **Ejercicio:**
@@ -523,12 +527,9 @@ function canTransfer(address from, address to, uint256 amount)
     return true;
 }
 
-// Gestión dual: Owner O Token
-modifier onlyOwnerOrToken(address token) {
-    require(
-        msg.sender == owner() || msg.sender == token,
-        "Only owner or token can call"
-    );
+// Gestión de módulos: solo el token puede añadir/quitar los suyos
+modifier onlyToken(address token) {
+    require(msg.sender == token, "Only token can call");
     _;
 }
 ```
@@ -679,6 +680,10 @@ contract MaxHoldersCompliance {
 ---
 
 ## 🧪 Ejercicios Prácticos
+
+> 📎 El **catálogo oficial de ejercicios** del proyecto vive en `EJERCICIOS_PRACTICOS.md`
+> (raíz de `rwa-sc`). Este es el material de estudio vigente; los apartados de abajo son
+> variantes didácticas para practicar en clase.
 
 ### Ejercicio 1: Crear un Módulo de Compliance Simple
 
@@ -972,13 +977,14 @@ cast send <ADDRESS> "mint(address,uint256)" <TO> <AMOUNT> --rpc-url localhost --
 - [ ] Estudiar EIP-1167
 - [ ] Leer TokenCloneable.sol
 - [ ] Leer TokenCloneFactory.sol
-- [ ] Comparar Token vs TokenCloneable
+- [ ] Comparar deployment directo vs clone (TokenCloneable)
 - [ ] Ejercicio: Medir ahorro de gas real
 
 **Día 4-5: Compliance Aggregator**
 - [ ] Leer ComplianceAggregator.sol
 - [ ] Entender delegación de módulos
-- [ ] Estudiar gestión dual (owner + token)
+- [ ] Estudiar la gestión de módulos del aggregator (`onlyToken`) y su consulta
+  (`getModules`, `getModuleCount`)
 - [ ] Ejercicio: Añadir módulo personalizado
 
 **Día 6-7: Integration**
@@ -1115,7 +1121,7 @@ Después de estudiar este proyecto, deberías poder:
 
 5. ¿Por qué separamos compliance en múltiples módulos?
 6. ¿Cómo funciona el patrón Clone Factory?
-7. ¿Cuándo usarías Token vs TokenCloneable?
+7. ¿Cómo decide el Aggregator qué módulos aplican a un token? (`onlyToken`, `getModules`)
 8. ¿Por qué MaxHoldersCompliance necesita authorized callers pero MaxBalanceCompliance no?
 
 ### Avanzadas
@@ -1249,8 +1255,8 @@ bool registered = identityRegistry.isRegistered(user);
 // 2. Verificar identity
 address identity = identityRegistry.getIdentity(user);
 
-// 3. Añadir claims si faltan
-Identity(identity).addClaim(...);
+// 3. Añadir claims si faltan (IdentityCloneable)
+IdentityCloneable(identity).addClaim(...);
 ```
 
 ---
@@ -1262,7 +1268,7 @@ Este proyecto es un **caso de estudio completo** de:
 ✅ **Smart contracts profesionales** (no toy projects)  
 ✅ **Patrones de diseño** modernos (Clone Factory, Proxy)  
 ✅ **Arquitectura modular** y extensible  
-✅ **Testing comprehensivo** (443 tests, 25 suites)  
+✅ **Testing comprehensivo** (443 tests, 21 suites)  
 ✅ **Gas optimization** (45–59 % de ahorro medido con comparación equivalente)  
 ✅ **Security best practices** (access control, validaciones)  
 
