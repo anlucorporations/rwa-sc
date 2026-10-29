@@ -46,22 +46,41 @@
 
 ## 5. Apps web y puertos
 
-| App | Puerto | Rol | Stack particular |
+| App | Puerto local | Rol | Stack |
 |---|---|---|---|
-| `web-identity` | 4001 | Inversores: identity + claims | ethers v6, MongoDB |
-| `web-registry-trusted` | 4002 | Issuers: aprobar claims | ethers v6, MongoDB |
-| `web-registry-trusted2` | (sin puerto asignado) | Duplicado H-08 | viem, react-query |
-| `web-rwa` | (sin puerto asignado) | Landing/portal | Next puro |
-| `web-token` | 4003 | Creadores de token | ethers v6, MongoDB |
+| `apps/identity` (`@rwa/identity`) | 4001 | Inversores: identidad on-chain + claims + documentos cifrados | Next 16, wagmi+viem, PostgreSQL |
+| `apps/issuer` (`@rwa/issuer`) | 4002 | Issuers: revisar solicitudes, firmar EIP-712 y cargar claims | Next 16, wagmi+viem, PostgreSQL |
+| `apps/token` (`@rwa/token`) | 4003 | Creadores/inversores: factory, compliance y marketplace (legacy) | Next 16, wagmi+viem, PostgreSQL |
+| `apps/indexer` (`@rwa/indexer`) | — (CLI/Job) | Indexación off-chain de eventos on-chain → `rwa.chain_events` | Node, viem, PostgreSQL |
 
 > **Etapa de optimización (2026-10-14, D-088/D-089/D-095/D-096):** `rwa-web` pasa a estar **en alcance**. La
 > BD off-chain es **PostgreSQL** (Cloud SQL, esquema `rwa`) y la red on-chain canónica es el **Anvil de GCP**
-> (chain 31337). Estado final objetivo: **3 apps** (`identity`, `issuer`, `token`) sobre monorepo pnpm +
-> `packages/shared`; `web-rwa` y `web-registry-trusted2` se absorben o se retiran (RF-W-18). Detalles en
+> (chain 31337). Las apps `web-*` antiguas (`web-rwa`, `web-registry-trusted2`, …) se absorbieron o retiraron
+> (RF-W-18); la estructura vigente es el monorepo pnpm `apps/*` + `packages/shared`. Detalles en
 > `rwa-web/RepoTecnico/requerimientos_web.md` y `rwa-web/RepoTecnico/plan_desarrollo_web.md`; variables en §14.
 > **Reorganización de líneas (2026-10-14):** la documentación propia de la línea `@web` vive en
 > `rwa-web/RepoTecnico/`; los artefactos de datos compartidos (`base_datos.sql`, `diccionario_datos.md`,
 > `diagrama_er.md`) y este documento permanecen en `rwa-sc/RepoTecnico/`.
+
+### 5.1 Despliegue Cloud Run de RWA (2026-10-29)
+
+Servicios desplegados en el proyecto **`mcc-ecommerce`** (región `europe-west1`) usando los servicios
+globales de este documento (**Anvil de GCP** + **Cloud SQL `truekeate-db-dev`**, esquema `rwa`):
+
+| Recurso | URL / nombre | Notas |
+|---|---|---|
+| Cloud Run `rwa-identity` | `https://rwa-identity-slzlptbcla-ew.a.run.app` | `/api/health` → chainId 31337 + PostgreSQL ok |
+| Cloud Run `rwa-issuer` | `https://rwa-issuer-slzlptbcla-ew.a.run.app` | `/api/health` ok |
+| Cloud Run `rwa-token` | `https://rwa-token-slzlptbcla-ew.a.run.app` | `/api/health` ok |
+| Cloud Run Job `rwa-indexer` | `rwa-indexer` | Ejecución `--once`; persiste en `rwa.chain_events` |
+| Cloud Scheduler `rwa-indexer-schedule` | cron `*/10 * * * *` | Ejecuta el job cada 10 min (OAuth) |
+
+- Service account de runtime: `rwa-web-run@mcc-ecommerce.iam.gserviceaccount.com`
+  (`roles/cloudsql.client` en `truekeate-main` + `secretmanager.secretAccessor` sobre
+  `DATABASE_URL`, `SIWE_SESSION_SECRET`, `KYC_ENCRYPTION_KEY`).
+- Secretos: copias operativas en `mcc-ecommerce`; **canónico en `truekeate-main`**.
+- Pipeline reproducible: `rwa-web/scripts/deploy_gcp.sh` (`provision|build|deploy|scheduler|verify`)
+  + `rwa-web/cloudbuild.yaml`. Evidencia completa: `rwa-web/RepoTecnico/despliegue_gcp.md`.
 
 ## 6. Cuentas (solo red local Anvil — keys por defecto)
 
@@ -131,7 +150,7 @@ forge build && forge test --gas-report
 
 # Web
 cd /home/dsh/workspace/RWA/rwa-web
-./start-all.sh        # 4001-4003 (asume Anvil + MongoDB corriendo)
+./start-all.sh        # 4001-4003 (asume Anvil de GCP + PostgreSQL/Cloud SQL; ver scripts/gcp-env.sh)
 ./stop-all.sh
 ./check-status.sh
 

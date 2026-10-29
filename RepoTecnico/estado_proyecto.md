@@ -534,8 +534,11 @@ CI en verde sobre `rwa-web` · una sola versión de `next`/`react` por workspace
 - **Pruebas:** 14/14 unitarias; drill de integración en verde (**26 eventos**, 9 de riesgo alto,
   `last_block=3`, idempotente) con esquema temporal; **dry-run contra el Anvil canónico: 235 eventos**.
 - **Evidencia:** `rwa-web/RepoTecnico/pruebas/h12_indexer.md` · operación en `apps/indexer/README.md`.
-- **Pendiente:** canal de alertas externo (RNF-402/404), archivado a 12 meses (RNF-403) y despliegue del
-  servicio (compose/Cloud Run).
+- **Pendiente:** canal de alertas externo (RNF-402/404) y archivado a 12 meses (RNF-403).
+- **Despliegue (2026-10-29):** ✅ **Cloud Run Job `rwa-indexer`** + **Cloud Scheduler**
+  (`*/10 * * * *`) en `mcc-ecommerce`/`europe-west1`, sobre el Anvil global y el Cloud SQL global
+  (evidencia: `rwa-web/RepoTecnico/despliegue_gcp.md`; 235 eventos/162 txs persistidos,
+  `rwa.indexer_state.last_block=558`).
 
 ### Fin de la etapa (estado)
 
