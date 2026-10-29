@@ -203,7 +203,8 @@ Cloneable  Factory  Cloneable Factory  (3 tipos)  .sol
 **Conceptos clave (struct real, `src/IdentityCloneable.sol`):**
 ```solidity
 struct Claim {
-    uint256 topic;      // Tipo de claim (1 = KYC, 2 = AML, etc.)
+    uint256 topic;      // Tipo de claim. Canónicos: 1 = KYC, 7 = ACCREDITATION, 9 = JURISDICTION
+                        // (5 = ENVIRONMENTAL y 6 = SANCTIONS están reservados/inactivos, H-10)
     uint256 scheme;     // Esquema de firma (1 = ECDSA)
     address issuer;     // Quién emitió el claim
     bytes signature;    // Firma EIP-712 (65 bytes)
@@ -316,7 +317,7 @@ registry.addClaimTopic(7);  // Accredited Investor
 
 **Conceptos clave:**
 ```solidity
-interface ICompliance {
+interface ICompliance {   // en el repo: `interface ICompliance is IERC165 (RF-003)`
     // ¿Se puede hacer esta transferencia?
     function canTransfer(address from, address to, uint256 amount) 
         external view returns (bool);
@@ -331,6 +332,10 @@ interface ICompliance {
     function destroyed(address from, uint256 amount) external;
 }
 ```
+
+> ⚠️ Desde **RF-003** la interfaz extiende `IERC165`, así que cada módulo implementa además
+> `supportsInterface(bytes4)` y el `ComplianceAggregator` valida la interfaz al registrar
+> módulos (`addModule`).
 
 **Ejercicio:**
 1. ¿Por qué separar `canTransfer()` (view) de `transferred()` (state-changing)?
@@ -684,39 +689,69 @@ contract MaxHoldersCompliance {
 > 📎 El **catálogo oficial de ejercicios** del proyecto vive en `EJERCICIOS_PRACTICOS.md`
 > (raíz de `rwa-sc`). Este es el material de estudio vigente; los apartados de abajo son
 > variantes didácticas para practicar en clase.
+>
+> ⚠️ **Requisito real de todo módulo de compliance (RF-003):** `ICompliance` extiende
+> `IERC165`, así que además de `canTransfer` / `transferred` / `created` / `destroyed` hay que
+> implementar `supportsInterface(bytes4)`. Toma como referencia los módulos reales de
+> `sc/src/compliance/` (`MaxBalanceCompliance`, `MaxHoldersCompliance`, `TransferLockCompliance`).
 
 ### Ejercicio 1: Crear un Módulo de Compliance Simple
 
-**Objetivo:** Implementar `TimeBasedCompliance.sol`
+**Objetivo:** Implementar `DailyTransferLimitCompliance.sol` (es el **Ejercicio 1.1 del
+catálogo oficial**; aquí tienes una versión reducida para empezar).
 
 **Requisitos:**
-- Solo permite transfers en días laborables (Monday-Friday)
-- Solo permite transfers en horario 9am-5pm UTC
+- Cada dirección tiene un límite diario de tokens transferibles (p. ej. 100/día)
+- El acumulado se resetea cada 24 horas
+- `transferred(...)` actualiza el consumo del día actual
 
 ```solidity
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC165} from "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {ICompliance} from "../ICompliance.sol";
 
-contract TimeBasedCompliance is ICompliance {
-    function canTransfer(address, address, uint256) 
-        external view returns (bool) 
-    {
-        // TODO: Implementar verificación de día y hora
-        // Pista: usa block.timestamp y operaciones de módulo
+contract DailyTransferLimitCompliance is ICompliance, ERC165, Ownable {
+    uint256 public dailyLimit;
+    mapping(address => mapping(uint256 => uint256)) private dailyTransfers;
+
+    constructor(address initialOwner, uint256 _dailyLimit) Ownable(initialOwner) {
+        dailyLimit = _dailyLimit;
     }
-    
-    function transferred(address, address, uint256) external { }
-    function created(address, uint256) external { }
-    function destroyed(address, uint256) external { }
+
+    function supportsInterface(bytes4 interfaceId)
+        public view virtual override(IERC165, ERC165) returns (bool)
+    {
+        return interfaceId == type(ICompliance).interfaceId || super.supportsInterface(interfaceId);
+    }
+
+    function getCurrentDay() public view returns (uint256) {
+        // TODO: block.timestamp / 1 days
+    }
+
+    function canTransfer(address from, address, uint256 amount)
+        external view override returns (bool)
+    {
+        // TODO: comprobar dailyTransfers[from][getCurrentDay()] + amount <= dailyLimit
+    }
+
+    function transferred(address from, address, uint256 amount) external override {
+        // TODO: acumular amount en dailyTransfers[from][getCurrentDay()]
+    }
+
+    function created(address, uint256) external override { }
+    function destroyed(address, uint256) external override { }
 }
 ```
 
 **Tests a implementar:**
-1. `test_AllowsTransferDuringBusinessHours()`
-2. `test_BlocksTransferOutsideBusinessHours()`
-3. `test_BlocksTransferOnWeekends()`
+1. `test_AllowsTransferUnderDailyLimit()`
+2. `test_BlocksTransferOverDailyLimit()`
+3. `test_ResetsAfter24Hours()`
+4. `testFuzz_DailyLimits(uint256 limit, uint256 amount)`
 
 ### Ejercicio 2: Crear un Token RWA
 
@@ -754,10 +789,17 @@ Lock Period: 365 días (1 año)
 **Objetivo:** Solo permite transfers entre ciertos países
 
 ```solidity
-contract GeographicCompliance is ICompliance, Ownable {
+contract GeographicCompliance is ICompliance, ERC165, Ownable {
     mapping(address => string) public userCountry;
     mapping(string => bool) public allowedCountries;
-    
+
+    // RF-003: ICompliance extiende IERC165 → hay que declarar la interfaz
+    function supportsInterface(bytes4 interfaceId)
+        public view virtual override(IERC165, ERC165) returns (bool)
+    {
+        return interfaceId == type(ICompliance).interfaceId || super.supportsInterface(interfaceId);
+    }
+
     function setUserCountry(address user, string memory country) 
         external onlyOwner 
     {
@@ -775,6 +817,10 @@ contract GeographicCompliance is ICompliance, Ownable {
     {
         // TODO: Verificar que ambos estén en países permitidos
     }
+
+    function transferred(address, address, uint256) external override { }
+    function created(address, uint256) external override { }
+    function destroyed(address, uint256) external override { }
 }
 ```
 
@@ -929,7 +975,7 @@ forge build
 # Tests
 forge test                              # Todos
 forge test --match-test test_Name      # Uno específico
-forge test --match-contract TestName   # Una suite
+forge test --match-contract IdentityCloneFactoryTest   # Una suite
 forge test -vvv                        # Muy verbose
 
 # Gas reporting
@@ -963,7 +1009,8 @@ cast send <ADDRESS> "mint(address,uint256)" <TO> <AMOUNT> --rpc-url localhost --
 - [ ] Leer ICompliance.sol
 - [ ] Estudiar MaxBalanceCompliance.sol
 - [ ] Estudiar MaxHoldersCompliance.sol
-- [ ] Ejercicio: Implementar TimeBasedCompliance
+- [ ] Estudiar TransferLockCompliance.sol
+- [ ] Ejercicio 1.1 del catálogo: `DailyTransferLimitCompliance` (ver `EJERCICIOS_PRACTICOS.md`)
 
 **Día 5-7: Token Principal**
 - [ ] Leer TokenCloneable.sol línea por línea
