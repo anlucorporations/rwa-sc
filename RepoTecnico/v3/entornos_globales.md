@@ -30,7 +30,9 @@
 | `rwa-web` | `https://gitlab.com/anlucorporations/rwa-web.git` (origin) + espejos | Apps, indexer, despliegue |
 | CodeCrypto | `https://gitlab.codecrypto.academy/anlucorporations/rwa-sc.git` | Espejo académico |
 
-- **Rama de trabajo v3:** `rwa-v3` (crear desde `main`; `main` permanece intacta).
+- **Rama de trabajo v3:** `rwa-web-DSH-GCP-v3` (creada desde el HEAD de la rama de trabajo v2; `main` permanece intacta).
+- **Ramas v2:** `rwa-sc-DSH-GCP` (contratos) y `rwa-web-DSH` (web), congeladas.
+- **Estado de publicación (2026-11-02):** `rwa-web-DSH-GCP-v3` publicada en **GitLab.com** y **GitHub** en ambos repos; **CodeCrypto pendiente** (token HTTPS caducado y clave SSH rechazada).
 - **Push solo con orden explícita del usuario** (`/push`). El push de `rwa-sc` va por SSH.
 - La v2 queda **congelada** como referencia y plan de retorno (Q1).
 

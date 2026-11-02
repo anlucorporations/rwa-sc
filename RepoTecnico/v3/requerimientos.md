@@ -120,8 +120,8 @@ efectivo (AML/PSD2/MiCA), custodia de dinero FIAT.
 
 | # | Tema | Supuesto / estado |
 |---|---|---|
-| S-1 | Relación con v2 | **RESUELTO (Q1):** v3 sustituye a v2 sobre los mismos repos y servicios GCP (rama `rwa-v3`); v2 congelada |
-| S-2 | Repositorios | **RESUELTO (Q1):** continuidad en `gitlab.com/anlucorporations/rwa-sc` y `rwa-web`, rama `rwa-v3`; sin repos nuevos |
+| S-1 | Relación con v2 | **RESUELTO (Q1):** v3 sustituye a v2 sobre los mismos repos y servicios GCP (rama `rwa-web-DSH-GCP-v3`); v2 congelada |
+| S-2 | Repositorios | **RESUELTO (Q1):** continuidad en `gitlab.com/anlucorporations/rwa-sc` y `rwa-web`, rama `rwa-web-DSH-GCP-v3`; sin repos nuevos |
 | S-3 | GCP | **`[SUPUESTO]`** reutilizar `mcc-ecommerce` + Anvil global + Cloud SQL; sin crear nodos ni BD duplicadas (D-095/D-096/D-101 vigentes). |
 | S-4 | BRLT | **RESUELTO (Q2):** token de **utilidad sin valor real** (demo/Anvil), emisión controlada por el Admin |
 | S-5 | Comisiones | **RESUELTO (Q4):** **5 % configurable por venta + fee fijo de tokenización**, recaudado por el Admin vía `FeeCollector` |

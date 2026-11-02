@@ -35,7 +35,7 @@
 
 | ID | Decisión | Estado |
 |---|---|---|
-| D-V3-01 | **Q1:** v3 sustituye a v2 sobre la misma infraestructura (rama `rwa-v3`); v2 congelada | ✅ |
+| D-V3-01 | **Q1:** v3 sustituye a v2 sobre la misma infraestructura (rama `rwa-web-DSH-GCP-v3`); v2 congelada | ✅ |
 | D-V3-02 | **Q2:** BRLT = ERC-20 de 8 decimales, **utilidad sin valor real** (demo/Anvil) | ✅ |
 | D-V3-03 | **Q3:** marketplace v3.0 a **precio fijo** (ofertas/subastas/barter → v3.1) | ✅ |
 | D-V3-04 | Los **ISSUER** son datos configurables (`issuer_programs` + `credential_types`) | ✅ |

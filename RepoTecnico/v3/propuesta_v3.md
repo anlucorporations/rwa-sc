@@ -296,7 +296,7 @@ AssetComplianceHook                                        // _update/beforeToke
 
 ### 6.1 Opción aprobada (Q1: sustitución sobre la misma infraestructura)
 
-- **Repos:** mantener `rwa-sc` y `rwa-web`; abrir **rama `rwa-v3`** (no `main`, que queda intacta).
+- **Repos:** mantener `rwa-sc` y `rwa-web`; abrir **rama `rwa-web-DSH-GCP-v3`** (no `main`, que queda intacta).
   La v2 sigue desplegada y congelada como referencia.
 - **Contratos:** añadir contratos nuevos sin romper los existentes; nuevo artefacto de despliegue
   `31337-<ts>-v3.json`. Redeploy limpio permitido (D-009 vigente).
@@ -324,7 +324,7 @@ Cada ciclo es una entrega **100 % operativa y verificable** (regla de la Fase 3)
 
 | Ciclo | Nombre | Entregable operativo | Criterio de aceptación |
 |---|---|---|---|
-| **C0** | Fundación v3 | Rama `rwa-v3`, esquema `rwa` **3.0** (migración probada en CI), `BarloToken` (8 dec) desplegado y verificado en Anvil GCP, CI verde | BRLT con 8 dec/cap/límites, mint/burn/pause probados; migración v2→v3 con conteos cuadrados; `deploy_gcp.sh verify` OK |
+| **C0** | Fundación v3 | Rama `rwa-web-DSH-GCP-v3`, esquema `rwa` **3.0** (migración probada en CI), `BarloToken` (8 dec) desplegado y verificado en Anvil GCP, CI verde | BRLT con 8 dec/cap/límites, mint/burn/pause probados; migración v2→v3 con conteos cuadrados; `deploy_gcp.sh verify` OK |
 | **C1** | Identidad + Socio | Alta con KYC avanzado, identidad única, claim **SOCIO** emitido y gate de acceso | Un usuario sin Socio no entra al Metaplace; con Socio sí; E2E en verde |
 | **C2** | ISSUER configurable | Admin crea ISSUER (proceso + requisitos + N claims); Operador verifica docs; solicitud/aprobación genérica | Crear ISSUER nuevo sin redeploy; 3 tipos de requisito probados |
 | **C3** | Tokenización | Claims GARANTÍA + FIADOR; acuñación de producto (1155), servicio (721 burnable) y bien (721); documentos | Tokenizar sin Garantía/Fiador revierte; los 3 tipos acuñan y se verifican on-chain |
@@ -370,7 +370,7 @@ Cada ciclo es una entrega **100 % operativa y verificable** (regla de la Fase 3)
 
 | ID | Pregunta | Decisión aprobada |
 |---|---|---|
-| **Q1** | Relación con la v2 | **La v3 sustituye a la v2 sobre la misma infraestructura**: rama `rwa-v3` en los repos actuales, despliegue progresivo sobre `mcc-ecommerce` + Anvil GCP + Cloud SQL. La v2 queda congelada como referencia y plan de retorno. |
+| **Q1** | Relación con la v2 | **La v3 sustituye a la v2 sobre la misma infraestructura**: rama `rwa-web-DSH-GCP-v3` en los repos actuales, despliegue progresivo sobre `mcc-ecommerce` + Anvil GCP + Cloud SQL. La v2 queda congelada como referencia y plan de retorno. |
 | **Q2** | Naturaleza de BRLT | **Token de utilidad sin valor real** (entorno demo/Anvil): emisión controlada por el Admin, sin custodia de dinero FIAT ni obligaciones regulatorias en esta versión. |
 | **Q3** | Alcance del marketplace | **Precio fijo con escrow y comisión** en v3.0. Ofertas, subastas e intercambio (barter) pasan al backlog **v3.1**. |
 
