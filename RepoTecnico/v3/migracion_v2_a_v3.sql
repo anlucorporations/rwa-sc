@@ -78,6 +78,9 @@ ALTER SEQUENCE IF EXISTS rwa.chain_events_id_seq RENAME TO chain_events_id_seq_v
 -- -----------------------------------------------------------------------------
 ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'visitor';
 ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'operator';
+ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'auditor';
+ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'arbiter';
+ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'support';
 
 -- -----------------------------------------------------------------------------
 -- §3. Crear el esquema v3 canónico (nuevas tablas, enums, índices, triggers, semillas)

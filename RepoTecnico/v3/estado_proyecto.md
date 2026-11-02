@@ -12,21 +12,22 @@
 | Entrada | `RepoTecnico/BRIEF_BARLOBLOKCHAIN_v3.md` (32 líneas) |
 | Base heredada | RWA v2 desplegada en GCP (`mcc-ecommerce`, `europe-west1`): 3 apps + indexer + Anvil + Cloud SQL |
 | Respaldo de partida | `/home/dsh/workspace/backups/rwa-v2-backup-20261031T171645Z.zip` (105 MB, SHA-256 en el manifiesto) |
-| Esquema de datos | `rwa` **26 tablas** · versión de esquema **3.0** · revisión documental **v3.1** |
+| Esquema de datos | `rwa` **27 tablas** · versión de esquema **3.0** · revisión documental **v3.2** |
 | Compuerta de cierre | **0 CUMPLE / 11 PARCIAL / 3 NO CUMPLE** (re-auditoría 2026-11-02) → **no se pasa a Fase 2** |
 
 ## 2. Artefactos
 
 | Artefacto | Estado | Contenido |
 |---|---|---|
-| `requerimientos.md` | ✅ v3.1 | **28 RF · 14 RNF · 8 RT**; supuestos **S-1…S-13** |
+| `requerimientos.md` | ✅ v3.2 | **31 RF · 14 RNF · 8 RT**; supuestos **S-1…S-14** |
 | `propuesta_v3.md` | ✅ v3.1 | Lectura del brief, brechas v2, arquitectura, 7 ciclos, riesgos |
-| `diccionario_datos.md` | ✅ v3.1 | 26 tablas, tipos, claves, reglas de integridad |
-| `diagrama_er.md` | ✅ v3.1 | Mermaid, 5 bloques, 26/26 entidades |
-| `base_datos.sql` | ✅ v3.1 | PostgreSQL 15: 26 tablas, 12 enums, triggers, vistas y semillas |
+| `diccionario_datos.md` | ✅ v3.2 | 27 tablas, tipos, claves, reglas de integridad |
+| `diagrama_er.md` | ✅ v3.2 | Mermaid, 5 bloques, 27/27 entidades |
+| `base_datos.sql` | ✅ v3.2 | PostgreSQL 15: 27 tablas, 13 enums, triggers, jobs y semillas |
 | `migracion_v2_a_v3.sql` | ✅ v3.1 | Archiva 12 tablas v2, ETL y registro `3.0` transaccional |
 | `entornos_globales.md` | ✅ v3.1 | Rutas, repos, GCP, BD, variables, toolchain y deuda operativa |
 | `verificar_artefactos.py` | ✅ | Script de CI: SQL, cuadre tablas/columnas, Mermaid, versión, recuentos |
+| `diseno_cierre_v3_2.md` | ✅ | Diseño B3 (escrow), B5 (RBAC), B6 (compliance), B7 (retención), B8 (operación) y B9 (RNF) |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
@@ -105,12 +106,12 @@
 | Comprobación | Resultado |
 |---|---|
 | `python3 RepoTecnico/verificar_artefactos.py` | ✅ **PASS** |
-| SQL `base_datos.sql` | ✅ 153 sentencias parseadas |
-| SQL `migracion_v2_a_v3.sql` | ✅ 37 sentencias parseadas |
-| Tablas y columnas | ✅ 26/26 tablas y 0 discrepancias de columnas |
+| SQL `base_datos.sql` | ✅ 172 sentencias parseadas |
+| SQL `migracion_v2_a_v3.sql` | ✅ 40 sentencias parseadas |
+| Tablas y columnas | ✅ 27/27 tablas y 0 discrepancias de columnas |
 | Mermaid | ✅ 5 bloques, 0 errores |
 | Versión operativa | ✅ única (`3.0`) |
-| Requisitos | ✅ 28 RF · 14 RNF · 8 RT · S-1…S-13 |
+| Requisitos | ✅ 31 RF · 14 RNF · 8 RT · S-1…S-14 |
 
 ## 8. Compuerta de re-cierre (B1–B12) — estado real
 
@@ -118,13 +119,13 @@
 |---|---|---|---|
 | **B1** | Migración ejecutable y probada sobre `pg_dump` v2 real | 🟢 **VERIFICADO EN TEST** | Ejecutada en PostgreSQL 16 embebido sobre el esquema v2 canónico + datos sintéticos: `exit 0`, claims 2=2, docs 1=1, tokens 1=1 ([acta](pruebas/validacion_ejecucion_v3_1.md)). Queda repetirla en CI con el dump real |
 | **B2** | DDL ejecutable (smoke `UPDATE` por tabla con trigger) | 🟢 **VERIFICADO** | **16/16 smoke tests** PASS, incluido `UPDATE orders` (N-01) y 4 pruebas negativas ([acta](pruebas/validacion_ejecucion_v3_1.md)) |
-| **B3** | Escrow verificable (máquina de estados, job de expiración, tramo NFT, validaciones) | 🔴 **ABIERTO** | Diseño en C4: transiciones, job, atomicidad y pruebas negativas |
+| **B3** | Escrow verificable | 🟢 **DISEÑADO** | Máquina de estados + tramo NFT + job de expiración + validaciones en DDL; implementación y pruebas en C4 |
 | **B4** | Autoridad del Emisor (vínculo emisor↔programa + semillas) | 🟢 **CUBIERTO EN DDL** | E2E de alta pendiente de runtime |
-| **B5** | RBAC real (Issuer/Auditor/Árbitro/Soporte, `role_assignments`, cuentas por rol) | 🔴 **ABIERTO** | Modelo de roles y semillas por rol |
-| **B6** | Compliance on-chain (hooks `_update`/`beforeTokenTransfer`) | 🔴 **ABIERTO** | Diseño e implementación en C3 |
-| **B7** | Retención Q10 ejecutable (cálculo, `ended_at`, job de purga, tests) | 🟡 **PARCIAL** | Cálculo + `ended_at` en DDL ✅; **job de purga** y test pendientes (C1) |
-| **B8** | Operación documentada (backup/PITR, claves, pooling, RPC respaldo, coste) | 🔴 **ABIERTO** | Plan concreto y ensayo de restauración |
-| **B9** | RNF falsables (12 rutas, axe, p95, pico S-14, SLI) | 🟡 **PARCIAL** | Enumerar rutas, condiciones de medición y supuesto de capacidad |
+| **B5** | RBAC real | 🟢 **DISEÑADO** | `role_assignments`, 8 roles, semillas por rol y `audit_log` append-only; matriz de pruebas en C5 |
+| **B6** | Compliance on-chain | 🟢 **DISEÑADO** | Spec de hooks, `token_required_claims` on-chain y tests adversariales en C3 |
+| **B7** | Retención Q10 ejecutable | 🟢 **DISEÑADO** | Triggers de fecha + `purge_expired_documents()` + job diario; test en C1 |
+| **B8** | Operación documentada | 🟢 **DOCUMENTADO** | Backup/PITR, RPO/RTO, rotación de clave, pooling, RPC fallback y coste (entornos §9.1) |
+| **B9** | RNF falsables | 🟢 **DISEÑADO** | 12 rutas (Anexo A), axe serious/critical, p95 con condiciones, pico S-14 y SLI |
 | **B10** | Estado único y compuerta honesta | 🟢 **HECHO** | Este documento regenerado desde los artefactos |
 | **B11** | Trazabilidad automatizada y script en CI | 🟢 **HECHO** | `verificar_artefactos.py`; falta integrarlo en el pipeline |
 | **B12** | 14/14 criterios CUMPLE, 0 CRÍTICAS y 0 ALTAS | 🔴 **no cumplido** | Requiere cerrar B1–B9 y re-auditar |
@@ -133,10 +134,9 @@
 
 ## 9. Próximos pasos
 
-1. ~~Ejecutar la migración y los smoke tests en un entorno PostgreSQL~~ ✅ (B1/B2 verificados en test; ver `pruebas/validacion_ejecucion_v3_1.md`). Repetir en CI con el `pg_dump` real.
-2. **Diseñar/decidir** B3 (escrow), B5 (roles) y B6 (compliance on-chain) en los ciclos C4/C5/C3.
-3. **Documentar** B8 (backup/PITR, claves, pooling, coste) y B9 (rutas, métricas, pico).
-4. **Re-auditoría final** de compuerta; solo con 14/14 CUMPLE y 0 CRÍTICAS/0 ALTAS se pasa a casos de uso + documento técnico.
+1. ~~Ejecutar migración y smoke tests~~ ✅ · ~~Diseñar B3/B5/B6/B7/B8/B9~~ ✅ (`diseno_cierre_v3_2.md`).
+2. **Verificar en ejecución** los nuevos triggers/jobs (roles, máquina de estados de la orden, purga) en PostgreSQL.
+3. **Re-auditoría final** de compuerta; solo con 14/14 CUMPLE y 0 CRÍTICAS/0 ALTAS se pasa a casos de uso + documento técnico.
 
 ## 10. Estado heredado de la v2 (referencia)
 

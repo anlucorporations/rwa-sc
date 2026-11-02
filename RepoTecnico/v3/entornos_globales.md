@@ -100,6 +100,17 @@ La v3 se despliega como nuevas revisiones de los servicios y del job.
 - **Política de retención (Q10):** 30 días tras rechazo; 12 meses tras fin de relación;
   purga controlada por `rwa.v_documents_due_deletion`.
 
+### 5.1 Jobs programados (B3/B7)
+
+| Job | Cron (Cloud Scheduler) | Acción | Invocación |
+|---|---|---|---|
+| `expire_orders` | `*/5 * * * *` | `SELECT rwa.expire_orders();` libera reservas vencidas | Scheduler → Cloud Run Job `rwa-jobs` → `/internal/jobs/expire-orders` (OAuth) |
+| `purge_documents` | `0 3 * * *` | `SELECT rwa.purge_expired_documents();` aplica retención Q10 | Scheduler → Cloud Run Job `rwa-jobs` → `/internal/jobs/purge-documents` |
+| `rwa-indexer-schedule` | `*/10 * * * *` | indexer on-chain (heredado v2) | Scheduler → Cloud Run Job `rwa-indexer` |
+
+Los endpoints internos exigen OAuth de la SA `rwa-scheduler@mcc-ecommerce` y no son públicos.
+Cada ejecución deja contador + entrada en `audit_log`; el fallo dispara alerta.
+
 ## 6. Variables de entorno
 
 | Variable | Ámbito | Uso |
@@ -168,18 +179,23 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /home/dsh/workspace/RWA/RepoTecnico/b
   por claves dedicadas en Secret Manager y un gate de CI falla si una wallet de rol coincide con una
   cuenta conocida de Anvil. La cuenta #0 de Anvil **nunca** debe ser Admin/Owner.
 
-## 9.1 Operación y continuidad (deuda declarada)
+## 9.1 Operación, continuidad y coste (B8)
 
-| Tema | Estado v3.0 | Objetivo |
+| Tema | Compromiso | Verificación |
 |---|---|---|
-| Backup / PITR Cloud SQL | No documentado aún | **RPO ≤ 15 min, RTO ≤ 4 h** + ensayo de restauración (RNF-V3-14) |
-| Copia/rotación de `KYC_ENCRYPTION_KEY` | No documentada | Copia versionada + rotación (H-15) |
-| Región BD vs apps | BD en `southamerica-east1`, apps en `europe-west1` | Medir latencia y alinear o ajustar RNF (H-14) |
-| Pool de conexiones | `PG_POOL_MAX=5`, sin límite global documentado | pgbouncer / conector con límite (H-14) |
-| Observabilidad | Logs estructurados + `/api/health` | SLIs/alertas/trazas y retención ≥ 90 días (RNF-V3-13) |
-| Coste | Sin modelo de coste | Presupuesto demo ≤ 50 USD/mes con *budget alerts* 10/20/50 USD (H-41) |
+| Backup Cloud SQL | backups automáticos 7 días + PITR 7 días | `gcloud sql instances describe` + restore drill |
+| RPO / RTO | **RPO ≤ 15 min · RTO ≤ 4 h** | ensayo trimestral con fecha y RTO medido |
+| Restauración | ensayo mensual a instancia `-restore-test`; 27 tablas + conteos | acta `pruebas/restore_<fecha>.md` |
+| Clave KYC | Secret Manager con versiones + envelope encryption KMS; rotación 90 días; copia en `truekeate-main` | `secrets versions list` + descifrado con versión anterior |
+| Pooling | `PG_POOL_MAX=5` × `max-instances=3` = 15 conexiones (≤ 30 % del límite); pgbouncer si se supera | test de carga + métrica de conexiones |
+| RPC | primario + `RPC_URL_FALLBACK` con health-check y conmutación | test de caída del primario |
+| Anvil | runbook de reset con reconciliación off-chain; snapshot del estado; nunca producción | runbook en `pruebas/` |
+| Región | apps `europe-west1` vs BD `southamerica-east1`: medir p95 y, si incumple, mover apps a `southamerica-east1` | medición en C0 |
+| Coste | presupuesto demo **≤ 50 USD/mes**; budget alerts 10/25/50 USD; desglose: Cloud Run ~10, Cloud SQL ~15, storage/egress ~10, Secret Manager ~2, extras ~13 | factura + alertas activas |
 
-## 10. Respaldo y retorno
+> Diseño detallado y criterios de aceptación: `diseno_cierre_v3_2.md` §5.
+
+## 10. Respaldo y retorno## 10. Respaldo y retorno
 
 - Respaldo completo de la v2 (2026-10-31): `rwa-v2-backup-20261031T171645Z.zip` (SHA-256 en el manifiesto).
 - Plan de retorno: la v2 permanece desplegada y congelada; revertir = reapuntar revisiones de

@@ -95,7 +95,7 @@ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
                    WHERE n.nspname = 'rwa' AND t.typname = 'session_role') THEN
-        CREATE TYPE rwa.session_role AS ENUM ('visitor', 'investor', 'issuer', 'operator', 'admin');
+        CREATE TYPE rwa.session_role AS ENUM ('visitor', 'investor', 'issuer', 'operator', 'admin', 'auditor', 'arbiter', 'support');
     END IF;
 END
 $$;
@@ -406,6 +406,8 @@ CREATE TABLE IF NOT EXISTS rwa.asset_documents (
     sha256          char(64)    NOT NULL,
     encrypted_data  bytea       NOT NULL,
     encryption_meta jsonb       NOT NULL DEFAULT '{}'::jsonb,
+    retention_delete_at date,
+    deleted_at      timestamptz,
     created_at      timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT asset_documents_size CHECK (size_bytes > 0 AND size_bytes <= 20971520),
     CONSTRAINT asset_documents_mime CHECK (mime_type IN ('application/pdf', 'image/png', 'image/jpeg')),
@@ -446,6 +448,8 @@ CREATE TABLE IF NOT EXISTS rwa.orders (
     fee_brlt            numeric(20,8) NOT NULL DEFAULT 0,
     status              rwa.order_status NOT NULL DEFAULT 'pending_payment',
     escrow_tx_hash      text,
+    escrow_asset_tx_hash text,                        -- B3: tramo NFT del escrow (transferencia atómica)
+    asset_transferred_at timestamptz,                 -- B3: momento de la transferencia del activo
     created_at          timestamptz NOT NULL DEFAULT now(),
     updated_at          timestamptz NOT NULL DEFAULT now(),   -- requerido por el trigger global
     expires_at          timestamptz,                 -- H-05: TTL de la reserva
@@ -511,7 +515,35 @@ CREATE TABLE IF NOT EXISTS rwa.sessions (
     CONSTRAINT sessions_expiry CHECK (expires_at > issued_at)
 );
 
--- 8.2 Auditoría (accesos y mutaciones)
+-- 8.2 B5: asignaciones de rol persistentes (principal ≠ claim)
+CREATE TABLE IF NOT EXISTS rwa.role_assignments (
+    id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
+    wallet_address      text        NOT NULL,
+    role                rwa.session_role NOT NULL,
+    scope               text        NOT NULL DEFAULT 'platform',
+    issuer_program_id   uuid        REFERENCES rwa.issuer_programs(id) ON DELETE CASCADE,
+    granted_by_wallet   text        NOT NULL,
+    granted_at          timestamptz NOT NULL DEFAULT now(),
+    revoked_at          timestamptz,
+    reason              text,
+    CONSTRAINT role_assignments_wallet CHECK (wallet_address ~* '^0x[0-9a-f]{40}$'),
+    CONSTRAINT role_assignments_granted_by CHECK (granted_by_wallet ~* '^0x[0-9a-f]{40}$'),
+    CONSTRAINT role_assignments_scope CHECK (scope IN ('platform', 'issuer_program')),
+    CONSTRAINT role_assignments_program_required CHECK (scope <> 'issuer_program' OR issuer_program_id IS NOT NULL),
+    CONSTRAINT role_assignments_role_scope CHECK (
+        scope = 'platform' OR role IN ('issuer', 'operator', 'auditor', 'arbiter')
+    )
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_role_assignments_platform
+    ON rwa.role_assignments (lower(wallet_address), role)
+    WHERE revoked_at IS NULL AND issuer_program_id IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_role_assignments_program
+    ON rwa.role_assignments (lower(wallet_address), role, issuer_program_id)
+    WHERE revoked_at IS NULL AND issuer_program_id IS NOT NULL;
+
+-- 8.3 Auditoría (accesos y mutaciones)
 CREATE TABLE IF NOT EXISTS rwa.audit_log (
     id             bigserial   PRIMARY KEY,
     actor_wallet   text,
@@ -953,6 +985,152 @@ CREATE TRIGGER trg_consume_listing_inventory
     AFTER UPDATE OF status ON rwa.orders
     FOR EACH ROW EXECUTE FUNCTION rwa.consume_listing_inventory();
 
+-- 10.7 B3: máquina de estados de la orden (solo transiciones válidas)
+CREATE OR REPLACE FUNCTION rwa.validate_order_transition()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    allowed boolean := false;
+BEGIN
+    IF NEW.status = OLD.status THEN
+        RETURN NEW;
+    END IF;
+    allowed := (OLD.status = 'pending_payment' AND NEW.status IN ('escrowed', 'cancelled'))
+            OR (OLD.status = 'escrowed'        AND NEW.status IN ('confirmed', 'cancelled', 'disputed'))
+            OR (OLD.status = 'disputed'        AND NEW.status IN ('confirmed', 'refunded'));
+    IF NOT allowed THEN
+        RAISE EXCEPTION 'transición de orden inválida: % → %', OLD.status, NEW.status
+            USING ERRCODE = 'check_violation';
+    END IF;
+    IF NEW.status = 'confirmed' THEN
+        NEW.confirmed_at := coalesce(NEW.confirmed_at, now());
+    ELSIF NEW.status = 'cancelled' THEN
+        NEW.cancelled_at := coalesce(NEW.cancelled_at, now());
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_validate_order_transition ON rwa.orders;
+CREATE TRIGGER trg_validate_order_transition
+    BEFORE UPDATE OF status ON rwa.orders
+    FOR EACH ROW EXECUTE FUNCTION rwa.validate_order_transition();
+
+-- 10.8 B3: la orden fija vendedor/comisión desde la publicación y la tarifa vigente
+CREATE OR REPLACE FUNCTION rwa.set_order_economics()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_listing rwa.listings%ROWTYPE;
+    v_bps     smallint;
+BEGIN
+    SELECT * INTO v_listing FROM rwa.listings WHERE id = NEW.listing_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'publicación % inexistente', NEW.listing_id USING ERRCODE = 'check_violation';
+    END IF;
+    NEW.seller_identity_id := v_listing.seller_identity_id;
+    NEW.price_brlt := coalesce(NEW.price_brlt, v_listing.price_brlt);
+    SELECT sale_fee_bps INTO v_bps FROM rwa.platform_fees WHERE active LIMIT 1;
+    NEW.fee_brlt := round(NEW.price_brlt * coalesce(v_bps, 0) / 10000.0, 8);
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_set_order_economics ON rwa.orders;
+CREATE TRIGGER trg_set_order_economics
+    BEFORE INSERT ON rwa.orders
+    FOR EACH ROW EXECUTE FUNCTION rwa.set_order_economics();
+
+-- 10.9 B3: el pago al vendedor debe ser la wallet del vendedor de la orden
+CREATE OR REPLACE FUNCTION rwa.validate_payment_payee()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_wallet text;
+BEGIN
+    IF NEW.order_id IS NOT NULL THEN
+        SELECT i.wallet_address INTO v_wallet
+          FROM rwa.orders o
+          JOIN rwa.identities i ON i.id = o.seller_identity_id
+         WHERE o.id = NEW.order_id;
+        IF v_wallet IS NOT NULL AND lower(NEW.payee_wallet) <> v_wallet THEN
+            RAISE EXCEPTION 'el pago debe ir a la wallet del vendedor (%), no a %', v_wallet, NEW.payee_wallet
+                USING ERRCODE = 'check_violation';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_validate_payment_payee ON rwa.payments;
+CREATE TRIGGER trg_validate_payment_payee
+    BEFORE INSERT ON rwa.payments
+    FOR EACH ROW EXECUTE FUNCTION rwa.validate_payment_payee();
+
+-- 10.10 B5: audit_log append-only (sin UPDATE ni DELETE)
+CREATE OR REPLACE FUNCTION rwa.audit_log_append_only()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RAISE EXCEPTION 'audit_log es append-only: % no permitido', TG_OP
+        USING ERRCODE = 'insufficient_privilege';
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_audit_log_append_only ON rwa.audit_log;
+CREATE TRIGGER trg_audit_log_append_only
+    BEFORE UPDATE OR DELETE ON rwa.audit_log
+    FOR EACH ROW EXECUTE FUNCTION rwa.audit_log_append_only();
+
+-- 10.11 B3/B7: jobs invocables por Cloud Scheduler (funciones de base de datos)
+--        expire_orders: cancela reservas vencidas y libera inventario
+--        purge_expired_documents: borra documentos fuera de retención (Q10)
+CREATE OR REPLACE FUNCTION rwa.expire_orders()
+RETURNS integer
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_count integer;
+BEGIN
+    WITH expired AS (
+        UPDATE rwa.orders
+           SET status = 'cancelled', cancelled_at = now()
+         WHERE status IN ('pending_payment', 'escrowed')
+           AND expires_at IS NOT NULL
+           AND expires_at <= now()
+        RETURNING id
+    )
+    SELECT count(*) INTO v_count FROM expired;
+    RETURN v_count;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION rwa.purge_expired_documents()
+RETURNS integer
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_count integer := 0;
+BEGIN
+    DELETE FROM rwa.document_files
+     WHERE deleted_at IS NULL
+       AND retention_delete_at IS NOT NULL
+       AND retention_delete_at <= current_date;
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+
+    DELETE FROM rwa.asset_documents
+     WHERE deleted_at IS NULL
+       AND retention_delete_at IS NOT NULL
+       AND retention_delete_at <= current_date;
+
+    RETURN v_count;
+END;
+$$;
+
 -- -----------------------------------------------------------------------------
 -- 11. Vistas
 -- -----------------------------------------------------------------------------
@@ -1261,6 +1439,33 @@ INSERT INTO rwa.wallet_messages (process_key, locale, title, template, variables
      'You are requesting identity recovery. An administrator will review your case and contact you.',
      '[]'::jsonb, 1)
 ON CONFLICT (process_key, locale, version) DO NOTHING;
+
+-- B5: cuentas semilla por rol (SOLO DEV; rotar en C0, H-11)
+INSERT INTO rwa.role_assignments (wallet_address, role, scope, issuer_program_id, granted_by_wallet, reason)
+VALUES
+    ('0x14dc79964da2c08b23698b3d3cc7ca32193d9955', 'admin',   'platform', NULL,
+     '0x14dc79964da2c08b23698b3d3cc7ca32193d9955', 'semilla dev: administrador'),
+    ('0x23618e81e3f5cdf7f54c3d65f7beb7d73c26c1f4', 'auditor', 'platform', NULL,
+     '0x14dc79964da2c08b23698b3d3cc7ca32193d9955', 'semilla dev: auditor'),
+    ('0xa0ee7a142d267c1f36714e4a8f75612f20a79720', 'arbiter', 'platform', NULL,
+     '0x14dc79964da2c08b23698b3d3cc7ca32193d9955', 'semilla dev: árbitro'),
+    ('0x15d34aaf54267db7d7c367839aaf71a00a2c6a65', 'operator','platform', NULL,
+     '0x14dc79964da2c08b23698b3d3cc7ca32193d9955', 'semilla dev: operador'),
+    ('0x23618e81e3f5cdf7f54c3d65f7beb7d73c26c1f4', 'support', 'platform', NULL,
+     '0x14dc79964da2c08b23698b3d3cc7ca32193d9955', 'semilla dev: soporte')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO rwa.role_assignments (wallet_address, role, scope, issuer_program_id, granted_by_wallet, reason)
+SELECT v.wallet, 'issuer'::rwa.session_role, 'issuer_program', p.id,
+       '0x14dc79964da2c08b23698b3d3cc7ca32193d9955', 'semilla dev: emisor por programa'
+FROM (VALUES
+    ('0x70997970c51812dc3a010c7d01b50e0d17dc79c8', 'kyc-base'),
+    ('0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc', 'garantia-activos'),
+    ('0x90f79bf6eb2c4f870365e785982e1f101e93b906', 'fiador'),
+    ('0x9965507d1a55bcc2695c58ba16fb37d819b0a4dc', 'onboarding-socio')
+) AS v(wallet, slug)
+JOIN rwa.issuer_programs p ON p.slug = v.slug
+ON CONFLICT DO NOTHING;
 
 INSERT INTO rwa.indexer_state (id, last_block) VALUES (1, 0)
 ON CONFLICT (id) DO NOTHING;

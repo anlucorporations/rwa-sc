@@ -192,22 +192,26 @@ Catálogo versionado de plantillas por proceso, con variables y tono coloquial:
 Diseño técnico: `wallet_messages` (BD) + paquete compartido que construye el `message` EIP-712
 legible, y tests que verifican que el texto mostrado es el que se firma (hash del mensaje).
 
-### 4.7 Roles y permisos (RBAC v3)
+### 4.7 Roles y permisos (RBAC v3, B5)
 
-| Capacidad | Visitante | Usuario/Socio | Fiador | Operador | Admin |
-|---|---|---|---|---|---|
-| Ver catálogo público | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Comprar/vender/intercambiar | ❌ | ✅ (Socio) | ✅ | ❌ | ✅ |
-| Solicitar claims | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Verificar documentos | ❌ | ❌ | ❌ | ✅ | ✅ |
-| Emitir/revocar claims **de sus programas** | ❌ | ❌ | ❌ | ❌ | ✅ Admin · ✅ **Issuer (rol)** |
-| Crear/editar ISSUER | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Emitir/revocar claims | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Tokenizar | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Recuperación de identidad | ❌ | solicita | ❌ | ❌ | custodia |
-| Panel Sistema | ❌ | ❌ | ❌ | ❌ (solo verificación de docs, RF-V3-22) | ✅ |
-| Arbitrar una disputa | ❌ | ❌ | ❌ | ❌ | ✅ (rol árbitro) |
-| Exportar auditoría (solo lectura) | ❌ | ❌ | ❌ | ❌ | ✅ Auditor |
+Los roles son **principales** persistidos en `role_assignments` (nunca claims): ámbito `platform` o
+`issuer_program`, con concesión/revocación auditadas y efecto inmediato. Matriz completa:
+
+| Capacidad | Visitante | Usuario | Fiador | Operador | Issuer | Auditor | Árbitro | Soporte | Admin |
+|---|---|---|---|---|---|---|---|---|---|
+| Catálogo público (GET) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Comprar/vender (con SOCIO) | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Solicitar claims | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Verificar documentos | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Aprobar/emitir claims | ❌ | ❌ | ❌ | ❌ | ✅ su programa | ❌ | ❌ | ❌ | ✅ |
+| Crear/editar ISSUER | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Tokenizar | ❌ | ❌ | ❌ | ❌ | ✅ su programa | ❌ | ❌ | ❌ | ✅ |
+| Arbitrar disputa | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ✅ |
+| Panel Sistema | ❌ | ❌ | ❌ | ❌ (RF-V3-22) | ❌ | ✅ lectura | ❌ | ❌ | ✅ |
+| Exportar auditoría | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Escalar incidencias (SLA 24 h) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
+
+> Detalle del modelo, ciclo de vida, cuentas semilla y pruebas de autorización: `diseno_cierre_v3_2.md` §2.
 
 ---
 
@@ -250,6 +254,7 @@ IdentityRecovery                                           // cambio de wallet c
 IssuerRegistry (roles acotados por programa)               // Q11(a): autoridad del Emisor
 DisputeManager                                             // Q12(a): árbitro, plazos y resolución
 AssetComplianceHook                                        // _update/beforeTokenTransfer -> IdentityRegistry (H-07)
+RoleRegistry (principal por programa)                      // B5: issuer/operator/auditor/arbiter/support
 ```
 
 ### 5.3 Modelo de datos (delta sobre las 12 tablas v2)
@@ -328,8 +333,8 @@ Cada ciclo es una entrega **100 % operativa y verificable** (regla de la Fase 3)
 | **C1** | Identidad + Socio | Alta con KYC avanzado, identidad única, claim **SOCIO** emitido y gate de acceso | Un usuario sin Socio no entra al Metaplace; con Socio sí; E2E en verde |
 | **C2** | ISSUER configurable | Admin crea ISSUER (proceso + requisitos + N claims); Operador verifica docs; solicitud/aprobación genérica | Crear ISSUER nuevo sin redeploy; 3 tipos de requisito probados |
 | **C3** | Tokenización | Claims GARANTÍA + FIADOR; acuñación de producto (1155), servicio (721 burnable) y bien (721); documentos | Tokenizar sin Garantía/Fiador revierte; los 3 tipos acuñan y se verifican on-chain |
-| **C4** | Metaplace marketplace | Listados, compra/venta a **precio fijo**, pago en BRLT, **escrow atómico**, comisión y **disputa con árbitro** (ofertas/subastas → v3.1) | Compra E2E: BRLT debitado y activo transferido en la misma operación, una sola orden abierta, evento indexado, comisión correcta y flujo de disputa resuelto |
-| **C5** | Experiencia de firma + Admin/Sistema | Plantillas de billetera (es/en), roles Admin/Operador/**Issuer**/Auditor, panel Sistema, recuperación de identidad | 100 % de procesos con mensaje legible (umbral numérico); recuperación con **4-eyes real** (dos wallets distintas, ninguna el solicitante) |
+| **C4** | Metaplace marketplace | Listados, compra/venta a **precio fijo**, pago en BRLT, **escrow atómico (leg BRLT + leg NFT)**, comisión y **disputa con árbitro**; **job de expiración** cada 5 min (ofertas/subastas → v3.1) | Compra E2E con ambos hashes, una sola orden abierta, 0 dobles ventas en carga 2×, transiciones inválidas rechazadas, comisión y disputa correctas (`diseno_cierre_v3_2.md` §1.5) |
+| **C5** | Experiencia de firma + Admin/Sistema | Plantillas de billetera (es/en), roles Admin/Operador/**Issuer/Auditor/Árbitro/Soporte** en `role_assignments`, panel Sistema, recuperación de identidad | Matriz 8 roles × 12 capacidades en verde (positivas y negativas), `audit_log` append-only, 100 % de procesos con mensaje legible y recuperación con **4-eyes real** |
 | **C6** | Endurecimiento y piloto | Cobertura ≥ 80 % contratos / ≥ 70 % web, suite E2E completa, despliegue final y manuales | Fase 4 al 100 %; manuales generados; despliegue verificado |
 
 **Dependencias:** C0 → C1 → C2 → C3 → C4; C5 puede solaparse con C3/C4; C6 al final.

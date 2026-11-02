@@ -3,7 +3,7 @@
 > **Versión:** v3.1 (esquema 3.0) · **Fecha:** 2026-10-31 · **Motor:** PostgreSQL 15 · **Esquema:** `rwa`
 > **Sincronía obligatoria:** los nombres de entidades y atributos son **idénticos** a
 > `base_datos.sql` y `diccionario_datos.md`.
-> **Cobertura:** 26 tablas del esquema `rwa` en 5 bloques (global + 4 dominios). Sin tablas ni
+> **Cobertura:** 27 tablas del esquema `rwa` en 5 bloques (global + 4 dominios). Sin tablas ni
 > relaciones fuera del diagrama.
 
 ## 1. Vista global (entidades principales y cardinalidades)
@@ -15,6 +15,8 @@ erDiagram
     IDENTITIES ||--o{ LISTINGS : "publica"
     IDENTITIES ||--o{ ORDERS : "compra"
     IDENTITIES ||--o{ SESSIONS : "abre"
+    ISSUER_PROGRAMS ||--o{ ROLE_ASSIGNMENTS : "acota rol"
+    IDENTITIES ||--o{ ROLE_ASSIGNMENTS : "recibe rol"
     IDENTITIES ||--o{ TOKEN_GUARANTEES : "avala como fiador"
 
     ISSUER_PROGRAMS ||--o{ ISSUER_PROGRAM_REQUIREMENTS : "exige"
@@ -265,9 +267,10 @@ erDiagram
         char sha256
         bytea encrypted_data
         jsonb encryption_meta
+        date retention_delete_at
+        timestamptz deleted_at
         timestamptz created_at
-    }
-```
+    }```
 
 ## 5. Dominio: Metaplace, pagos y operación
 
@@ -279,6 +282,7 @@ erDiagram
     IDENTITIES ||--o{ ORDERS : "compra"
     ORDERS ||--o{ PAYMENTS : "liquida"
     ORDERS ||--o| DISPUTES : "abre"
+    ISSUER_PROGRAMS ||--o{ ROLE_ASSIGNMENTS : "acota"
     IDENTITIES ||--o{ PAYMENTS : "paga"
     IDENTITIES ||--o{ SESSIONS : "autentica"
     CHAIN_EVENTS }o--|| INDEXER_STATE : "indexado"
@@ -307,6 +311,8 @@ erDiagram
         numeric fee_brlt
         order_status status
         text escrow_tx_hash
+        text escrow_asset_tx_hash
+        timestamptz asset_transferred_at
         timestamptz created_at
         timestamptz updated_at
         timestamptz expires_at
@@ -361,6 +367,17 @@ erDiagram
         boolean removed
         timestamptz created_at
     }
+    ROLE_ASSIGNMENTS {
+        uuid id PK
+        text wallet_address
+        session_role role
+        text scope
+        uuid issuer_program_id FK
+        text granted_by_wallet
+        timestamptz granted_at
+        timestamptz revoked_at
+        text reason
+    }
     DISPUTES {
         uuid id PK
         uuid order_id FK
@@ -394,4 +411,4 @@ erDiagram
 - `identity_recovery_requests`: aprobado/completado ⇒ doble aprobación (Q5).
 - `document_files` / `asset_documents`: retención y borrado lógico con `deleted_at`.
 
-*Fin del diagrama ER v3.0 — 26 tablas cubiertas.*
+*Fin del diagrama ER v3.0 — 27 tablas cubiertas.*

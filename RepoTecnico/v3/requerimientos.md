@@ -77,6 +77,9 @@ efectivo (AML/PSD2/MiCA), custodia de dinero FIAT.
 | **RF-V3-26** | La evolución v2→v3 será una **migración versionada y transaccional** que archiva las tablas heredadas, hace ETL de datos y registra `3.0` solo al final; se ensaya en CI contra un `pg_dump` v2. | H-01 · QW-4 |
 | **RF-V3-27** | Existirán roles/procesos declarados para **Auditor** (lectura y exportación), **Soporte** (escalado con SLA) y **árbitro de disputas**, y el **Fiador** deberá **consentir** el respaldo (estados de garantía). | H-10, H-34 · Q11(a) |
 | **RF-V3-28** | Habrá **asistencia guiada** en los «grandes pasos» de cada suite (wizard/checklist) y una **metodología de identidad Web3** publicada, con criterios medibles en C1–C3. | H-20 |
+| **RF-V3-29** | Los roles se materializarán en `role_assignments` (principal ≠ claim), con ámbito `platform`/`issuer_program`, concesión y revocación auditadas y efecto inmediato; `audit_log` será **append-only**. | B5 · H-23/H-34 |
+| **RF-V3-30** | El marketplace tendrá **máquina de estados** de la orden (solo transiciones válidas), **reserva con TTL**, **tramo NFT** del escrow (`escrow_asset_tx_hash`), validación de vendedor/comisión/pago y **job de expiración** cada 5 min. | B3 · H-05/N-11 |
+| **RF-V3-31** | Los contratos de activo aplicarán **compliance on-chain** en cada transferencia (`_update`/`beforeTokenTransfer` contra `IdentityRegistry` y `token_required_claims`), con `isVerified` fail-closed y tests adversariales. | B6 · H-07 |
 
 ---
 
@@ -87,7 +90,7 @@ efectivo (AML/PSD2/MiCA), custodia de dinero FIAT.
 | **RNF-V3-01** | Seguridad | **0 endpoints de escritura sin autenticación** y 0 sin autorización por recurso; las lecturas públicas del modo visitante (catálogo) se limitan a `GET` y a datos no sensibles. Toda mutación exige sesión SIWE válida, verificado por test que recorre el manifiesto de rutas. |
 | **RNF-V3-02** | Privacidad | Documentos KYC cifrados en reposo (AES-256-GCM) con clave en Secret Manager; 0 endpoints públicos que devuelvan PII; todo acceso a documento queda en `audit_log`. |
 | **RNF-V3-03** | Auditabilidad | Toda emisión/revocación de claim, tokenización, pago y recuperación de identidad deja rastro on-chain y/u off-chain correlacionable (`request_id` + `tx_hash`). |
-| **RNF-V3-04** | Usabilidad | WCAG 2.1 AA sobre **las 12 rutas principales enumeradas** (0 violaciones `axe`: contraste, teclado, foco, nombres accesibles); mensajes de firma con **umbral numérico**: `title` ≤ 40 caracteres, `template` ≤ 200 caracteres, **0** términos de una lista cerrada de jerga e índice Flesch-Szigriszt ≥ 55; gate de CI `check-wallet-messages`. |
+| **RNF-V3-04** | Usabilidad | WCAG 2.1 AA sobre **las 12 rutas del Anexo A** (0 violaciones `axe` de impacto `serious`/`critical`: contraste, teclado, foco, nombres accesibles); mensajes de firma con **umbral numérico**: `title` ≤ 40 caracteres, `template` ≤ 200 caracteres, **0** términos de una lista cerrada de jerga e índice Flesch-Szigriszt ≥ 55; gate de CI `check-wallet-messages`. |
 | **RNF-V3-05** | Desempeño | First Load JS ≤ 400 KB gzip por ruta; API p95 < 800 ms en lectura y **p95 < 1,5 s en escritura** (claim, tokenización, compra, escrow); prueba de carga a **2× el pico** (≈60 servicios/mes + compras concurrentes) con **0 dobles ventas**; health < 2 s. |
 | **RNF-V3-06** | Fiabilidad | Ante caída de PostgreSQL o del RPC: `503` con error tipado, 0 respuestas `200` vacías por error; indexer reanudable (last_block + hash) y con detección de reset/reorg. **Disponibilidad ≥ 99,5 % mensual** con error budget. |
 | **RNF-V3-07** | Portabilidad | 0 literales de red (`0x…` 40 hex, `localhost`, `http://` de servicio) en el código; configuración única validada al arranque. |
@@ -133,6 +136,7 @@ efectivo (AML/PSD2/MiCA), custodia de dinero FIAT.
 | S-11 | Caducidad de claims | **RESUELTO (Q8):** sin caducidad en v3.0; columna `expires_at` preparada y revocación soportada. |
 | S-12 | Valuación | **RESUELTO (Q9):** tasación documental en BRLT; el precio de listado no excede la tasación. |
 | S-13 | Retención documental | **RESUELTO (Q10):** 30 días tras rechazo / 12 meses tras fin de relación, auditado. |
+| S-14 | Capacidad (pico) | **RESUELTO (B9):** 60 servicios/mes ≈ 2/día; pico definido = 20 compras concurrentes + 5 claims/min; prueba de carga a 2× = 40 compras concurrentes. |
 
 ---
 
@@ -153,11 +157,31 @@ internas de este documento ni del brief que no existan).
 | `[WEB-IDENTITY]` | RF-V3-03, 06, 07 |
 | `[WEB-ISSUSER]` | RF-V3-04, 11, 12, 13, 15, 16, 17, 22, 23, 27, 28 |
 | `[WEB-TOKEN]` | RF-V3-05, 19, 25 |
+| `[WEB-ISSUSER]` + auditoría | RF-V3-29 (RBAC), 30 (escrow), 31 (compliance) |
 
 > **Origen de los RF-V3-24…28:** auditoría/decisiones, no el brief (RF-24 ← H-02/Q11; RF-25 ← H-05/Q12;
 > RF-26 ← H-01/QW-4; RF-27 ← H-10/H-34; RF-28 ← H-20). **Origen de RNF-V3-12…14:** H-16/H-17,
 > H-18/H-19 y H-14 respectivamente. Quedan registrados como requisitos derivados de auditoría, no
 > como deseos del brief, para que la trazabilidad sea honesta.
+
+## Anexo A — Manifiesto de las 12 rutas principales (RNF-V3-04 / B9)
+
+| # | Ruta | Suite |
+|---|---|---|
+| 1 | `/` | Metaplace |
+| 2 | `/login` | Metaplace |
+| 3 | `/catalogo` | Token |
+| 4 | `/activo/[id]` | Token |
+| 5 | `/compras` | Token |
+| 6 | `/identidad` | Identity |
+| 7 | `/identidad/claims` | Identity |
+| 8 | `/identidad/recuperacion` | Identity |
+| 9 | `/emisor` | Issuer |
+| 10 | `/emisor/solicitudes` | Issuer |
+| 11 | `/emisor/verificacion` | Issuer |
+| 12 | `/sistema` | Issuer (admin) |
+
+> El test de accesibilidad recorre este manifiesto; si se añade una ruta sin clasificar, el gate de CI falla.
 
 *Documento vivo. Se sincroniza con `diccionario_datos.md`, `diagrama_er.md` y `base_datos.sql`
 cuando se cierre la entrevista de Fase 1.*

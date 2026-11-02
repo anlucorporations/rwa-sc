@@ -294,6 +294,8 @@ servicios (ERC-721 quemable) y bienes (ERC-721 único).
 | `sha256` | `char(64)` | no | — | — | Huella |
 | `encrypted_data` | `bytea` | no | — | — | AES-256-GCM |
 | `encryption_meta` | `jsonb` | no | `'{}'` | — | IV, tag, versión de clave |
+| `retention_delete_at` | `date` | sí | — | — | Retención Q10 aplicada también a documentos de activo (B7) |
+| `deleted_at` | `timestamptz` | sí | — | — | Borrado lógico/purga |
 | `created_at` | `timestamptz` | no | `now()` | — | Alta |
 
 ---
@@ -328,7 +330,9 @@ servicios (ERC-721 quemable) y bienes (ERC-721 único).
 | `price_brlt` | `numeric(20,8)` | no | — | — | Precio pactado |
 | `fee_brlt` | `numeric(20,8)` | no | `0` | — | Comisión calculada |
 | `status` | `rwa.order_status` | no | `'pending_payment'` | — | `pending_payment`, `escrowed`, `confirmed`, `cancelled`, `disputed`, `refunded` |
-| `escrow_tx_hash` | `text` | sí | — | UK* | Depósito en escrow (formato `0x`+64 hex) |
+| `escrow_tx_hash` | `text` | sí | — | UK* | Depósito de BRLT en escrow (formato `0x`+64 hex) |
+| `escrow_asset_tx_hash` | `text` | sí | — | — | **Tramo NFT** del escrow: transferencia del activo (B3) |
+| `asset_transferred_at` | `timestamptz` | sí | — | — | Momento en que el activo quedó transferido |
 | `created_at` | `timestamptz` | no | `now()` | — | Alta |
 | `updated_at` | `timestamptz` | no | `now()` | — | Modificación (requerido por el trigger global) |
 | `expires_at` | `timestamptz` | sí | — | — | TTL de la reserva (30 min si no se indica) |
@@ -380,7 +384,7 @@ servicios (ERC-721 quemable) y bienes (ERC-721 único).
 | `id` | `uuid` | no | `gen_random_uuid()` | PK | Identificador |
 | `nonce` | `text` | no | — | UK | Nonce de un solo uso |
 | `wallet_address` | `text` | no | — | — | Wallet autenticada |
-| `role` | `rwa.session_role` | no | `'investor'` | — | `visitor`, `investor`, `issuer`, `operator`, `admin` |
+| `role` | `rwa.session_role` | no | `'investor'` | — | `visitor`, `investor`, `issuer`, `operator`, `admin`, `auditor`, `arbiter`, `support` |
 | `domain` | `text` | no | — | — | Dominio validado (EIP-4361) |
 | `issued_at` | `timestamptz` | no | `now()` | — | Emisión |
 | `expires_at` | `timestamptz` | no | — | — | Caducidad |
@@ -438,6 +442,25 @@ servicios (ERC-721 quemable) y bienes (ERC-721 único).
 | `description` | `text` | sí | — | — | Detalle |
 | `applied_at` | `timestamptz` | no | `now()` | — | Aplicación |
 
+### 5.6 `role_assignments` — asignaciones de rol persistentes (B5)
+
+| Columna | Tipo | Nulo | Default | Clave | Descripción |
+|---|---|---|---|---|---|
+| `id` | `uuid` | no | `gen_random_uuid()` | PK | Identificador |
+| `wallet_address` | `text` | no | — | — | Principal (wallet) |
+| `role` | `rwa.session_role` | no | — | — | Rol asignado (incluye `issuer`, `operator`, `auditor`, `arbiter`, `support`) |
+| `scope` | `text` | no | `'platform'` | — | `platform` o `issuer_program` |
+| `issuer_program_id` | `uuid` | sí | — | FK → `issuer_programs` (CASCADE) | Programa al que se limita el rol |
+| `granted_by_wallet` | `text` | no | — | — | Quién concede (Admin) |
+| `granted_at` | `timestamptz` | no | `now()` | — | Alta |
+| `revoked_at` | `timestamptz` | sí | — | — | Revocación |
+| `reason` | `text` | sí | — | — | Motivo |
+
+> **Unicidad:** un rol activo por (`lower(wallet_address)`, `role`) en ámbito `platform`, y por
+> (`lower(wallet_address)`, `role`, `issuer_program_id`) en ámbito de programa.
+> **Regla:** un rol de plataforma no puede llevar `issuer_program_id`; `issuer_program` exige programa
+> y solo admite roles operativos (`issuer`, `operator`, `auditor`, `arbiter`).
+
 ---
 
 ## 6. Relaciones principales
@@ -455,6 +478,8 @@ tokens 1—N asset_documents
 tokens 1—N listings 1—N orders 1—N payments
 orders 1—1 disputes
 identities 1—N sessions / listings / orders
+issuer_programs 1—N role_assignments (ámbito de programa)
+identities 1—N role_assignments (por wallet)
 ```
 
 ## 7. Notas de integridad y seguridad
@@ -471,5 +496,8 @@ identities 1—N sessions / listings / orders
 - **Retención Q10:** `trg_claim_revocation_cascade` fija `retention_delete_at = +30 días` al rechazar
   y `trg_identity_end_retention` la fija a `+12 meses` al cerrar la relación (`identities.ended_at`).
 - **Emisor:** `trg_claim_issuer_program` exige que el emisor pertenezca al programa del claim.
-- **Trazabilidad:** toda mutación relevante escribe en `audit_log` con `request_id`; los cambios on-chain se reflejan en `chain_events`.
+- **Trazabilidad:** toda mutación relevante escribe en `audit_log` con `request_id`; los cambios on-chain se reflejan en `chain_events`. `audit_log` es **append-only** (`trg_audit_log_append_only` rechaza UPDATE/DELETE).
+- **RBAC (B5):** los roles se materializan en `role_assignments` (principal ≠ claim); el rol de sesión se valida contra la asignación vigente.
+- **Escrow (B3):** máquina de estados en `trg_validate_order_transition`; el vendedor y la comisión se fijan desde la publicación y `platform_fees`; el tramo NFT se registra en `escrow_asset_tx_hash`.
+- **Jobs (B3/B7):** `rwa.expire_orders()` libera reservas vencidas y `rwa.purge_expired_documents()` aplica la retención Q10; ambos los invoca Cloud Scheduler.
 - **Borrado:** `document_files` es lógico (`deleted_at`) hasta la purga programada; nunca se sirve un documento con `deleted_at` no nulo.
