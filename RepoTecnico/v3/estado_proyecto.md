@@ -31,6 +31,18 @@
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
 
+## 2.1 Repositorios, ramas y publicación (2026-11-02)
+
+| Repo | Rama | Commit | Remotos con la rama |
+|---|---|---|---|
+| `rwa-sc` (contratos/datos) | `rwa-web-DSH-GCP-v3` | `4c09fc8` | GitLab.com · GitHub · CodeCrypto |
+| `rwa-web` (web) | `rwa-web-DSH-GCP-v3` | `5bcfb72` | GitLab.com · GitHub · CodeCrypto |
+
+- Ramas v2 (`rwa-sc-DSH-GCP`, `rwa-web-DSH`) y `main`: intactas y congeladas.
+- Credencial de CodeCrypto: token único en `~/.config/gitlab/codecrypto.token` (0600) + helper global;
+  **ningún secreto en los repositorios**.
+- El canónico documental sigue siendo `rwa-sc/RepoTecnico/v3/`; `rwa-web` espeja los 4 artefactos de datos.
+
 ## 3. Decisiones tomadas
 
 | ID | Decisión | Estado |

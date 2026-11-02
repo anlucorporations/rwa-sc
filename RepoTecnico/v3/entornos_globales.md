@@ -32,7 +32,13 @@
 
 - **Rama de trabajo v3:** `rwa-web-DSH-GCP-v3` (creada desde el HEAD de la rama de trabajo v2; `main` permanece intacta).
 - **Ramas v2:** `rwa-sc-DSH-GCP` (contratos) y `rwa-web-DSH` (web), congeladas.
-- **Estado de publicación (2026-11-02):** `rwa-web-DSH-GCP-v3` publicada en **GitLab.com** y **GitHub** en ambos repos; **CodeCrypto pendiente** (token HTTPS caducado y clave SSH rechazada).
+- **Estado de publicación (2026-11-02):** `rwa-web-DSH-GCP-v3` publicada en **GitLab.com**, **GitHub** y **CodeCrypto** en ambos repos.
+- **Credencial CodeCrypto (global, sin secretos en repos):** el token vive en
+  `~/.config/gitlab/codecrypto.token` (permisos `600`) y el helper global
+  `~/.local/bin/git-credential-gitlab-codecrypto` lo inyecta para
+  `gitlab.codecrypto.academy` en **todos los proyectos** (config `git config --global`). Rotar el token =
+  editar ese único archivo; no hay que tocar ningún repo. Verificado que `~/.git-credentials` no cachea
+  el token (0 bytes).
 - **Push solo con orden explícita del usuario** (`/push`). El push de `rwa-sc` va por SSH.
 - La v2 queda **congelada** como referencia y plan de retorno (Q1).
 
