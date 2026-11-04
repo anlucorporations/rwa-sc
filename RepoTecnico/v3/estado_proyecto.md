@@ -1,6 +1,6 @@
 # Estado del Proyecto — RWA v3 «Barlo Metaplace»
 
-> **Última actualización:** 2026-11-04 · **Fase actual:** 2 (Casos de uso + documento técnico)
+> **Última actualización:** 2026-11-04 · **Fase actual:** 2 (Casos de uso + documento técnico) — **entregables listos; pendiente cerrar con las respuestas Q15–Q24**
 > **Estado de la Fase 1:** ✅ **CERRADA COMO BASELINE DE DISEÑO** (decisión **Q14a**, 2026-11-04).
 > Implementación y operación se controlan con los gates de **C0–C6** (Fase 3).
 > **Carpeta de reportes:** `RWA/RepoTecnico/` (v3) · **Documentación v2:** `rwa-sc/RepoTecnico/` y `rwa-web/RepoTecnico/`
@@ -31,6 +31,9 @@
 | `diseno_cierre_v3_2.md` | ✅ | Diseño B3 (escrow), B5 (RBAC), B6 (compliance), B7 (retención), B8 (operación) y B9 (RNF) |
 | `casos_uso.md` | ✅ v3.2 | **29 casos de uso** Gherkin/EARS con trazabilidad a RF-V3 |
 | `casos_uso/diagramas_casos_uso.md` | ✅ v3.2 | Diagrama de casos de uso + 6 secuencias + estados (Mermaid) |
+| `casos_uso/AUDITORIA_CASOS_USO.md` | ✅ v3.2 | Auditoría de CU: veredicto **SÍ**, 0 hallazgos, 14 correcciones aplicadas |
+| `documento_tecnico.md` | ✅ v3.2 | Arquitectura, contratos, API, datos, seguridad, despliegue, riesgos y plan C0–C6 |
+| `AUDITORIA_DOCUMENTO_TECNICO.md` | ✅ v3.2 | Auditoría del documento técnico: **SÍ CON CORRECCIONES** (1 ALTA, 3 MEDIAS, 3 BAJAS → corregidas) |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
@@ -154,7 +157,14 @@ cada uno tiene su gate y evidencia exigida en C0–C6.
 - **Actores:** Visitante, Usuario, Fiador, Operador, Emisor, Admin, Auditor, Árbitro, Soporte y Sistema.
 - **`casos_uso/diagramas_casos_uso.md`:** diagrama de casos de uso (Mermaid), 6 diagramas de secuencia
   (alta/claim, compra con escrow, tokenización, disputa, recuperación 4-eyes, jobs) y máquina de estados.
-- **Pendiente:** auditoría de los casos de uso y `documento_tecnico.md` (siguiente paso de la Fase 2).
+- **Auditoría de CU:** veredicto **SÍ** (0 hallazgos); 14 correcciones de trazabilidad/redacción aplicadas.
+- **`documento_tecnico.md`:** arquitectura (C4 contexto/contenedores), componentes con ciclo y dueño,
+  14 contratos, API por suite, 27 tablas, seguridad, despliegue, riesgos y plan C0–C6.
+- **Auditoría del documento técnico:** **SÍ CON CORRECCIONES** → C-01…C-07 aplicadas (estado único Q14a,
+  matriz §9 31/31 RF, dueños por componente, 8 procesos de firma, gate de rate limiting, diagrama limpio,
+  RT-V3-03 actualizado); C-08/C-09 verificados con el script ampliado (**PASS**).
+- **Pendiente para cerrar Fase 2:** respuestas del sponsor a **Q15–Q24** (asistencia guiada, soporte,
+  jurisdicción, exportación, ratificación Q14a, threat model, firma de fianza, dueños, estándares, transversales).
 
 ## 7. Verificación posterior (ejecutada)
 
