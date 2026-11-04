@@ -897,15 +897,19 @@ Escenario: idempotencia del job
 4. **Gherkin/EARS:** criterios de comportamiento en Gherkin; restricciones de sistema en EARS; ninguno sin posibilidad de test.
 5. **Trazabilidad:** cero criterios sin RF de origen; cero RF sin CU o justificación.
 
-## 7. Preguntas abiertas (para la entrevista de Fase 2)
+## 7. Decisiones de Fase 2 (Q15–Q24, aprobadas por defecto 2026-11-04)
 
-| # | Pregunta | Impacto |
+| # | Pregunta | Decisión |
 |---|---|---|
-| Q15 | ¿La asistencia guiada (RF-V3-28) se implementa como wizard de 4 pasos o como ayuda contextual por pantalla? | Define CU transversales de UX |
-| Q16 | ¿El soporte (CU-19) opera dentro del Metaplace o por canal externo (email/WhatsApp) con registro manual? | Alcance de la suite Admin |
-| Q17 | ¿El alta de Socio exige también claim de JURISDICCIÓN desde el inicio o se puede completar después? | Flujo de CU-04/10 |
-| Q18 | ¿La exportación de auditoría debe incluir datos personales cifrados o solo metadatos? | RNF-V3-02/12 |
-
----
+| Q15 | Asistencia guiada | **Wizard de 4 pasos** por suite (alta, claim, tokenización, compra) |
+| Q16 | Soporte | **Dentro del Metaplace** con registro y SLA 24 h (CU-19) |
+| Q17 | JURISDICCIÓN | **Diferida**: no obligatoria en el alta; exigible según ISSUER |
+| Q18 | Exportación de auditoría | **Solo metadatos** (sin PII descifrada) |
+| Q19 | Estado de Fase 1 | **Q14a ratificada** como estado único (baseline de diseño) |
+| Q20 | Threat model / rate limiting | **Exigibles antes del piloto** (RNF-V3-15) |
+| Q21 | Fianza (CU-07) | **Firma EIP-712 con mensaje legible** (`guarantee.consent`) |
+| Q22 | Dueño por componente | **Sí**, declarado en el documento técnico (§3.3 y §4) |
+| Q23 | Estándares de activo | **Servicios ERC-721 quemable · productos ERC-1155 · bienes ERC-721** |
+| Q24 | RF-26 / RF-28 | **Transversales sin CU**, con componente y ciclo asignados |
 
 *Casos de uso v3.2 · Fase 2 · Se sincronizan con `requerimientos.md` y `documento_tecnico.md`.*

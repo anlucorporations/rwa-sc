@@ -1,6 +1,6 @@
 # Estado del Proyecto — RWA v3 «Barlo Metaplace»
 
-> **Última actualización:** 2026-11-04 · **Fase actual:** 2 (Casos de uso + documento técnico) — **entregables listos; pendiente cerrar con las respuestas Q15–Q24**
+> **Última actualización:** 2026-11-04 · **Fase actual:** 3 (Desarrollo) — **plan propuesto, pendiente de aprobación para arrancar C0** · Fase 2 ✅ cerrada
 > **Estado de la Fase 1:** ✅ **CERRADA COMO BASELINE DE DISEÑO** (decisión **Q14a**, 2026-11-04).
 > Implementación y operación se controlan con los gates de **C0–C6** (Fase 3).
 > **Carpeta de reportes:** `RWA/RepoTecnico/` (v3) · **Documentación v2:** `rwa-sc/RepoTecnico/` y `rwa-web/RepoTecnico/`
@@ -34,6 +34,7 @@
 | `casos_uso/AUDITORIA_CASOS_USO.md` | ✅ v3.2 | Auditoría de CU: veredicto **SÍ**, 0 hallazgos, 14 correcciones aplicadas |
 | `documento_tecnico.md` | ✅ v3.2 | Arquitectura, contratos, API, datos, seguridad, despliegue, riesgos y plan C0–C6 |
 | `AUDITORIA_DOCUMENTO_TECNICO.md` | ✅ v3.2 | Auditoría del documento técnico: **SÍ CON CORRECCIONES** (1 ALTA, 3 MEDIAS, 3 BAJAS → corregidas) |
+| `plan_desarrollo.md` | ✅ v3.2 | **Fase 3**: 7 ciclos C0–C6 con tareas, gates, DoD y calendario (~17–18 semanas) |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
@@ -69,7 +70,17 @@
 | D-V3-13 | **Q11:** Emisor = **rol de plataforma** acotado, persistido por claim | ✅ |
 | D-V3-14 | **Q12:** escrow **completo** (reserva con TTL, atomicidad, disputa con árbitro) | ✅ |
 | D-V3-15 | **Q13:** **demo/piloto sin activos reales** + gate legal previo a valor real | ✅ |
-| D-V3-16 | **Q14a:** la compuerta de Fase 1 se redefine como **baseline de diseño verificada**; los criterios que dependen de implementación (C7 compliance on-chain, C13 operación ejecutada, C14 ejecución completa) pasan a **gates de C0–C6** | ✅ Aprobada |
+| D-V3-16 | **Q14a:** la compuerta de Fase 1 se redefine como **baseline de diseño verificada**; los criterios que dependen de implementación (C7, C13, C14) pasan a **gates de C0–C6** | ✅ Aprobada |
+| D-V3-17 | **Q15:** asistencia guiada como **wizard de 4 pasos** | ✅ |
+| D-V3-18 | **Q16:** soporte **in-app** con SLA 24 h | ✅ |
+| D-V3-19 | **Q17:** claim de JURISDICCIÓN **diferido** | ✅ |
+| D-V3-20 | **Q18:** exportación de auditoría **solo metadatos** | ✅ |
+| D-V3-21 | **Q19:** **Q14a ratificada** como estado único | ✅ |
+| D-V3-22 | **Q20:** threat model + rate limiting **exigibles antes del piloto** (RNF-V3-15) | ✅ |
+| D-V3-23 | **Q21:** consentimiento de fianza con **firma EIP-712 legible** | ✅ |
+| D-V3-24 | **Q22:** **dueño nominal** por componente/contrato | ✅ |
+| D-V3-25 | **Q23:** servicios ERC-721 quemable · productos ERC-1155 · bienes ERC-721 | ✅ |
+| D-V3-26 | **Q24:** RF-26 y RF-28 **transversales sin CU** | ✅ |
 
 ## 4. Auditoría 1 (`INFORME_OPTIMIZACION_V3.md`, 2026-11-02)
 
@@ -165,6 +176,17 @@ cada uno tiene su gate y evidencia exigida en C0–C6.
   RT-V3-03 actualizado); C-08/C-09 verificados con el script ampliado (**PASS**).
 - **Pendiente para cerrar Fase 2:** respuestas del sponsor a **Q15–Q24** (asistencia guiada, soporte,
   jurisdicción, exportación, ratificación Q14a, threat model, firma de fianza, dueños, estándares, transversales).
+
+## 6.4 Cierre de Fase 2 y estado de Fase 3 (2026-11-04)
+
+- **Fase 2 ✅ cerrada:** 29 CU + 8 diagramas + `documento_tecnico.md`, ambos auditados
+  (CU: veredicto SÍ, 0 hallazgos; doc técnico: SÍ CON CORRECCIONES, C-01…C-09 aplicadas).
+- **Q15–Q24 resueltas por defecto** (D-V3-17…D-V3-26): wizard, soporte in-app, jurisdicción diferida,
+  auditoría solo metadatos, Q14a ratificada, threat model/rate limiting pre-piloto, firma de fianza
+  legible, dueños, estándares ERC-721/1155 y transversales.
+- **Fase 3 propuesta:** `plan_desarrollo.md` con **C0–C6** (≈17–18 semanas), gates por ciclo y DoD.
+- **Siguiente:** aprobación del plan para arrancar **C0** (BarloToken + migración real en CI +
+  claves dedicadas + infra de backups/jobs).
 
 ## 7. Verificación posterior (ejecutada)
 

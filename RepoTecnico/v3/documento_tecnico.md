@@ -248,21 +248,19 @@ Cada ciclo se considera entregado solo con **evidencia reproducible** (acta) y s
 4. Los riesgos tienen mitigación y gate.
 5. Los ciclos tienen criterios de salida verificables.
 
-## 13. Preguntas abiertas para el sponsor
+## 13. Decisiones de Fase 2 (Q15–Q24, aprobadas por defecto)
 
-| # | Pregunta | Impacto |
-|---|---|---|
-| Q15 | ¿Asistencia guiada como wizard o ayuda contextual? | UX y CU transversales |
-| Q16 | ¿Soporte dentro del Metaplace o canal externo? | Alcance de la suite Admin |
-| Q17 | ¿JURISDICCIÓN obligatoria desde el alta o diferida? | Flujo de CU-04/CU-10 |
-| Q18 | ¿Exportación de auditoría con datos personales o solo metadatos? | RNF-V3-02/12 |
-| Q19 | ¿Se ratifica Q14a como estado único de la Fase 1? | gobernanza |
-| Q20 | ¿Threat model y rate limiting son RNF exigibles antes del piloto? | RNF-V3-15 |
-| Q21 | ¿El consentimiento de fianza (CU-07) exige firma EIP-712 con mensaje legible? | C5 / RF-V3-21 |
-| Q22 | ¿Dueño nominal por componente o delegado al plan de ciclos? | criterio §12.1 |
-| Q23 | ¿Se confirma servicios=ERC-721, productos=ERC-1155, bienes=ERC-721? | RT-V3-03 |
-| Q24 | ¿RF-V3-26 y RF-V3-28 se aceptan como transversales sin CU? | §12.2 |
-
----
+| # | Decisión |
+|---|---|
+| Q15 | Asistencia guiada como **wizard de 4 pasos** por suite |
+| Q16 | Soporte **in-app** con registro y SLA 24 h |
+| Q17 | Claim de JURISDICCIÓN **diferido** (exigible según ISSUER) |
+| Q18 | Exportación de auditoría **solo metadatos** |
+| Q19 | **Q14a ratificada** como estado único de Fase 1 |
+| Q20 | **Threat model + rate limiting exigibles antes del piloto** (RNF-V3-15) |
+| Q21 | Consentimiento de fianza con **firma EIP-712 legible** |
+| Q22 | **Dueño nominal** por componente/contrato (ya declarado en §3.3 y §4) |
+| Q23 | **Servicios ERC-721 quemable · productos ERC-1155 · bienes ERC-721** |
+| Q24 | **RF-V3-26 y RF-V3-28 transversales sin CU** |
 
 *Documento técnico v3.2 · Fase 2 · Se sincroniza con `casos_uso.md`, `requerimientos.md` y `base_datos.sql`.*
