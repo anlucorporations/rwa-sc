@@ -111,6 +111,20 @@ La v3 se despliega como nuevas revisiones de los servicios y del job.
 Los endpoints internos exigen OAuth de la SA `rwa-scheduler@mcc-ecommerce` y no son públicos.
 Cada ejecución deja contador + entrada en `audit_log`; el fallo dispara alerta.
 
+### 5.2 BRLT y claves de rol (C0, 2026-11-04)
+
+| Dato | Valor |
+|---|---|
+| Contrato `BarloToken` | `0xf08521C9359E5950E9334D79C29cbDC2059a31f8` (chain 31337, bloque 566) |
+| Artefacto | `sc/deployments/31337-1793828678-barlo.json` |
+| Config pública de roles | `sc/config/v3_roles.json` (admin/minter/pauser, solo direcciones) |
+| Secretos | `BRLT_ADMIN_KEY`, `BRLT_MINTER_KEY`, `BRLT_PAUSER_KEY` en Secret Manager (`mcc-ecommerce`) |
+| Gate anti-Anvil | `sc/script/ci/check_role_wallets.sh` (job `check-role-wallets` en CI) |
+| Aprovisionamiento C0 | `rwa-web/scripts/provision_c0.sh` (backups/PITR, IAM, Cloud Run Job `rwa-jobs`, Scheduler) |
+
+> Las claves **no** se versionan: viven en Secret Manager y se leen por variable de entorno en los
+> scripts de Foundry (`vm.envUint`), nunca por `argv` (RF-010).
+
 ## 6. Variables de entorno
 
 | Variable | Ámbito | Uso |

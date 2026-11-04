@@ -118,6 +118,34 @@ artefactos-v3:
     - test -d RepoTecnico/v3 || { echo "FAIL: falta RepoTecnico/v3"; exit 1; }
     - python RepoTecnico/v3/verificar_artefactos.py
 
+# --- 1c. migracion-v3: migración real v2→v3 en PostgreSQL efímero (C0/B1) ----
+migracion-v3:
+  stage: validate
+  extends: .ci_rules
+  image: postgres:15
+  services:
+    - name: postgres:15
+      alias: postgres
+  variables:
+    PGPASSWORD: "postgres"
+    POSTGRES_PASSWORD: "postgres"
+  script:
+    - export PGHOST=postgres PGUSER=postgres
+    - |
+      for i in $(seq 1 30); do
+        if pg_isready -h "$PGHOST" >/dev/null 2>&1; then break; fi
+        sleep 1
+      done
+    - psql -c "CREATE DATABASE rwa_ci;"
+    - psql -d rwa_ci -v ON_ERROR_STOP=1 -q -f RepoTecnico/base_datos.sql
+    - psql -d rwa_ci -v ON_ERROR_STOP=1 -q -f RepoTecnico/v3/pruebas/seed_ci_v2.sql
+    - psql -d rwa_ci -v ON_ERROR_STOP=1 -f RepoTecnico/v3/migracion_v2_a_v3.sql
+    - test "$(psql -d rwa_ci -tAc "SELECT version FROM rwa.schema_migrations WHERE version='3.0';")" = "3.0"
+    - test "$(psql -d rwa_ci -tAc "SELECT count(*) FROM rwa.claim_requests;")" = "2"
+    - test "$(psql -d rwa_ci -tAc "SELECT count(*) FROM rwa.tokens;")" = "1"
+    - test "$(psql -d rwa_ci -tAc "SELECT count(*) FROM rwa.token_required_claims;")" = "1"
+    - echo "OK: migración v2→v3 ejecutada y contadores verificados"
+
 # --- 2. build ----------------------------------------------------------------
 build:
   stage: build
@@ -205,6 +233,7 @@ ci-checks:
     - bash script/ci/abi_diff.sh
     - bash script/ci/check_secrets.sh
     - bash script/ci/check_claim_topics.sh
+    - bash script/ci/check_role_wallets.sh
 
 # --- 8. slither: analisis estatico (RNF-107 / H-09) --------------------------
 # La imagen de Foundry no trae Python/pip, asi que este job usa una imagen Python,

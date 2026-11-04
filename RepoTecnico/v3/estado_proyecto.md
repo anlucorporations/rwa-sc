@@ -1,6 +1,6 @@
 # Estado del Proyecto — RWA v3 «Barlo Metaplace»
 
-> **Última actualización:** 2026-11-04 · **Fase actual:** 3 (Desarrollo) — **plan propuesto, pendiente de aprobación para arrancar C0** · Fase 2 ✅ cerrada
+> **Última actualización:** 2026-11-04 · **Fase actual:** 3 (Desarrollo) — **C0 en curso (parcial 5/8)** · Fases 1–2 ✅ cerradas
 > **Estado de la Fase 1:** ✅ **CERRADA COMO BASELINE DE DISEÑO** (decisión **Q14a**, 2026-11-04).
 > Implementación y operación se controlan con los gates de **C0–C6** (Fase 3).
 > **Carpeta de reportes:** `RWA/RepoTecnico/` (v3) · **Documentación v2:** `rwa-sc/RepoTecnico/` y `rwa-web/RepoTecnico/`
@@ -35,6 +35,7 @@
 | `documento_tecnico.md` | ✅ v3.2 | Arquitectura, contratos, API, datos, seguridad, despliegue, riesgos y plan C0–C6 |
 | `AUDITORIA_DOCUMENTO_TECNICO.md` | ✅ v3.2 | Auditoría del documento técnico: **SÍ CON CORRECCIONES** (1 ALTA, 3 MEDIAS, 3 BAJAS → corregidas) |
 | `plan_desarrollo.md` | ✅ v3.2 | **Fase 3**: 7 ciclos C0–C6 con tareas, gates, DoD y calendario (~17–18 semanas) |
+| `pruebas/c0_2026-11-04.md` | ✅ C0 | Acta C0: BRLT desplegado, claves dedicadas, migración real en CI y gate anti-Anvil |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
@@ -187,6 +188,20 @@ cada uno tiene su gate y evidencia exigida en C0–C6.
 - **Fase 3 propuesta:** `plan_desarrollo.md` con **C0–C6** (≈17–18 semanas), gates por ciclo y DoD.
 - **Siguiente:** aprobación del plan para arrancar **C0** (BarloToken + migración real en CI +
   claves dedicadas + infra de backups/jobs).
+
+## 6.5 Fase 3 — C0 en curso (2026-11-04)
+
+| Entregable | Estado |
+|---|---|
+| `BarloToken` (ERC-20, 8 dec, cap, límites, roles, pausa) | ✅ desplegado en Anvil GCP `0xf08521C9359E5950E9334D79C29cbDC2059a31f8` (bloque 566) |
+| Tests del contrato | ✅ **24/24** y cobertura **100 %** (líneas/sentencias/ramas/funciones) |
+| Claves dedicadas en Secret Manager | ✅ `BRLT_ADMIN_KEY`, `BRLT_MINTER_KEY`, `BRLT_PAUSER_KEY` |
+| Gate anti-Anvil (H-11) | ✅ `check_role_wallets.sh` en CI (4 wallets verificadas) |
+| Migración real en CI (B1) | ✅ job `migracion-v3` + simulación local exit 0 (2=2, 1=1, 1=1, required 1=1) |
+| Defecto corregido en migración | ✅ `ALTER TYPE … ADD VALUE` movido antes del `BEGIN` |
+| Backups/PITR, jobs cloud, skeleton app | 🔴 pendientes (`provision_c0.sh` listo en DRY_RUN; skeleton al inicio de C1) |
+
+**C0 = 5/8 gates.** Detalle y limitaciones: `pruebas/c0_2026-11-04.md`.
 
 ## 7. Verificación posterior (ejecutada)
 

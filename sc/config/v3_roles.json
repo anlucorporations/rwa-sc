@@ -1,0 +1,25 @@
+{
+  "network": "anvil-gcp",
+  "chainId": 31337,
+  "token": {
+    "contract": "BarloToken",
+    "symbol": "BRLT",
+    "address": "0xf08521C9359E5950E9334D79C29cbDC2059a31f8",
+    "decimals": 8,
+    "cap": "10000000000000000",
+    "maxMintPerTx": "1000000000000"
+  },
+  "roles": {
+    "admin": "0x173c5B62E5842a2093653E3f028007F90B360D9a",
+    "minter": "0x88Ae71f481E436c4F6A3d91D76FBa7fc9F7144d7",
+    "pauser": "0x47c5E811856411D86eb1a6981ed73CB8fd656016"
+  },
+  "secrets": {
+    "admin": "BRLT_ADMIN_KEY",
+    "minter": "BRLT_MINTER_KEY",
+    "pauser": "BRLT_PAUSER_KEY",
+    "project": "mcc-ecommerce"
+  },
+  "deploymentArtifact": "sc/deployments/31337-1793828678-barlo.json",
+  "note": "Solo DEV (Anvil GCP). Las claves viven en Secret Manager; este archivo solo contiene direcciones publicas."
+}

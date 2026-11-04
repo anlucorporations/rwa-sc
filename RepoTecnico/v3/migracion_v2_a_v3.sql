@@ -21,6 +21,25 @@
 \set ON_ERROR_STOP on
 \timing on
 
+-- -----------------------------------------------------------------------------
+-- §2-bis. Compatibilidad de la BD de origen y evolución del enum de sesiones.
+-- IMPORTANTE: PostgreSQL no permite USAR una etiqueta de enum añadida en la misma
+-- transacción, por eso estos ALTER se ejecutan (y confirman) ANTES del BEGIN.
+-- -----------------------------------------------------------------------------
+DO $$
+BEGIN
+    IF to_regclass('rwa.claim_requests') IS NULL THEN
+        RAISE EXCEPTION 'No existe rwa.claim_requests: la BD no es v2. Usa base_datos.sql en una BD nueva.';
+    END IF;
+END
+$$;
+
+ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'visitor';
+ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'operator';
+ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'auditor';
+ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'arbiter';
+ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'support';
+
 BEGIN;
 
 -- -----------------------------------------------------------------------------
@@ -72,15 +91,6 @@ $$;
 
 ALTER SEQUENCE IF EXISTS rwa.audit_log_id_seq   RENAME TO audit_log_id_seq_v2;
 ALTER SEQUENCE IF EXISTS rwa.chain_events_id_seq RENAME TO chain_events_id_seq_v2;
-
--- -----------------------------------------------------------------------------
--- §2. Evolucionar el enum de sesiones (v3 añade visitor y operator)
--- -----------------------------------------------------------------------------
-ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'visitor';
-ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'operator';
-ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'auditor';
-ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'arbiter';
-ALTER TYPE rwa.session_role ADD VALUE IF NOT EXISTS 'support';
 
 -- -----------------------------------------------------------------------------
 -- §3. Crear el esquema v3 canónico (nuevas tablas, enums, índices, triggers, semillas)
