@@ -36,7 +36,7 @@
 | `AUDITORIA_DOCUMENTO_TECNICO.md` | ✅ v3.2 | Auditoría del documento técnico: **SÍ CON CORRECCIONES** (1 ALTA, 3 MEDIAS, 3 BAJAS → corregidas) |
 | `plan_desarrollo.md` | ✅ v3.2 | **Fase 3**: 7 ciclos C0–C6 con tareas, gates, DoD y calendario (~17–18 semanas) |
 | `pruebas/c0_2026-11-04.md` | ✅ C0 | Acta C0: BRLT desplegado, claves dedicadas, migración real en CI, gate anti-Anvil y provisión GCP |
-| `pruebas/c1_2026-11-04.md` | 🟡 C1 | Acta C1 parcial: shell Metaplace (5 rutas) + paquete `wallet-messages` (8 procesos, 8/8 tests) |
+| `pruebas/c1_2026-11-04.md` | 🟡 C1 | Acta C1 parcial: shell Metaplace (10 rutas), mensajes (8/8), **SIWE + identidad E2E 9/9** |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
@@ -207,16 +207,19 @@ cada uno tiene su gate y evidencia exigida en C0–C6.
 **C0 = 6/8 gates.** Solección pendiente: jobs cloud (imagen) y auditoría externa de contratos.
 Detalle: `pruebas/c0_2026-11-04.md`.
 
-### C1 en curso (2/6 tareas)
+### C1 en curso (4/6 tareas)
 
 | Entregable | Estado |
 |---|---|
 | `packages/wallet-messages` (8 procesos × es/en, umbrales RNF-V3-04) | ✅ tests 8/8, typecheck OK |
-| `apps/metaplace` shell (portada, catálogo, login, `/api/health`) | ✅ build Next.js con 5 rutas |
-| Auth SIWE + sesión | 🔴 siguiente |
-| Alta de identidad + capa de datos (`identities`, `sessions`) | 🔴 siguiente |
+| `apps/metaplace` shell (portada, catálogo, login, identidad, `/api/health`) | ✅ build Next.js con 10 rutas |
+| Auth SIWE + sesión (`/api/auth/*`, cookie HMAC) | ✅ **E2E 9/9** (nonce→firma→sesión→logout) |
+| Alta de identidad (`/api/identity`, `/identidad`, seudónimo) | ✅ **E2E 9/9** (idempotente, 401 sin sesión) |
 | KYC (upload cifrado), cola del Operador y emisión SOCIO | 🔴 siguiente |
 | Wizard de 4 pasos + E2E alta KYC→SOCIO | 🔴 siguiente |
+
+> Regresión: `@rwa/shared` **55/55**, `wallet-messages` **8/8**, typechecks OK. Evidencia BD del E2E:
+> `identities=1`, `sessions=1`, `revocadas=1`.
 
 Detalle: `pruebas/c1_2026-11-04.md`.
 
