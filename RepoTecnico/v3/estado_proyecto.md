@@ -1,6 +1,6 @@
 # Estado del Proyecto — RWA v3 «Barlo Metaplace»
 
-> **Última actualización:** 2026-11-04 · **Fase actual:** 3 (Desarrollo) — **C0 6/8** · **C1 ✅ cerrada** · siguiente C2
+> **Última actualización:** 2026-11-04 · **Fase actual:** 3 (Desarrollo) — **C0 6/8 · C1 ✅ · C2 ✅** · siguiente C3
 > **Estado de la Fase 1:** ✅ **CERRADA COMO BASELINE DE DISEÑO** (decisión **Q14a**, 2026-11-04).
 > Implementación y operación se controlan con los gates de **C0–C6** (Fase 3).
 > **Carpeta de reportes:** `RWA/RepoTecnico/` (v3) · **Documentación v2:** `rwa-sc/RepoTecnico/` y `rwa-web/RepoTecnico/`
@@ -37,6 +37,7 @@
 | `plan_desarrollo.md` | ✅ v3.2 | **Fase 3**: 7 ciclos C0–C6 con tareas, gates, DoD y calendario (~17–18 semanas) |
 | `pruebas/c0_2026-11-04.md` | ✅ C0 | Acta C0: BRLT desplegado, claves dedicadas, migración real en CI, gate anti-Anvil y provisión GCP |
 | `pruebas/c1_2026-11-04.md` | ✅ C1 | Acta C1 cerrada: shell, mensajes, SIWE+identidad (9/9), KYC (16/16) y **wizard + KYC→SOCIO (15/15)** |
+| `pruebas/c2_2026-11-04.md` | ✅ C2 | Acta C2: ISSUER CRUD, RBAC (matriz 25/25) y Panel Sistema |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
@@ -220,12 +221,25 @@ Detalle: `pruebas/c0_2026-11-04.md`.
 
 > Regresión: `@rwa/shared` **55/55**, `wallet-messages` **8/8**, build + typecheck OK.
 
-### Siguiente: C2 — ISSUER configurable y RBAC
+### C2 ✅ cerrada (2026-11-04)
 
-1. CRUD de ISSUER (programas + requisitos + claims) desde UI/API (CU-08).
-2. `role_assignments`: API de concesión/revocación + matriz 9 roles × 12 capacidades en verde.
-3. Consentimiento de fianza con firma EIP-712 legible (`guarantee.consent`, CU-07).
-4. Panel Sistema v1 (salud, colas, jobs) (CU-17).
+| Entregable | Estado |
+|---|---|
+| ISSUER configurable (CRUD + requisitos + claims) con UI | ✅ E2E: crear/activar/desactivar, slug duplicado 409 |
+| RBAC: API de concesión/revocación con efecto inmediato | ✅ E2E: 403 por rol, concesión→200, revocación→403 |
+| Matriz de autorización (Admin/Operador/Emisor/Auditor/Soporte) | ✅ **25/25 PASS** |
+| Panel Sistema v1 (DB, colas, indexer, auditoría) | ✅ `/emisor/sistema` + `GET /api/system` |
+
+> Decisión **D-V3-27**: el consentimiento de fianza (CU-07) se implementa en C3 junto a la
+> tokenización y `token_guarantees`.
+
+### Siguiente: C3 — Tokenización
+
+1. `AssetNFT721`, `AssetERC1155`, `AssetFactory` + metadata (hash/URI).
+2. `AssetComplianceHook` (`_update`/`beforeTokenTransfer` + `isVerified`).
+3. Flujos de tokenización de producto, servicio y bien (CU-12/13/14).
+4. Garantía + Fiador como precondición on-chain (incluye consentimiento CU-07).
+5. Catálogo público + detalle (CU-01) y consumo de servicio (CU-25).
 
 Detalle: `pruebas/c1_2026-11-04.md`.
 

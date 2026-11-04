@@ -25,6 +25,8 @@
   diferida, exportación de auditoría solo metadatos, Q14a ratificada, threat model/rate limiting
   exigibles antes de piloto, firma EIP-712 de fianza legible, dueño nominal por componente,
   servicios=ERC-721 / productos=ERC-1155 / bienes=ERC-721, RF-26 y RF-28 transversales sin CU.
+- **D-V3-27 (alcance):** el consentimiento de fianza (CU-07) se implementa en **C3** junto con la
+  tokenización y `token_guarantees` (requiere claim FIADOR aprobado y token existente); se retira de C2.
 
 ---
 
