@@ -423,6 +423,10 @@ Cada ciclo es una entrega **100 % operativa y verificable** (regla de la Fase 3)
 
 ## 11. Próximos pasos
 
+> **Nota Q14a (2026-11-04):** la Fase 1 se cerró como **baseline de diseño verificada**; los criterios
+> de implementación (compliance on-chain, operación ejecutada, E2E, restore drill, DPIA) son **gates de
+> C0–C6** y no bloquean el inicio de la Fase 2 (casos de uso + documento técnico).
+
 1. ~~Bloque 1 (Q1–Q3)~~ ✅ · ~~Bloque 2 (Q4–Q6)~~ ✅ · ~~Bloque 3 (Q7–Q10)~~ ✅ — 2026-10-31.
 2. ~~Artefactos de datos sincronizados~~ ✅ (27/27 tablas y 0 discrepancias de columnas).
 3. **La Fase 1 sigue en corrección** (re-auditoría v3.2: veredicto **NO**): corregir F-01…F-10 y

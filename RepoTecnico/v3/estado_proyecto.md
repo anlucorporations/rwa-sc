@@ -1,7 +1,8 @@
 # Estado del Proyecto — RWA v3 «Barlo Metaplace»
 
-> **Última actualización:** 2026-11-04 · **Fase actual:** 2 (Auditoría)
-> **Estado de la Fase 1:** 🔴 **EN CORRECCIÓN — NO cerrada** (re-auditoría final v3.2: **NO**, 2/11/1 en la compuerta).
+> **Última actualización:** 2026-11-04 · **Fase actual:** 2 (Casos de uso + documento técnico)
+> **Estado de la Fase 1:** ✅ **CERRADA COMO BASELINE DE DISEÑO** (decisión **Q14a**, 2026-11-04).
+> Implementación y operación se controlan con los gates de **C0–C6** (Fase 3).
 > **Carpeta de reportes:** `RWA/RepoTecnico/` (v3) · **Documentación v2:** `rwa-sc/RepoTecnico/` y `rwa-web/RepoTecnico/`
 
 ## 1. Resumen
@@ -13,7 +14,7 @@
 | Base heredada | RWA v2 desplegada en GCP (`mcc-ecommerce`, `europe-west1`): 3 apps + indexer + Anvil + Cloud SQL |
 | Respaldo de partida | `/home/dsh/workspace/backups/rwa-v2-backup-20261031T171645Z.zip` (105 MB, SHA-256 en el manifiesto) |
 | Esquema de datos | `rwa` **27 tablas** · versión de esquema **3.0** · revisión documental **v3.2** |
-| Compuerta de cierre | **0 CUMPLE / 11 PARCIAL / 3 NO CUMPLE** (re-auditoría 2026-11-02) → **no se pasa a Fase 2** |
+| Compuerta de cierre | **Baseline de diseño: CUMPLE** (Q14a) · implementación: gates C0–C6 |
 
 ## 2. Artefactos
 
@@ -28,6 +29,8 @@
 | `entornos_globales.md` | ✅ v3.1 | Rutas, repos, GCP, BD, variables, toolchain y deuda operativa |
 | `verificar_artefactos.py` | ✅ | Script de CI: SQL, cuadre tablas/columnas, Mermaid, versión, recuentos |
 | `diseno_cierre_v3_2.md` | ✅ | Diseño B3 (escrow), B5 (RBAC), B6 (compliance), B7 (retención), B8 (operación) y B9 (RNF) |
+| `casos_uso.md` | ✅ v3.2 | **29 casos de uso** Gherkin/EARS con trazabilidad a RF-V3 |
+| `casos_uso/diagramas_casos_uso.md` | ✅ v3.2 | Diagrama de casos de uso + 6 secuencias + estados (Mermaid) |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
@@ -63,6 +66,7 @@
 | D-V3-13 | **Q11:** Emisor = **rol de plataforma** acotado, persistido por claim | ✅ |
 | D-V3-14 | **Q12:** escrow **completo** (reserva con TTL, atomicidad, disputa con árbitro) | ✅ |
 | D-V3-15 | **Q13:** **demo/piloto sin activos reales** + gate legal previo a valor real | ✅ |
+| D-V3-16 | **Q14a:** la compuerta de Fase 1 se redefine como **baseline de diseño verificada**; los criterios que dependen de implementación (C7 compliance on-chain, C13 operación ejecutada, C14 ejecución completa) pasan a **gates de C0–C6** | ✅ Aprobada |
 
 ## 4. Auditoría 1 (`INFORME_OPTIMIZACION_V3.md`, 2026-11-02)
 
@@ -129,6 +133,29 @@
 > **F-08** (verificador sintético en claims migrados) y **N-08** quedan como limitación documentada de
 > la migración (no como dato verificado nativo); se resolverán reverificando en C0.
 
+## 6.2 Cierre de la Fase 1 como baseline de diseño (Q14a, 2026-11-04)
+
+La re-auditoría final (`INFORME_CIERRE_V3_2.md`) mostró que la compuerta de 14 criterios **mezcla diseño
+con implementación**. Con la decisión **Q14a** del sponsor:
+
+| Ámbito | Criterios | Estado |
+|---|---|---|
+| **Diseño/documentación verificada (Fase 1)** | C1, C2, C3 (diseño), C4, C5 (diseño+DDL), C6, C8, C9 (DDL), C10 (modelo), C11, C12 | ✅ **CUMPLE como baseline** (con las correcciones F-01…F-10) |
+| **Implementación (Fase 3)** | C7 (contratos/hook on-chain), C13 (operación ejecutada), C14 (ejecución completa: E2E, restore drill, DPIA, alertas) | 🔒 **Gates de C0–C6** (ver `diseno_cierre_v3_2.md` §0 y §7) |
+
+**Consecuencia:** la Fase 1 queda cerrada como **línea base de diseño** y se habilita la **Fase 2**
+(casos de uso + gráficos + documento técnico). Ningún entregable de implementación se declara hecho:
+cada uno tiene su gate y evidencia exigida en C0–C6.
+
+## 6.3 Fase 2 — Casos de uso (2026-11-04)
+
+- **`casos_uso.md`:** 29 CU (uno por objetivo de actor) con flujo principal, alternativos, criterios
+  Gherkin, restricciones EARS, tipo de prueba (E2E/API/DB/CONTRATO/JOB) y trazabilidad a RF-V3.
+- **Actores:** Visitante, Usuario, Fiador, Operador, Emisor, Admin, Auditor, Árbitro, Soporte y Sistema.
+- **`casos_uso/diagramas_casos_uso.md`:** diagrama de casos de uso (Mermaid), 6 diagramas de secuencia
+  (alta/claim, compra con escrow, tokenización, disputa, recuperación 4-eyes, jobs) y máquina de estados.
+- **Pendiente:** auditoría de los casos de uso y `documento_tecnico.md` (siguiente paso de la Fase 2).
+
 ## 7. Verificación posterior (ejecutada)
 
 | Comprobación | Resultado |
@@ -162,9 +189,10 @@
 
 ## 9. Próximos pasos
 
-1. ~~Ejecutar migración y smoke tests~~ ✅ · ~~Diseñar B3/B5/B6/B7/B8/B9~~ ✅ (`diseno_cierre_v3_2.md`).
-2. **Verificar en ejecución** los nuevos triggers/jobs (roles, máquina de estados de la orden, purga) en PostgreSQL.
-3. **Re-auditoría final** de compuerta; solo con 14/14 CUMPLE y 0 CRÍTICAS/0 ALTAS se pasa a casos de uso + documento técnico.
+- **Fase 1:** ✅ cerrada como baseline de diseño (Q14a).
+- **Fase 2 (en curso):** casos de uso Gherkin/EARS + gráficos + documento técnico.
+- **Fase 3:** plan de ciclos C0–C6; cada ciclo cierra los gates de implementación (contratos, jobs, E2E,
+  RBAC API, restore drill, DPIA, observabilidad).
 
 ## 10. Estado heredado de la v2 (referencia)
 
