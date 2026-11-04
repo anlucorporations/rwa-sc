@@ -1,6 +1,6 @@
 # Entornos globales — RWA v3 «Barlo Metaplace»
 
-> **Versión:** v3.2 · **Fecha:** 2026-11-04 · **Fase:** 1 **en corrección** (re-auditoría v3.2: NO cerrada)
+> **Versión:** v3.2 · **Fecha:** 2026-11-04 · **Fase:** 1 **CERRADA como baseline de diseño** (Q14a); implementación en gates C0–C6
 > **Alcance:** rutas, repositorios, GCP, redes, BD, cuentas, toolchain, variables y comandos.
 > **Regla:** ningún secreto en este documento ni en el repositorio. Claves en Secret Manager
 > (`truekeate-main`) o en `.env` ignorado.

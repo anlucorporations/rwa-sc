@@ -1,7 +1,7 @@
 # Requerimientos — Proyecto RWA v3 «Barlo Metaplace»
 
 > **Fuente:** `RepoTecnico/BRIEF_BARLOBLOKCHAIN_v3.md` (v3, sin fecha; 32 líneas) + arquitectura heredada de la v2.
-> **Versión:** v3.2 · **Fecha:** 2026-11-04 · **Fase:** 1 (Concepto) **en corrección** (re-auditoría v3.2: NO cerrada).
+> **Versión:** v3.2 · **Fecha:** 2026-11-04 · **Fase:** 1 (Concepto) **CERRADA como baseline de diseño** (Q14a); implementación en gates C0–C6.
 > **Estado:** especificación corregida tras las auditorías (`INFORME_OPTIMIZACION_V3`, `INFORME_CIERRE_V3_1`, `INFORME_CIERRE_V3_2`).
 > Los supuestos S-1…S-14 están resueltos o aceptados explícitamente (S-14 en :139).
 > **Trazabilidad:** cada requerimiento enlaza la sección del brief (`[objetivo]`, `[contexto]`,
@@ -101,6 +101,7 @@ efectivo (AML/PSD2/MiCA), custodia de dinero FIAT.
 | **RNF-V3-12** | Cumplimiento y protección de datos | Base legal y consentimiento registrados por identidad; derechos del titular (acceso, rectificación, supresión, portabilidad) con **SLA ≤ 30 días** trazado en `audit_log`; DPIA antes de C1; inventario de encargados; retención probada por categoría; opinión legal por jurisdicción del piloto. **BRLT sin valor real** (Q13). |
 | **RNF-V3-13** | Observabilidad | 100 % de rutas y jobs instrumentados con `request_id`/traza; dashboards de latencia, errores y saturación; alertas con dueño y umbral (lag del indexer > 2 bloques, 5xx > 1 %, p95 fuera de SLO); retención de logs ≥ 90 días. |
 | **RNF-V3-14** | Recuperación | **RPO ≤ 15 min y RTO ≤ 4 h** con backup/PITR documentado y **ensayo de restauración**; copia versionada y plan de rotación de `KYC_ENCRYPTION_KEY`; RPC de respaldo con failover. |
+| **RNF-V3-15** | Seguridad (anti-abuso) | **Threat model STRIDE** documentado y revisado antes del piloto; **rate limiting** en auth y escrituras (p. ej. 10 req/min por wallet/IP), nonce SIWE de un solo uso y TTL máximo de sesión; alertas ante picos anómalos. |
 
 ---
 
@@ -110,7 +111,7 @@ efectivo (AML/PSD2/MiCA), custodia de dinero FIAT.
 |---|---|
 | **RT-V3-01** | Reutilizar el stack de la v2: monorepo pnpm (`apps/*`, `packages/*`), Next 16 + React 19 + TypeScript strict + Tailwind 4, `wagmi` + `viem`, `zod`, TanStack Query. |
 | **RT-V3-02** | Contratos: Solidity 0.8.20, OpenZeppelin 5.5.0 (+ upgradeable), Foundry; EIP-712 para claims y para toda firma mostrada en billetera. |
-| **RT-V3-03** | Nuevo estándar de activos: **ERC-721** para bienes/servicios NFT y **ERC-1155** para productos/servicios por cantidad (a confirmar en Fase 2); **ERC-20** con 8 decimales para BRLT. |
+| **RT-V3-03** | Nuevo estándar de activos (decisión Fase 2): **ERC-721** para bienes (único) y **servicios** (quemable), **ERC-1155** para productos/lotes por cantidad; **ERC-20** con 8 decimales para BRLT. |
 | **RT-V3-04** | Off-chain: PostgreSQL **Cloud SQL** `truekeate-main:southamerica-east1:truekeate-db-dev`, esquema `rwa` (evolucionar a v3 con migraciones versionadas). |
 | **RT-V3-05** | On-chain: **Anvil de GCP** (chain 31337) como red canónica de desarrollo; direcciones desde artefacto versionado `sc/deployments/*.json` y gate anti-deriva. |
 | **RT-V3-06** | Despliegue: Cloud Run + Cloud Run Jobs + Cloud Scheduler en proyecto `mcc-ecommerce`, región `europe-west1`; Secret Manager; pipeline `deploy_gcp.sh`. |

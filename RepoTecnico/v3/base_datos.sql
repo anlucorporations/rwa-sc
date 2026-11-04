@@ -1466,7 +1466,13 @@ INSERT INTO rwa.wallet_messages (process_key, locale, title, template, variables
      '["servicio"]'::jsonb, 1),
     ('identity.recovery', 'en', 'Recover your identity',
      'You are requesting identity recovery. An administrator will review your case and contact you.',
-     '[]'::jsonb, 1)
+     '[]'::jsonb, 1),
+    ('guarantee.consent', 'es', 'Respaldar un activo',
+     'Vas a aceptar respaldar {activo} como fiador. Podrás revocar el respaldo antes de la venta.',
+     '["activo"]'::jsonb, 1),
+    ('guarantee.consent', 'en', 'Back an asset',
+     'You are accepting to back {activo} as guarantor. You can revoke it before the sale.',
+     '["activo"]'::jsonb, 1)
 ON CONFLICT (process_key, locale, version) DO NOTHING;
 
 -- B5: cuentas semilla por rol (SOLO DEV; rotar en C0, H-11)

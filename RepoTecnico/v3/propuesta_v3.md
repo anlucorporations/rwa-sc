@@ -429,10 +429,10 @@ Cada ciclo es una entrega **100 % operativa y verificable** (regla de la Fase 3)
 
 1. ~~Bloque 1 (Q1–Q3)~~ ✅ · ~~Bloque 2 (Q4–Q6)~~ ✅ · ~~Bloque 3 (Q7–Q10)~~ ✅ — 2026-10-31.
 2. ~~Artefactos de datos sincronizados~~ ✅ (27/27 tablas y 0 discrepancias de columnas).
-3. **La Fase 1 sigue en corrección** (re-auditoría v3.2: veredicto **NO**): corregir F-01…F-10 y
-   ejecutar la implementación de B3–B8 (contratos v3, jobs cloud, E2E, RBAC, restore drill, DPIA).
-4. Re-auditoría de compuerta; solo con 14/14 CUMPLE y 0 CRÍTICAS/0 ALTAS se pasa a Fase 2
-   (casos de uso Gherkin/EARS + documento técnico + gráficos).
+3. **Fase 1 CERRADA como baseline de diseño** (Q14a, 2026-11-04): la implementación de B3–B8 se
+   controla con gates de C0–C6 (contratos v3, jobs cloud, E2E, RBAC, restore drill, DPIA) —
+   *paso histórico: la re-auditoría v3.2 dio NO para la compuerta estricta de implementación*.
+4. **Fase 2 en curso:** casos de uso Gherkin/EARS, gráficos y documento técnico (ya generados y auditados).
 5. Fase 3: aprobar el plan de ciclos (C0–C6) y arrancar **C0** (`BarloToken` 8 dec + migraciones).
 
 ---

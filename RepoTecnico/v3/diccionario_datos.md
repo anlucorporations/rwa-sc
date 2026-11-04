@@ -65,7 +65,7 @@ Configuración única (singleton).
 | Columna | Tipo | Nulo | Default | Clave | Descripción |
 |---|---|---|---|---|---|
 | `id` | `uuid` | no | `gen_random_uuid()` | PK | Identificador |
-| `process_key` | `text` | no | — | UK* | Proceso: `identity.create`, `claim.request`, `claim.issue`, `asset.tokenize`, `order.buy`, `service.consume`, `identity.recovery` |
+| `process_key` | `text` | no | — | UK* | Proceso (**8**): `identity.create`, `claim.request`, `claim.issue`, `asset.tokenize`, `order.buy`, `service.consume`, `identity.recovery`, `guarantee.consent` |
 | `locale` | `text` | no | `'es'` | UK* | Idioma (`es`, `en`) |
 | `title` | `text` | no | — | — | Título corto mostrado en la billetera |
 | `template` | `text` | no | — | — | Texto con variables `{…}` |

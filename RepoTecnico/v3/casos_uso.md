@@ -94,7 +94,7 @@ Escenario: catálogo público sin sesión
 Escenario: detalle de activo inexistente
   Dado que no existe el activo "abc"
   Cuando el visitante abre /activo/abc
-  Entonces recibe HTTP 404 con un mensaje comprensible y sin detalles internos
+  Entonces recibe HTTP 404 con `Content-Type: application/json`, un campo `error` de la lista cerrada, y el cuerpo no contiene stack traces, nombres de tabla ni rutas internas
 ```
 - **Restricciones (EARS):**
   - `El sistema deberá` devolver en el catálogo público **0 datos personales** (wallet, alias de identidad, documentos).
@@ -307,7 +307,7 @@ Escenario: requisito incompleto
 ```
 - **Restricciones (EARS):**
   - `Si` el rol `admin` no está vigente, `entonces` el sistema responderá 403 en todas las escrituras.
-- **Trazabilidad:** RF-V3-12, 18, 29 · RNF-V3-01.
+- **Trazabilidad:** RF-V3-04, RF-V3-12, RF-V3-18, RF-V3-29 · RNF-V3-01.
 - **Test:** API + E2E + matriz de autorización negativa.
 
 ---
@@ -337,7 +337,7 @@ Escenario: operador intenta aprobar
 ```
 - **Restricciones (EARS):**
   - `El sistema deberá` impedir que `verified_by_wallet` y `reviewed_by_wallet` sean la misma wallet.
-- **Trazabilidad:** RF-V3-13, 22 · RNF-V3-01, 02.
+- **Trazabilidad:** RF-V3-04, RF-V3-13, RF-V3-22 · RNF-V3-01, RNF-V3-02.
 - **Test:** API + E2E + DB (segregación).
 
 ---
@@ -368,7 +368,7 @@ Escenario: emisor de otro programa
 - **Restricciones (EARS):**
   - `El sistema deberá` verificar la firma EIP-712 y que el emisor esté en `TrustedIssuersRegistry`.
   - `Si` el claim ya fue aprobado para la misma identidad y tipo, `entonces` se rechaza un segundo.
-- **Trazabilidad:** RF-V3-07, 10, 24 · RNF-V3-03.
+- **Trazabilidad:** RF-V3-04, RF-V3-07, RF-V3-10, RF-V3-13, RF-V3-24, RF-V3-31 · RNF-V3-03.
 - **Test:** CONTRATO (Foundry) + API + DB.
 
 ---
@@ -499,7 +499,7 @@ Escenario: revocación inmediata
   Cuando el admin lo revoca
   Entonces la siguiente petición del usuario recibe 403
 ```
-- **Trazabilidad:** RF-V3-29, 27 · RNF-V3-03.
+- **Trazabilidad:** RF-V3-04, RF-V3-27, RF-V3-29 · RNF-V3-03.
 - **Test:** API + DB + E2E.
 
 ---
@@ -524,7 +524,7 @@ Escenario: comisión fuera de rango
   Cuando el admin intenta guardarlo
   Entonces el sistema responde 422 y no modifica la comisión
 ```
-- **Trazabilidad:** RF-V3-20, 25 · RNF-V3-01.
+- **Trazabilidad:** RF-V3-20 · RNF-V3-01.
 - **Test:** API + DB.
 
 ---
@@ -549,7 +549,7 @@ Escenario: auditor sin escritura
   Cuando intenta ejecutar una acción de administración
   Entonces recibe 403
 ```
-- **Trazabilidad:** RF-V3-23, 27 · RNF-V3-13.
+- **Trazabilidad:** RF-V3-04, RF-V3-23, RF-V3-27 · RNF-V3-13.
 - **Test:** E2E + API + matriz de autorización.
 
 ---
@@ -589,6 +589,11 @@ Escenario: incidencia crítica
   Dado un rol support autenticado
   Cuando registra una incidencia de categoría crítica
   Entonces se crea el caso con SLA de 24 h y se notifica al admin
+
+Escenario: usuario sin rol support
+  Dado un usuario autenticado sin rol support
+  Cuando intenta registrar una incidencia
+  Entonces el sistema responde 403
 ```
 - **Trazabilidad:** RF-V3-27 · RNF-V3-13.
 - **Test:** API.
@@ -616,7 +621,7 @@ Escenario: publicación de activo en borrador
   Cuando el usuario intenta publicarlo
   Entonces la base rechaza la operación
 ```
-- **Trazabilidad:** RF-V3-19, 25, 31 · RNF-V3-01.
+- **Trazabilidad:** RF-V3-05, RF-V3-19, RF-V3-25, RF-V3-31 · RNF-V3-01.
 - **Test:** CONTRATO + API + DB.
 
 ---
@@ -644,7 +649,7 @@ Escenario: doble compra concurrente
   Cuando ambos confirman
   Entonces solo 1 orden queda abierta y el segundo recibe 409
 ```
-- **Trazabilidad:** RF-V3-19, 20, 25 · RNF-V3-05.
+- **Trazabilidad:** RF-V3-19, RF-V3-20, RF-V3-25, RF-V3-31 · RNF-V3-05.
 - **Test:** CONTRATO + API + prueba de concurrencia.
 
 ---
@@ -713,6 +718,16 @@ Escenario: resolución a favor del comprador
   Cuando el árbitro resuelve a favor del comprador
   Entonces la orden pasa a refunded y el BRLT vuelve al comprador
   Y audit_log registra dispute.resolve
+
+Escenario: doble resolución
+  Dado una disputa ya resuelta
+  Cuando el árbitro intenta resolverla de nuevo
+  Entonces el sistema rechaza la operación
+
+Escenario: sin rol árbitro
+  Dado un usuario sin rol arbiter
+  Cuando intenta resolver una disputa
+  Entonces el sistema responde 403
 ```
 - **Trazabilidad:** RF-V3-25 · RNF-V3-03.
 - **Test:** CONTRATO + API + DB.
@@ -827,6 +842,11 @@ Escenario: pago sin transacción
   Dado un pago pending de más de 30 minutos sin tx_hash
   Cuando corre la conciliación
   Entonces el pago se marca failed y se alerta al admin
+
+Escenario: idempotencia del job
+  Dado un pago ya conciliado
+  Cuando corre la conciliación de nuevo
+  Entonces el pago no cambia de estado y no se duplica ninguna alerta
 ```
 - **Trazabilidad:** RF-V3-25 · RNF-V3-06, 13.
 - **Test:** JOB + DB.
@@ -837,7 +857,8 @@ Escenario: pago sin transacción
 
 | RF | Casos de uso |
 |---|---|
-| RF-V3-01, 02 | CU-01, CU-02 |
+| RF-V3-01 | CU-01, CU-02 |
+| RF-V3-02 | CU-01 |
 | RF-V3-03 | CU-03, CU-05 |
 | RF-V3-04 | CU-08, CU-09, CU-10, CU-15, CU-17 (suite ISSUER) |
 | RF-V3-05 | CU-01, CU-20 |
@@ -856,22 +877,22 @@ Escenario: pago sin transacción
 | RF-V3-18 | CU-08, CU-12 |
 | RF-V3-19 | CU-01, CU-20, CU-21, CU-22 |
 | RF-V3-20 | CU-16, CU-21 |
-| RF-V3-21 | (mensajes de firma, verificado en CU-02/04/07/10/21/22) |
+| RF-V3-21 | **transversal (no-CU)**: mensajes de firma verificados en CU-02/04/07/10/21/22 |
 | RF-V3-22 | CU-09 |
 | RF-V3-23 | CU-17, CU-28 |
 | RF-V3-24 | CU-10, CU-11 |
 | RF-V3-25 | CU-20…CU-24, CU-26, CU-29 |
 | RF-V3-26 | (migración: validada en acta v3.1, no es caso de uso) |
-| RF-V3-27 | CU-07, CU-15, CU-18, CU-19 |
+| RF-V3-27 | CU-06, CU-07, CU-15, CU-17, CU-18, CU-19 |
 | RF-V3-28 | (asistencia guiada: requisito transversal de CU-01…CU-04) |
-| RF-V3-29 | CU-15, CU-18 |
+| RF-V3-29 | CU-08, CU-15, CU-18 |
 | RF-V3-30 | CU-26, CU-27 |
 | RF-V3-31 | CU-10, CU-11, CU-12…CU-14, CU-20, CU-21 |
 
 ## 6. Criterios globales de cobertura y testeabilidad
 
 1. **Cobertura de actores:** 100 % de los actores de §1 tienen ≥ 1 CU con criterio testeable.
-2. **Cobertura de RF:** 100 % de los RF-V3-01…31 aparecen en §5 (RF-26 y RF-28 se marcan como no-CU justificados).
+2. **Cobertura de RF:** 100 % de los RF-V3-01…31 aparecen en §5; **RF-V3-21, RF-V3-26 y RF-V3-28** son los tres RF sin CU propio (transversales/migración justificados).
 3. **Testeabilidad:** cada CU declara su tipo de prueba (`E2E/API/DB/CONTRATO/JOB`) y un criterio con números concretos.
 4. **Gherkin/EARS:** criterios de comportamiento en Gherkin; restricciones de sistema en EARS; ninguno sin posibilidad de test.
 5. **Trazabilidad:** cero criterios sin RF de origen; cero RF sin CU o justificación.

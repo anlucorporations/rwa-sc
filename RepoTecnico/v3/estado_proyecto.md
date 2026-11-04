@@ -13,14 +13,14 @@
 | Entrada | `RepoTecnico/BRIEF_BARLOBLOKCHAIN_v3.md` (32 líneas) |
 | Base heredada | RWA v2 desplegada en GCP (`mcc-ecommerce`, `europe-west1`): 3 apps + indexer + Anvil + Cloud SQL |
 | Respaldo de partida | `/home/dsh/workspace/backups/rwa-v2-backup-20261031T171645Z.zip` (105 MB, SHA-256 en el manifiesto) |
-| Esquema de datos | `rwa` **27 tablas** · versión de esquema **3.0** · revisión documental **v3.2** |
+| Esquema de datos | `rwa` **27 tablas** · esquema **3.0** · revisión documental **v3.2** · 31 RF / 15 RNF |
 | Compuerta de cierre | **Baseline de diseño: CUMPLE** (Q14a) · implementación: gates C0–C6 |
 
 ## 2. Artefactos
 
 | Artefacto | Estado | Contenido |
 |---|---|---|
-| `requerimientos.md` | ✅ v3.2 | **31 RF · 14 RNF · 8 RT**; supuestos **S-1…S-14** |
+| `requerimientos.md` | ✅ v3.2 | **31 RF · 15 RNF · 8 RT**; supuestos **S-1…S-14** |
 | `propuesta_v3.md` | ✅ v3.1 | Lectura del brief, brechas v2, arquitectura, 7 ciclos, riesgos |
 | `diccionario_datos.md` | ✅ v3.2 | 27 tablas, tipos, claves, reglas de integridad |
 | `diagrama_er.md` | ✅ v3.2 | Mermaid, 5 bloques, 27/27 entidades |
@@ -166,7 +166,7 @@ cada uno tiene su gate y evidencia exigida en C0–C6.
 | Tablas y columnas | ✅ 27/27 tablas y 0 discrepancias de columnas |
 | Mermaid | ✅ 5 bloques, 0 errores |
 | Versión operativa | ✅ única (`3.0`) |
-| Requisitos | ✅ 31 RF · 14 RNF · 8 RT · S-1…S-14 |
+| Requisitos | ✅ 31 RF · 15 RNF · 8 RT · S-1…S-14 |
 
 ## 8. Compuerta de re-cierre (B1–B12) — estado real
 
@@ -185,7 +185,7 @@ cada uno tiene su gate y evidencia exigida en C0–C6.
 | **B11** | Trazabilidad automatizada y script en CI | 🟢 **HECHO (2026-11-04)** | Script valida §6 y coherencia; job `artefactos-v3` en `.gitlab-ci.yml` (pipeline pendiente de ejecutar en remoto) |
 | **B12** | 14/14 criterios CUMPLE, 0 CRÍTICAS y 0 ALTAS | 🔴 **no cumplido** | Requiere cerrar B1–B9 y re-auditar |
 
-**Conclusión:** la corrección eliminó los 2 defectos nuevos críticos; **B1 y B2 ya están verificados por ejecución real** (migración + 16 smoke tests). La compuerta **aún no está superada**: quedan B3 (escrow), B5 (RBAC), B6 (compliance on-chain), B8 (operación) y los parciales B7/B9. La Fase 1 sigue **en corrección**.
+**Conclusión:** la corrección eliminó los 2 defectos nuevos críticos y **B1/B2 están verificados por ejecución real**. La compuerta de diseño se cerró como **baseline (Q14a)**; lo que resta (B3–B8) son **gates de implementación de C0–C6**, no bloqueos de la Fase 1. *Sección histórica: describe el estado previo a Q14a.*
 
 ## 9. Próximos pasos
 

@@ -144,7 +144,10 @@ for fname in ("requerimientos.md", "propuesta_v3.md", "diccionario_datos.md",
               "diagrama_er.md", "entornos_globales.md", "estado_proyecto.md"):
     text = (ROOT / fname).read_text(encoding="utf-8")
     for pattern, reason in STATE_CHECKS:
-        if re.search(pattern, text):
+        for m in re.finditer(pattern, text):
+            ctx = text[max(0, m.start() - 100):m.end() + 100]
+            if "baseline" in ctx or "Q14a" in ctx:
+                continue  # cierre como baseline es el estado vigente (Q14a)
             state_fail.append(f"{fname}: {reason}")
 check("Estado y cifras coherentes", not state_fail, "; ".join(state_fail))
 
@@ -156,6 +159,48 @@ sec6_ids = set(re.findall(r"RF-V3-(\d+)", sec6))
 missing = sorted(rf_ids - sec6_ids, key=int)
 check("Trazabilidad: todo RF aparece en §6", not missing, ("faltan RF-V3-" + ", ".join(missing)) if missing else "0 RF sin trazar")
 check("Trazabilidad: sin citas a secciones inexistentes", "§4.3 del brief" not in req_text, "cita '§4.3 del brief'")
+
+# ---------------------------------------------------------------- 8) estado único de Fase 1
+STATE_FORBIDDEN = [
+    (r"Fase 1\s+en correcci[oó]n", "estado contradictorio: 'Fase 1 en corrección'"),
+    (r"sigue en correcci[oó]n", "estado contradictorio: 'sigue en corrección'"),
+    (r"Fase 1[^\n]{0,30}NO cerrada", "estado contradictorio: 'Fase 1 NO cerrada'"),
+]
+state_bad = []
+for fname in ("requerimientos.md", "propuesta_v3.md", "diccionario_datos.md",
+              "diagrama_er.md", "entornos_globales.md", "estado_proyecto.md",
+              "documento_tecnico.md"):
+    f = ROOT / fname
+    if not f.exists():
+        continue
+    text = f.read_text(encoding="utf-8")
+    for pattern, reason in STATE_FORBIDDEN:
+        if re.search(pattern, text):
+            state_bad.append(f"{fname}: {reason}")
+check("Estado único de Fase 1 (baseline Q14a)", not state_bad, "; ".join(state_bad))
+
+# ---------------------------------------------------------------- 9) documento técnico
+doc_tec_path = ROOT / "documento_tecnico.md"
+if doc_tec_path.exists():
+    doc_tec = doc_tec_path.read_text(encoding="utf-8")
+    sec9 = doc_tec.split("## 9. Trazabilidad")[1].split("## 10.")[0] if "## 9. Trazabilidad" in doc_tec else ""
+    rf_in_sec9 = set(re.findall(r"RF-V3-(\d+)", sec9))
+    missing9 = sorted(set(re.findall(r"\*\*RF-V3-(\d+)\*\*", req_text)) - rf_in_sec9, key=int)
+    check("Doc técnico: todo RF en §9", not missing9, ("faltan RF-V3-" + ", ".join(missing9)) if missing9 else "31/31 RF")
+    check("Doc técnico: componentes con ciclo y dueño", "| Ciclo | Dueño |" in doc_tec and
+          bool(re.search(r"\| Contrato \| Red \| Responsabilidad \| Ciclo \| Dueño \|", doc_tec)),
+          "columnas Ciclo/Dueño presentes en §3.3 y §4")
+
+# ---------------------------------------------------------------- 10) mensajes de firma
+sql_now = (ROOT / "base_datos.sql").read_text(encoding="utf-8")
+msg_keys = set(re.findall(r"\('([a-z_]+\.[a-z_]+)',\s*'(?:es|en)'", sql_now))
+expected_keys = {"identity.create", "claim.request", "claim.issue", "asset.tokenize",
+                 "order.buy", "service.consume", "identity.recovery", "guarantee.consent"}
+check("wallet_messages: 8 procesos alineados", msg_keys == expected_keys,
+      f"faltan: {sorted(expected_keys - msg_keys)} · sobran: {sorted(msg_keys - expected_keys)}")
+check("wallet_messages: es/en completos",
+      all(f"'{k}', 'es'" in sql_now and f"'{k}', 'en'" in sql_now for k in expected_keys),
+      "cada proceso tiene es y en")
 
 # ---------------------------------------------------------------- resumen
 print()
