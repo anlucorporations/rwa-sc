@@ -1,6 +1,6 @@
 # Estado del Proyecto — RWA v3 «Barlo Metaplace»
 
-> **Última actualización:** 2026-11-04 · **Fase actual:** 3 (Desarrollo) — **C0 6/8** · **C1 en curso** · Fases 1–2 ✅ cerradas
+> **Última actualización:** 2026-11-04 · **Fase actual:** 3 (Desarrollo) — **C0 6/8** · **C1 ✅ cerrada** · siguiente C2
 > **Estado de la Fase 1:** ✅ **CERRADA COMO BASELINE DE DISEÑO** (decisión **Q14a**, 2026-11-04).
 > Implementación y operación se controlan con los gates de **C0–C6** (Fase 3).
 > **Carpeta de reportes:** `RWA/RepoTecnico/` (v3) · **Documentación v2:** `rwa-sc/RepoTecnico/` y `rwa-web/RepoTecnico/`
@@ -36,7 +36,7 @@
 | `AUDITORIA_DOCUMENTO_TECNICO.md` | ✅ v3.2 | Auditoría del documento técnico: **SÍ CON CORRECCIONES** (1 ALTA, 3 MEDIAS, 3 BAJAS → corregidas) |
 | `plan_desarrollo.md` | ✅ v3.2 | **Fase 3**: 7 ciclos C0–C6 con tareas, gates, DoD y calendario (~17–18 semanas) |
 | `pruebas/c0_2026-11-04.md` | ✅ C0 | Acta C0: BRLT desplegado, claves dedicadas, migración real en CI, gate anti-Anvil y provisión GCP |
-| `pruebas/c1_2026-11-04.md` | 🟡 C1 | Acta C1 (5/6): shell, mensajes, SIWE+identidad (9/9) y **KYC+Operador+emisión (16/16)** |
+| `pruebas/c1_2026-11-04.md` | ✅ C1 | Acta C1 cerrada: shell, mensajes, SIWE+identidad (9/9), KYC (16/16) y **wizard + KYC→SOCIO (15/15)** |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
@@ -207,17 +207,25 @@ cada uno tiene su gate y evidencia exigida en C0–C6.
 **C0 = 6/8 gates.** Solección pendiente: jobs cloud (imagen) y auditoría externa de contratos.
 Detalle: `pruebas/c0_2026-11-04.md`.
 
-### C1 en curso (5/6 tareas)
+### C1 ✅ cerrada (6/6 tareas)
 
 | Entregable | Estado |
 |---|---|
-| `packages/wallet-messages` (8 procesos × es/en, umbrales RNF-V3-04) | ✅ tests 8/8, typecheck OK |
-| `apps/metaplace` shell (identidad, claims, emisor, catálogo, login) | ✅ build Next.js **17 rutas** |
+| `packages/wallet-messages` (8 procesos × es/en, umbrales RNF-V3-04) | ✅ tests 8/8 |
+| `apps/metaplace` shell (identidad, wizard, claims, emisor, catálogo, login) | ✅ build Next.js **20 rutas** |
 | Auth SIWE + sesión + alta de identidad | ✅ **E2E 9/9** |
-| KYC (upload cifrado) + cola del Operador + emisión firmada EIP-712 | ✅ **E2E 16/16** (403 por rol, roundtrip de cifrado) |
-| Wizard de 4 pasos + E2E alta completa KYC→SOCIO | 🔴 siguiente |
+| KYC cifrado + cola del Operador + emisión EIP-712 | ✅ **E2E 16/16** |
+| Wizard 4 pasos + gate SOCIO (`/api/access`) + requisitos de ISSUER | ✅ implementado |
+| **E2E completo KYC→SOCIO + rechazo/retención Q10** | ✅ **15/15** (`claims=3`, `docs=6`, retención=2, SOCIO=1) |
 
-> Regresión: `@rwa/shared` **55/55**, `wallet-messages` **8/8**, `metaplace` build + typecheck OK.
+> Regresión: `@rwa/shared` **55/55**, `wallet-messages` **8/8**, build + typecheck OK.
+
+### Siguiente: C2 — ISSUER configurable y RBAC
+
+1. CRUD de ISSUER (programas + requisitos + claims) desde UI/API (CU-08).
+2. `role_assignments`: API de concesión/revocación + matriz 9 roles × 12 capacidades en verde.
+3. Consentimiento de fianza con firma EIP-712 legible (`guarantee.consent`, CU-07).
+4. Panel Sistema v1 (salud, colas, jobs) (CU-17).
 
 Detalle: `pruebas/c1_2026-11-04.md`.
 
