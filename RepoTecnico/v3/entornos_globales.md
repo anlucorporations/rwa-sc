@@ -1,6 +1,6 @@
 # Entornos globales — RWA v3 «Barlo Metaplace»
 
-> **Versión:** v3.1 · **Fecha:** 2026-10-31 · **Fase:** 1 cerrada con correcciones de auditoría
+> **Versión:** v3.2 · **Fecha:** 2026-11-04 · **Fase:** 1 **en corrección** (re-auditoría v3.2: NO cerrada)
 > **Alcance:** rutas, repositorios, GCP, redes, BD, cuentas, toolchain, variables y comandos.
 > **Regla:** ningún secreto en este documento ni en el repositorio. Claves en Secret Manager
 > (`truekeate-main`) o en `.env` ignorado.
@@ -82,7 +82,7 @@ La v3 se despliega como nuevas revisiones de los servicios y del job.
 
 ## 5. Base de datos off-chain
 
-- Esquema **`rwa`** en PostgreSQL 15 (Cloud SQL). **26 tablas** en v3.0 (ver `base_datos.sql`).
+- Esquema **`rwa`** en PostgreSQL 15 (Cloud SQL). **27 tablas** en v3.2 (ver `base_datos.sql`).
 - **Convención de versión única: `3.0`** (`schema_migrations`); no existe versión intermedia.
 - Artefactos sincronizados: `diccionario_datos.md`, `diagrama_er.md`, `base_datos.sql`.
 - Migraciones registradas en `rwa.schema_migrations` (v2: `1.0`–`1.2`; v3: `3.0`).
@@ -195,7 +195,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f /home/dsh/workspace/RWA/RepoTecnico/b
 
 > Diseño detallado y criterios de aceptación: `diseno_cierre_v3_2.md` §5.
 
-## 10. Respaldo y retorno## 10. Respaldo y retorno
+## 10. Respaldo y retorno
 
 - Respaldo completo de la v2 (2026-10-31): `rwa-v2-backup-20261031T171645Z.zip` (SHA-256 en el manifiesto).
 - Plan de retorno: la v2 permanece desplegada y congelada; revertir = reapuntar revisiones de

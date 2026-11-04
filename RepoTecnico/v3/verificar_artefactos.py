@@ -132,6 +132,31 @@ print(f"[INFO] Requisitos: {rf} RF · {rnf} RNF · {rt} RT · supuestos S-1…S-
 check("Cobertura de requisitos mínima", rf >= 28 and rnf >= 14 and rt >= 8,
       f"{rf}/{rnf}/{rt} (esperado ≥28/14/8)")
 
+# ---------------------------------------------------------------- 6) coherencia de estado y cifras
+STATE_CHECKS = [
+    (r"[Ff]ase 1\s+(cerrada|CERRADA)(?!\s*(no|NO))", "no debe certificar 'Fase 1 cerrada'"),
+    (r"\b26 tablas\b", "cifra obsoleta '26 tablas' (reales 27)"),
+    (r"\bS-1…S-13\b", "lista de supuestos obsoleta (debe ser S-1…S-14)"),
+    (r"\*\*Versión:\*\* v3\.1", "revisión documental obsoleta (debe ser v3.2)"),
+]
+state_fail = []
+for fname in ("requerimientos.md", "propuesta_v3.md", "diccionario_datos.md",
+              "diagrama_er.md", "entornos_globales.md", "estado_proyecto.md"):
+    text = (ROOT / fname).read_text(encoding="utf-8")
+    for pattern, reason in STATE_CHECKS:
+        if re.search(pattern, text):
+            state_fail.append(f"{fname}: {reason}")
+check("Estado y cifras coherentes", not state_fail, "; ".join(state_fail))
+
+# ---------------------------------------------------------------- 7) trazabilidad brief → RF
+req_text = (ROOT / "requerimientos.md").read_text(encoding="utf-8")
+rf_ids = set(re.findall(r"\*\*RF-V3-(\d+)\*\*", req_text))
+sec6 = req_text.split("## 6. Trazabilidad brief")[1].split("## Anexo A")[0] if "## 6. Trazabilidad brief" in req_text else ""
+sec6_ids = set(re.findall(r"RF-V3-(\d+)", sec6))
+missing = sorted(rf_ids - sec6_ids, key=int)
+check("Trazabilidad: todo RF aparece en §6", not missing, ("faltan RF-V3-" + ", ".join(missing)) if missing else "0 RF sin trazar")
+check("Trazabilidad: sin citas a secciones inexistentes", "§4.3 del brief" not in req_text, "cita '§4.3 del brief'")
+
 # ---------------------------------------------------------------- resumen
 print()
 if FAILED:

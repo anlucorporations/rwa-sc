@@ -1,8 +1,8 @@
 # Diccionario de datos — RWA v3 «Barlo Metaplace»
 
-> **Versión:** v3.1 (esquema 3.0) · **Fecha:** 2026-10-31 · **Motor:** PostgreSQL 15 (Cloud SQL `truekeate-db-dev`) · **Esquema:** `rwa`
+> **Versión:** v3.2 (esquema 3.0) · **Fecha:** 2026-11-04 · **Motor:** PostgreSQL 15 (Cloud SQL `truekeate-db-dev`) · **Esquema:** `rwa`
 > **Sincronía obligatoria:** este documento, `diagrama_er.md` y `base_datos.sql` se actualizan **juntos**.
-> **Estado:** Fase 1 cerrada (decisiones Q1–Q10 aplicadas).
+> **Estado:** Fase 1 **en corrección** (re-auditoría v3.2: NO cerrada). Decisiones Q1–Q13 aplicadas.
 
 **Reglas de nombres:** `snake_case`; tablas en plural; PK `id`; FK `<tabla_singular>_id`; marcas de tiempo
 `created_at` / `updated_at`; importes monetarios en `numeric(20,8)` (BRLT tiene 8 decimales);

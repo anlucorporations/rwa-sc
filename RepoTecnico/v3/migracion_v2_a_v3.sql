@@ -206,7 +206,7 @@ INSERT INTO rwa.document_files (
 )
 SELECT
     df.id, df.claim_request_id, df.original_name, df.content_type, df.size_bytes::integer,
-    encode(digest(df.content, 'sha256'), 'hex'),
+    encode(df.sha256, 'hex'),   -- F-07: hash del contenido ORIGINAL, no del blob cifrado
     df.content,
     jsonb_build_object('algo', df.encryption_algo,
                        'nonce', CASE WHEN df.encryption_nonce IS NOT NULL
@@ -252,12 +252,16 @@ CROSS JOIN rwa.issuer_programs p
 WHERE p.slug = 'legacy-v2'
 ON CONFLICT (id) DO NOTHING;
 
--- 4.7 Claims requeridos por activo
+-- 4.7 Claims requeridos por activo (F-01: mismo alias canónico que §4.1)
 INSERT INTO rwa.token_required_claims (token_id, credential_type_id)
 SELECT trc.token_id, ct.id
 FROM rwa.token_required_claims_v2 trc
 JOIN rwa.claim_topics_v2 ct2 ON ct2.id = trc.claim_topic_id
-JOIN rwa.credential_types ct ON ct.code = upper(ct2.code)
+JOIN rwa.credential_types ct ON ct.code = CASE lower(ct2.code)
+        WHEN 'accreditation' THEN 'ACREDITACION'
+        WHEN 'jurisdiction'  THEN 'JURISDICCION'
+        ELSE upper(ct2.code)
+    END
 ON CONFLICT DO NOTHING;
 
 -- 4.8 Módulos de compliance por activo
@@ -323,6 +327,8 @@ DECLARE
     v_doc_v3 bigint;
     v_tok_v2 bigint;
     v_tok_v3 bigint;
+    v_trc_v2 bigint;
+    v_trc_v3 bigint;
 BEGIN
     SELECT count(*) INTO v_req_v2 FROM rwa.claim_requests_v2;
     SELECT count(*) INTO v_req_v3 FROM rwa.claim_requests;
@@ -330,10 +336,19 @@ BEGIN
     SELECT count(*) INTO v_doc_v3 FROM rwa.document_files;
     SELECT count(*) INTO v_tok_v2 FROM rwa.tokens_v2;
     SELECT count(*) INTO v_tok_v3 FROM rwa.tokens;
+    SELECT count(*) INTO v_trc_v2 FROM rwa.token_required_claims_v2;
+    SELECT count(*) INTO v_trc_v3 FROM rwa.token_required_claims;
 
     RAISE NOTICE 'claims  v2=% v3=%', v_req_v2, v_req_v3;
     RAISE NOTICE 'docs    v2=% v3=% (se omiten MIME/tamaño inválidos)', v_doc_v2, v_doc_v3;
     RAISE NOTICE 'tokens  v2=% v3=%', v_tok_v2, v_tok_v3;
+    RAISE NOTICE 'required_claims v2=% v3=%', v_trc_v2, v_trc_v3;
+    IF v_trc_v3 < v_trc_v2 THEN
+        RAISE EXCEPTION 'Pérdida de claims requeridos: v2=% v3=%', v_trc_v2, v_trc_v3;
+    END IF;
+    IF v_doc_v3 > v_doc_v2 THEN
+        RAISE EXCEPTION 'Documentos migrados (% ) > origen (%)', v_doc_v3, v_doc_v2;
+    END IF;
 
     IF v_req_v3 <> v_req_v2 THEN
         RAISE EXCEPTION 'Discrepancia en claims: v2=% v3=%', v_req_v2, v_req_v3;

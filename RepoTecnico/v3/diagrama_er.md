@@ -1,6 +1,6 @@
 # Diagrama Entidad-Relación — RWA v3 «Barlo Metaplace»
 
-> **Versión:** v3.1 (esquema 3.0) · **Fecha:** 2026-10-31 · **Motor:** PostgreSQL 15 · **Esquema:** `rwa`
+> **Versión:** v3.2 (esquema 3.0) · **Fecha:** 2026-11-04 · **Motor:** PostgreSQL 15 · **Esquema:** `rwa`
 > **Sincronía obligatoria:** los nombres de entidades y atributos son **idénticos** a
 > `base_datos.sql` y `diccionario_datos.md`.
 > **Cobertura:** 27 tablas del esquema `rwa` en 5 bloques (global + 4 dominios). Sin tablas ni

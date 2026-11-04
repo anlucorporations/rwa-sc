@@ -55,3 +55,21 @@
   corresponde a C3 y a la operación respectivamente.
 
 *Fin del acta v3.2.*
+
+---
+
+## 4. Adenda — correcciones F-04/F-05 (2026-11-04)
+
+Tras la re-auditoría final (`INFORME_CIERRE_V3_2.md`), se corrigieron y **verificaron en ejecución**
+los dos hallazgos MEDIA de enforcement del DDL:
+
+| # | Prueba | Esperado | Resultado |
+|---|---|---|---|
+| 20 | Confirmar una orden **sin** `escrow_tx_hash`, `escrow_asset_tx_hash` y `asset_transferred_at` | Rechazo | ✅ `no se puede confirmar sin los dos tramos del escrow` |
+| 21 | Confirmar con ambos tramos del escrow | Permitido | ✅ |
+| 22 | `purge_expired_documents()` con 1 `document_file` + 1 `asset_document` vencidos | Devuelve **2** | ✅ |
+
+**Entorno:** PostgreSQL 16.15 embebido, esquema v3.3 (base_datos.sql con `trg_validate_order_transition`
+endurecido y `purge_expired_documents` contando ambas tablas), sin root.
+
+*Fin de la adenda.*

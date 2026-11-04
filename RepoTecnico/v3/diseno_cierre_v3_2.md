@@ -50,6 +50,9 @@ Cada transición escribe en `audit_log` (actor + `order.status`) y emite `OrderS
 | **leg 2 — activo** | NFT/ERC-1155 del vendedor → comprador | `orders.escrow_asset_tx_hash` | `asset_transferred_at` no nulo |
 | **finalización** | escrow → vendedor (menos comisión) · comisión → `FeeCollector` | `payments` (`sale` + fee) | ambos tramos + `confirmed_at` |
 
+> **Implementado en DDL (F-04):** `trg_validate_order_transition` rechaza el paso a `confirmed` si falta
+> `escrow_tx_hash`, `escrow_asset_tx_hash` o `asset_transferred_at`; ya no depende solo de la aplicación.
+
 - El contrato `MarketplaceEscrow` ejecuta **ambos tramos en la misma transacción**
   (`safeTransferFrom` del activo + `transferFrom` del BRLT); si falta `approve` o el activo no está
   en venta, revierte y no hay estado intermedio.
@@ -103,7 +106,7 @@ El job registra cuántas órdenes expiró; si falla, alerta `job_failure`.
 - Rol efectivo de una petición = unión de asignaciones **vigentes** (`revoked_at IS NULL`) verificada
   en servidor en cada request; la cookie de sesión solo identifica la wallet.
 
-### 2.2 Matriz definitiva (roles × capacidades)
+### 2.2 Matriz definitiva (Visitante + 8 roles de plataforma/programa = 9 columnas)
 
 | Capacidad | Visitante | Usuario | Fiador | Operador | Issuer | Auditor | Árbitro | Soporte | Admin |
 |---|---|---|---|---|---|---|---|---|---|
@@ -203,7 +206,7 @@ falla si una wallet de rol coincide con una cuenta conocida de Anvil (H-11).
 |---|---|---|
 | Claim **rechazado** | `retention_delete_at = +30 días` | `trg_claim_revocation_cascade` |
 | **Fin de relación** (`identities.ended_at`) | documentos de la identidad → `+12 meses` | `trg_identity_end_retention` |
-| Documentos de **activo** vendido | `+12 meses` desde la venta | trigger `trg_asset_retention_on_sale` (C1) |
+| Documentos de **activo** vendido | `+12 meses` desde la venta | trigger `trg_asset_retention_on_sale` **implementado en DDL** (F-05) |
 | Documento aprobado con relación vigente | `NULL` (se conserva) | — |
 
 ### 4.2 Job de purga

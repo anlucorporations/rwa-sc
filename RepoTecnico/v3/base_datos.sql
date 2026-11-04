@@ -1004,6 +1004,12 @@ BEGIN
             USING ERRCODE = 'check_violation';
     END IF;
     IF NEW.status = 'confirmed' THEN
+        -- F-04: confirmar exige los DOS tramos del escrow (BRLT + activo)
+        IF NEW.escrow_tx_hash IS NULL OR NEW.escrow_asset_tx_hash IS NULL
+           OR NEW.asset_transferred_at IS NULL THEN
+            RAISE EXCEPTION 'no se puede confirmar sin los dos tramos del escrow (BRLT + activo)'
+                USING ERRCODE = 'check_violation';
+        END IF;
         NEW.confirmed_at := coalesce(NEW.confirmed_at, now());
     ELSIF NEW.status = 'cancelled' THEN
         NEW.cancelled_at := coalesce(NEW.cancelled_at, now());
@@ -1070,6 +1076,26 @@ CREATE TRIGGER trg_validate_payment_payee
     BEFORE INSERT ON rwa.payments
     FOR EACH ROW EXECUTE FUNCTION rwa.validate_payment_payee();
 
+-- 10.9b F-05: al venderse el activo, sus documentos se purgan a los 12 meses
+CREATE OR REPLACE FUNCTION rwa.apply_asset_retention_on_sale()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NEW.status = 'sold_out' AND OLD.status <> 'sold_out' THEN
+        UPDATE rwa.asset_documents
+           SET retention_delete_at = current_date + 365
+         WHERE token_id = NEW.id AND retention_delete_at IS NULL;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_asset_retention_on_sale ON rwa.tokens;
+CREATE TRIGGER trg_asset_retention_on_sale
+    AFTER UPDATE OF status ON rwa.tokens
+    FOR EACH ROW EXECUTE FUNCTION rwa.apply_asset_retention_on_sale();
+
 -- 10.10 B5: audit_log append-only (sin UPDATE ni DELETE)
 CREATE OR REPLACE FUNCTION rwa.audit_log_append_only()
 RETURNS trigger
@@ -1114,20 +1140,23 @@ RETURNS integer
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_count integer := 0;
+    v_docs   integer := 0;
+    v_assets integer := 0;
 BEGIN
     DELETE FROM rwa.document_files
      WHERE deleted_at IS NULL
        AND retention_delete_at IS NOT NULL
        AND retention_delete_at <= current_date;
-    GET DIAGNOSTICS v_count = ROW_COUNT;
+    GET DIAGNOSTICS v_docs = ROW_COUNT;
 
     DELETE FROM rwa.asset_documents
      WHERE deleted_at IS NULL
        AND retention_delete_at IS NOT NULL
        AND retention_delete_at <= current_date;
+    GET DIAGNOSTICS v_assets = ROW_COUNT;
 
-    RETURN v_count;
+    -- La app registra document.purge en audit_log con v_docs + v_assets
+    RETURN v_docs + v_assets;
 END;
 $$;
 

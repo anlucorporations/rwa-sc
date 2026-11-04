@@ -1,9 +1,9 @@
 # Requerimientos — Proyecto RWA v3 «Barlo Metaplace»
 
 > **Fuente:** `RepoTecnico/BRIEF_BARLOBLOKCHAIN_v3.md` (v3, sin fecha; 32 líneas) + arquitectura heredada de la v2.
-> **Versión:** v3.1 · **Fecha:** 2026-10-31 · **Fase:** 1 (Concepto) cerrada con correcciones de auditoría.
-> **Estado:** especificación corregida tras la auditoría `INFORME_OPTIMIZACION_V3.md` (Q11–Q13 incorporadas).
-> Los supuestos S-1…S-13 están resueltos o aceptados explícitamente.
+> **Versión:** v3.2 · **Fecha:** 2026-11-04 · **Fase:** 1 (Concepto) **en corrección** (re-auditoría v3.2: NO cerrada).
+> **Estado:** especificación corregida tras las auditorías (`INFORME_OPTIMIZACION_V3`, `INFORME_CIERRE_V3_1`, `INFORME_CIERRE_V3_2`).
+> Los supuestos S-1…S-14 están resueltos o aceptados explícitamente (S-14 en :139).
 > **Trazabilidad:** cada requerimiento enlaza la sección del brief (`[objetivo]`, `[contexto]`,
 > `[procesos generales]`, `[WEB-IDENTITY]`, `[WEB-ISSUSER]`, `[WEB-TOKEN]`).
 
@@ -125,7 +125,7 @@ efectivo (AML/PSD2/MiCA), custodia de dinero FIAT.
 |---|---|---|
 | S-1 | Relación con v2 | **RESUELTO (Q1):** v3 sustituye a v2 sobre los mismos repos y servicios GCP (rama `rwa-web-DSH-GCP-v3`); v2 congelada |
 | S-2 | Repositorios | **RESUELTO (Q1):** continuidad en `gitlab.com/anlucorporations/rwa-sc` y `rwa-web`, rama `rwa-web-DSH-GCP-v3`; sin repos nuevos |
-| S-3 | GCP | **`[SUPUESTO]`** reutilizar `mcc-ecommerce` + Anvil global + Cloud SQL; sin crear nodos ni BD duplicadas (D-095/D-096/D-101 vigentes). |
+| S-3 | GCP | **ACEPTADO (dueño: Arquitectura, 2026-11-04)** reutilizar `mcc-ecommerce` + Anvil global + Cloud SQL; sin nodos ni BD duplicadas (D-095/D-096/D-101). Revisión: antes de C0 |
 | S-4 | BRLT | **RESUELTO (Q2):** token de **utilidad sin valor real** (demo/Anvil), emisión controlada por el Admin |
 | S-5 | Comisiones | **RESUELTO (Q4):** **5 % configurable por venta + fee fijo de tokenización**, recaudado por el Admin vía `FeeCollector` |
 | S-6 | Marketplace | **RESUELTO (Q3):** **precio fijo** con escrow y comisión en v3.0; ofertas/subastas/barter → v3.1 |
@@ -142,27 +142,22 @@ efectivo (AML/PSD2/MiCA), custodia de dinero FIAT.
 
 ## 6. Trazabilidad brief → requerimientos
 
-Origen único: la sección del brief indicada en la columna «Brief» de cada RF (no se citan secciones
-internas de este documento ni del brief que no existan).
+Origen único: la sección del brief. Los RF derivados de auditoría/decisiones se declaran aparte para
+no atribuirles un deseo que el brief no contiene. Todos los identificadores se escriben completos.
 
 | Sección del brief | Requerimientos |
 |---|---|
-| `[OBJETIVO]` | RF-V3-01, 02, 19, 20, 24 (autoridad de emisión) |
+| `[OBJETIVO]` | RF-V3-01, RF-V3-19, RF-V3-20, RF-V3-28 |
 | `[contexto] 1` | RF-V3-01 |
 | `[contexto] 2` | RF-V3-21 |
-| `[procesos generales] 1` | RF-V3-07, 08 |
-| `[procesos generales] 2` | RF-V3-14, 15, 16, 17 |
-| `[procesos generales] 3` | RF-V3-12, 13 |
+| `[procesos generales] 1` | RF-V3-02, RF-V3-07, RF-V3-08 |
+| `[procesos generales] 2` | RF-V3-09, RF-V3-14, RF-V3-15, RF-V3-16, RF-V3-17 |
+| `[procesos generales] 3` | RF-V3-12, RF-V3-13 |
 | `[procesos generales] 4` | RF-V3-18 |
-| `[WEB-IDENTITY]` | RF-V3-03, 06, 07 |
-| `[WEB-ISSUSER]` | RF-V3-04, 11, 12, 13, 15, 16, 17, 22, 23, 27, 28 |
-| `[WEB-TOKEN]` | RF-V3-05, 19, 25 |
-| `[WEB-ISSUSER]` + auditoría | RF-V3-29 (RBAC), 30 (escrow), 31 (compliance) |
-
-> **Origen de los RF-V3-24…28:** auditoría/decisiones, no el brief (RF-24 ← H-02/Q11; RF-25 ← H-05/Q12;
-> RF-26 ← H-01/QW-4; RF-27 ← H-10/H-34; RF-28 ← H-20). **Origen de RNF-V3-12…14:** H-16/H-17,
-> H-18/H-19 y H-14 respectivamente. Quedan registrados como requisitos derivados de auditoría, no
-> como deseos del brief, para que la trazabilidad sea honesta.
+| `[WEB-IDENTITY]` | RF-V3-03, RF-V3-06, RF-V3-11 |
+| `[WEB-ISSUSER]` | RF-V3-04, RF-V3-10, RF-V3-13, RF-V3-22, RF-V3-23 |
+| `[WEB-TOKEN]` | RF-V3-05, RF-V3-19 |
+| **Derivados de auditoría/decisiones (no del brief)** | RF-V3-24 (H-02/Q11), RF-V3-25 (H-05/Q12), RF-V3-26 (H-01), RF-V3-27 (H-10/H-34), RF-V3-29 (B5), RF-V3-30 (B3), RF-V3-31 (B6); RNF-V3-12 (H-16), RNF-V3-13 (H-18/H-19), RNF-V3-14 (H-14) |
 
 ## Anexo A — Manifiesto de las 12 rutas principales (RNF-V3-04 / B9)
 

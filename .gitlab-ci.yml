@@ -27,6 +27,7 @@ workflow:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "rwa-sc-DSH-GCP"'
+    - if: '$CI_COMMIT_BRANCH == "rwa-web-DSH-GCP-v3"'
     - when: never
 
 stages:
@@ -81,6 +82,7 @@ default:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH == "rwa-sc-DSH-GCP"'
+    - if: '$CI_COMMIT_BRANCH == "rwa-web-DSH-GCP-v3"'
 
 # --- 1. validate: submódulos pinneados (B-5) --------------------------------
 validate:
@@ -104,6 +106,17 @@ validate:
         exit 1
       fi
       echo "OK: 3 submódulos pinneados, sin prefijos -/+"
+
+# --- 1b. artefactos v3: verificación documental y de datos (B11) ------------
+artefactos-v3:
+  stage: validate
+  extends: .ci_rules
+  image: python:3.12-slim
+  before_script:
+    - pip install --quiet pglast
+  script:
+    - test -d RepoTecnico/v3 || { echo "FAIL: falta RepoTecnico/v3"; exit 1; }
+    - python RepoTecnico/v3/verificar_artefactos.py
 
 # --- 2. build ----------------------------------------------------------------
 build:

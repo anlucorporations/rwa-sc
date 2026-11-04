@@ -262,20 +262,24 @@ RoleRegistry (principal por programa)                      // B5: issuer/operato
 | Tabla nueva | Papel |
 |---|---|
 | `issuer_programs` | ISSUER: nombre, proceso, tipo de actividad, claims que emite, condiciones de tokens |
-| `issuer_requirements` | Requisitos por ISSUER: documentos, types MIME, claims previos, obligatoriedad |
+| `issuer_program_requirements` | Requisitos por ISSUER: documentos, types MIME, claims previos, obligatoriedad |
+| `issuer_program_credentials` | Claims que puede emitir cada ISSUER (N:M) |
 | `credential_types` | Catálogo extensible de claims (Socio, Garantía, Fiador, KYC, Jurisdicción, Acreditación, custom) |
-| `assets` | Activo tokenizado: tipo (producto/servicio/bien), supply, precio BRLT, contrato y token_id |
-| `asset_documents` | PDFs de tenencia/garantía (cifrados, mismo patrón que `document_files`) |
-| `guarantors` | Fiador: wallet, claim de fiador, activos respaldados |
-| `listings` | Publicación en Metaplace (precio, moneda, estado) |
-| `orders` | Órdenes de compra/venta/intercambio y su estado |
-| `payments` | Pagos en BRLT, escrow, comisión, tx_hash |
+| `identities` | Identidad seudónima del usuario (wallet + alias) |
+| `tokens` | Activo tokenizado: tipo (producto/servicio/bien), supply, precio BRLT, contrato y token_id |
+| `token_guarantees` | Garantía y Fiador del activo (claims que lo respaldan) |
+| `asset_documents` | PDFs de tenencia/garantía/tasación (cifrados, mismo patrón que `document_files`) |
+| `listings` | Publicación en Metaplace (precio, moneda, estado, remanente) |
+| `orders` | Órdenes de compra/venta a precio fijo, escrow (BRLT + NFT) y estado |
+| `payments` | Pagos en BRLT, comisión y tx_hash |
+| `disputes` | Disputas de órdenes y resolución por árbitro |
 | `platform_fees` | Configuración de comisiones |
-| `recovery_requests` | Recuperación de identidad: caso, evidencias, aprobador, wallet nueva |
+| `identity_recovery_requests` | Recuperación de identidad: caso, evidencias, doble aprobación y wallet nueva |
+| `role_assignments` | Principales y roles (platform / issuer_program) |
 | `wallet_messages` | Plantillas de mensajes de firma por proceso e idioma |
 
-> `base_datos.sql`, `diccionario_datos.md` y `diagrama_er.md` se escribirán **juntos** (regla de
-> sincronía) al cerrar la Fase 1.
+> `base_datos.sql`, `diccionario_datos.md` y `diagrama_er.md` se mantienen **sincronizados** (regla de
+> sincronía); los tres cuadran 27/27 tablas.
 
 ### 5.4 Seguridad (invariantes)
 
@@ -420,11 +424,12 @@ Cada ciclo es una entrega **100 % operativa y verificable** (regla de la Fase 3)
 ## 11. Próximos pasos
 
 1. ~~Bloque 1 (Q1–Q3)~~ ✅ · ~~Bloque 2 (Q4–Q6)~~ ✅ · ~~Bloque 3 (Q7–Q10)~~ ✅ — 2026-10-31.
-2. ~~Cerrar Fase 1: `diccionario_datos.md`, `diagrama_er.md`, `base_datos.sql` v3 sincronizados y
-   `entornos_globales.md` v3~~ ✅ (26/26 tablas consistentes en los tres artefactos).
-3. **Confirmar cierre de Fase 1** → Fase 2: auditoría (@audita) + casos de uso Gherkin/EARS +
-   documento técnico + gráficos.
-4. Fase 3: aprobar el plan de ciclos (C0–C6) y arrancar **C0** (`BarloToken` 8 dec + migraciones).
+2. ~~Artefactos de datos sincronizados~~ ✅ (27/27 tablas y 0 discrepancias de columnas).
+3. **La Fase 1 sigue en corrección** (re-auditoría v3.2: veredicto **NO**): corregir F-01…F-10 y
+   ejecutar la implementación de B3–B8 (contratos v3, jobs cloud, E2E, RBAC, restore drill, DPIA).
+4. Re-auditoría de compuerta; solo con 14/14 CUMPLE y 0 CRÍTICAS/0 ALTAS se pasa a Fase 2
+   (casos de uso Gherkin/EARS + documento técnico + gráficos).
+5. Fase 3: aprobar el plan de ciclos (C0–C6) y arrancar **C0** (`BarloToken` 8 dec + migraciones).
 
 ---
 

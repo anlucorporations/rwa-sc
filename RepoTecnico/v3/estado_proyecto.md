@@ -1,7 +1,7 @@
 # Estado del Proyecto — RWA v3 «Barlo Metaplace»
 
-> **Última actualización:** 2026-11-02 · **Fase actual:** 2 (Auditoría)
-> **Estado de la Fase 1:** 🔴 **EN CORRECCIÓN / RE-AUDITORÍA — NO cerrada.**
+> **Última actualización:** 2026-11-04 · **Fase actual:** 2 (Auditoría)
+> **Estado de la Fase 1:** 🔴 **EN CORRECCIÓN — NO cerrada** (re-auditoría final v3.2: **NO**, 2/11/1 en la compuerta).
 > **Carpeta de reportes:** `RWA/RepoTecnico/` (v3) · **Documentación v2:** `rwa-sc/RepoTecnico/` y `rwa-web/RepoTecnico/`
 
 ## 1. Resumen
@@ -81,6 +81,16 @@
   - **N-02 (CRÍTICA):** el ETL de `claim_topics` colisionaba `credential_types.on_chain_topic` (`ACCREDITATION`/`JURISDICTION` v2 vs `ACREDITACION`/`JURISDICCION` v3) → la migración abortaba.
 - Cerrados en la corrección previa: H-03, H-08 (esencial), H-09, H-21, H-30; H-42 descartado como falso positivo.
 
+## 5.1 Re-auditoría FINAL v3.2 (`INFORME_CIERRE_V3_2.md`, 2026-11-04)
+
+- Compuerta: **2 CUMPLE (C2, C8) · 11 PARCIAL · 1 NO CUMPLE (C14)**; **9 criterios bloquean**.
+- B1–B12: 2 CERRADO (B2, B9) · 6 DISEÑO (B3–B8) · 4 ABIERTO (B1, B10, B11, B12).
+- **Veredicto: NO** — la Fase 1 no se cierra; lo pendiente es mayoritariamente **implementación**
+  (contratos v3, jobs cloud, E2E, RBAC API, restore drill, DPIA) más 3 ALTAS documentales nuevas.
+- Hallazgos nuevos verificados: **F-01** (pérdida silenciosa de `token_required_claims` en el ETL),
+  **F-02** (documentos que certificaban un cierre no verificado), **F-03** (script de verificación
+  incompleto y fuera de CI), más 6 MEDIAS y 1 BAJA.
+
 ## 6. Correcciones aplicadas tras la re-auditoría (2026-11-02)
 
 | ID | Corrección | Evidencia |
@@ -101,12 +111,30 @@
 | **N-17** | Cabeceras unificadas: revisión documental v3.1 / esquema 3.0 | todos los artefactos |
 | **B11** | Script de verificación automática (SQL, cuadre, Mermaid, versión, recuentos) | `verificar_artefactos.py` |
 
+## 6.1 Correcciones de la re-auditoría final (2026-11-04)
+
+| ID | Corrección | Evidencia |
+|---|---|---|
+| **F-01** | ETL §4.7 aplica el alias canónico `ACCREDITATION/JURISDICTION` y §6 verifica `token_required_claims` y conteo de documentos | `migracion_v2_a_v3.sql` §4.7, §6 |
+| **F-02** | Estado/cifras unificados: diccionario, entornos, propuesta y requerimientos ya no certifican cierre; 27 tablas, v3.2, S-1…S-14, S-3 con dueño y fecha | 4 documentos |
+| **F-03** | `verificar_artefactos.py` valida **trazabilidad brief↔RF** y **coherencia de estado/cifras**; job `artefactos-v3` añadido al CI (rama `rwa-web-DSH-GCP-v3`) | script + `rwa-sc/.gitlab-ci.yml` |
+| **F-04** | La BD rechaza confirmar una orden sin los dos tramos del escrow (BRLT + NFT) | `trg_validate_order_transition`; prueba 20/21 del acta |
+| **F-05** | Retención de `asset_documents` al vender + purga cuenta ambas tablas | `trg_asset_retention_on_sale`, `purge_expired_documents()`; prueba 22 |
+| **F-06** | §5.3 de la propuesta con los nombres reales del esquema (sin tablas inventadas) | `propuesta_v3.md` §5.3 |
+| **F-07** | El ETL conserva el **hash original** de los documentos (no el del blob cifrado) | `migracion_v2_a_v3.sql` §4.5 |
+| **F-09** | Matriz RBAC aclarada (Visitante + 8 roles) | `diseno_cierre_v3_2.md` §2.2 |
+| **F-10** | Cabecera duplicada «## 10» corregida | `entornos_globales.md` |
+| **N-08/N-07** | Limitación documentada: claims migrados marcados `legacy_unverified`; verificador sintético documentado en el acta | acta v3.2 |
+
+> **F-08** (verificador sintético en claims migrados) y **N-08** quedan como limitación documentada de
+> la migración (no como dato verificado nativo); se resolverán reverificando en C0.
+
 ## 7. Verificación posterior (ejecutada)
 
 | Comprobación | Resultado |
 |---|---|
-| `python3 RepoTecnico/verificar_artefactos.py` | ✅ **PASS** |
-| SQL `base_datos.sql` | ✅ 172 sentencias parseadas |
+| `python3 RepoTecnico/verificar_artefactos.py` | ✅ **PASS** (incluye trazabilidad y coherencia de estado) |
+| SQL `base_datos.sql` | ✅ 175 sentencias parseadas |
 | SQL `migracion_v2_a_v3.sql` | ✅ 40 sentencias parseadas |
 | Tablas y columnas | ✅ 27/27 tablas y 0 discrepancias de columnas |
 | Mermaid | ✅ 5 bloques, 0 errores |
@@ -117,7 +145,7 @@
 
 | ID | Criterio | Estado | Qué falta |
 |---|---|---|---|
-| **B1** | Migración ejecutable y probada sobre `pg_dump` v2 real | 🟢 **VERIFICADO EN TEST** | Ejecutada en PostgreSQL 16 embebido sobre el esquema v2 canónico + datos sintéticos: `exit 0`, claims 2=2, docs 1=1, tokens 1=1 ([acta](pruebas/validacion_ejecucion_v3_1.md)). Queda repetirla en CI con el dump real |
+| **B1** | Migración ejecutable y probada sobre `pg_dump` v2 real | 🟡 **VERIFICADO EN TEST** (falta CI con dump real) | Ejecutada en PostgreSQL 16 embebido sobre el esquema v2 canónico + datos sintéticos: `exit 0`, claims 2=2, docs 1=1, tokens 1=1 ([acta](pruebas/validacion_ejecucion_v3_1.md)). Queda repetirla en CI con el dump real |
 | **B2** | DDL ejecutable (smoke `UPDATE` por tabla con trigger) | 🟢 **VERIFICADO** | **16/16 smoke tests** PASS, incluido `UPDATE orders` (N-01) y 4 pruebas negativas ([acta](pruebas/validacion_ejecucion_v3_1.md)) |
 | **B3** | Escrow verificable | 🟢 **DISEÑADO** | Máquina de estados + tramo NFT + job de expiración + validaciones en DDL; implementación y pruebas en C4 |
 | **B4** | Autoridad del Emisor (vínculo emisor↔programa + semillas) | 🟢 **CUBIERTO EN DDL** | E2E de alta pendiente de runtime |
@@ -126,8 +154,8 @@
 | **B7** | Retención Q10 ejecutable | 🟢 **DISEÑADO** | Triggers de fecha + `purge_expired_documents()` + job diario; test en C1 |
 | **B8** | Operación documentada | 🟢 **DOCUMENTADO** | Backup/PITR, RPO/RTO, rotación de clave, pooling, RPC fallback y coste (entornos §9.1) |
 | **B9** | RNF falsables | 🟢 **DISEÑADO** | 12 rutas (Anexo A), axe serious/critical, p95 con condiciones, pico S-14 y SLI |
-| **B10** | Estado único y compuerta honesta | 🟢 **HECHO** | Este documento regenerado desde los artefactos |
-| **B11** | Trazabilidad automatizada y script en CI | 🟢 **HECHO** | `verificar_artefactos.py`; falta integrarlo en el pipeline |
+| **B10** | Estado único y compuerta honesta | 🟢 **HECHO (2026-11-04)** | Estado, cifras y revisión unificados en los 7 documentos; validado por el script |
+| **B11** | Trazabilidad automatizada y script en CI | 🟢 **HECHO (2026-11-04)** | Script valida §6 y coherencia; job `artefactos-v3` en `.gitlab-ci.yml` (pipeline pendiente de ejecutar en remoto) |
 | **B12** | 14/14 criterios CUMPLE, 0 CRÍTICAS y 0 ALTAS | 🔴 **no cumplido** | Requiere cerrar B1–B9 y re-auditar |
 
 **Conclusión:** la corrección eliminó los 2 defectos nuevos críticos; **B1 y B2 ya están verificados por ejecución real** (migración + 16 smoke tests). La compuerta **aún no está superada**: quedan B3 (escrow), B5 (RBAC), B6 (compliance on-chain), B8 (operación) y los parciales B7/B9. La Fase 1 sigue **en corrección**.
