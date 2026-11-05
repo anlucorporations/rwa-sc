@@ -14,7 +14,10 @@ contract AssetNFT721 is ERC721, ERC721URIStorage, AccessControl, AssetCompliance
 
     uint256 private _nextTokenId = 1;
     mapping(uint256 => bool) public serviceAsset;
+    mapping(address => bool) public escrowOperators;
     string public assetKind;
+
+    event EscrowOperatorSet(address indexed operator, bool allowed);
 
     event AssetMinted(address indexed to, uint256 indexed tokenId, string uri);
     event ServiceConsumed(address indexed holder, uint256 indexed tokenId);
@@ -33,6 +36,12 @@ contract AssetNFT721 is ERC721, ERC721URIStorage, AccessControl, AssetCompliance
         _setRequiredTopics(requiredTopics_);
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
         _grantRole(MINTER_ROLE, admin_);
+    }
+
+    /// @notice Marca un contrato de escrow como exento de compliance (el propio marketplace).
+    function setEscrowOperator(address operator, bool allowed) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        escrowOperators[operator] = allowed;
+        emit EscrowOperatorSet(operator, allowed);
     }
 
     function mint(address to, string calldata uri_, bool isService) external onlyRole(MINTER_ROLE) returns (uint256 tokenId) {
@@ -54,7 +63,8 @@ contract AssetNFT721 is ERC721, ERC721URIStorage, AccessControl, AssetCompliance
 
     function _update(address to, uint256 tokenId, address auth) internal override returns (address from) {
         from = _ownerOf(tokenId);
-        if (from != address(0) && to != address(0)) {
+        // Solo se exime la ENTRADA al escrow; la entrega final al usuario siempre se verifica.
+        if (from != address(0) && to != address(0) && !escrowOperators[to]) {
             _requireEligible(to);
         }
         return super._update(to, tokenId, auth);
