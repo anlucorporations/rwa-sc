@@ -300,6 +300,8 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
         timestamptz closed_at
+        bigint on_chain_listing_id
+        text escrow_tx_hash
     }
     ORDERS {
         uuid id PK

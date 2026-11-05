@@ -313,6 +313,8 @@ servicios (ERC-721 quemable) y bienes (ERC-721 único).
 | `quantity` | `numeric(30,8)` | no | `1` | — | Unidades ofrecidas |
 | `remaining_quantity` | `numeric(30,8)` | no | `1` | — | Remanente; lo decrementa el trigger al confirmar la orden (H-05) |
 | `currency` | `text` | no | `'BRLT'` | — | Moneda de pago (CHECK = 'BRLT' en v3.0) |
+| `on_chain_listing_id` | `numeric(78,0)` | sí | — | — | v3.3: id de la publicación en el contrato `Marketplace` |
+| `escrow_tx_hash` | `text` | sí | — | — | v3.3: tx de `createListing` (el activo ya está en escrow); CHECK formato `0x…64` |
 | `status` | `text` | no | `'active'` | — | `active`, `paused`, `sold`, `cancelled` (`CHECK`) |
 | `created_at` | `timestamptz` | no | `now()` | — | Alta |
 | `updated_at` | `timestamptz` | no | `now()` | — | Modificación |
