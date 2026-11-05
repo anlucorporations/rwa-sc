@@ -39,7 +39,7 @@
 | `pruebas/c1_2026-11-04.md` | ✅ C1 | Acta C1 cerrada: shell, mensajes, SIWE+identidad (9/9), KYC (16/16) y **wizard + KYC→SOCIO (15/15)** |
 | `pruebas/c2_2026-11-04.md` | ✅ C2 | Acta C2: ISSUER CRUD, RBAC (matriz 25/25) y Panel Sistema |
 | `pruebas/c3_2026-11-04.md` | 🟡 C3 | Acta C3 parcial: contratos de activo (476/476), factory desplegado, tokenización+garantía+consentimiento y catálogo (E2E 9/9) |
-| `pruebas/c4_2026-11-04.md` | 🟡 C4 | Acta C4 parcial: `Marketplace` (486/486), API (E2E 16/16), UI de compra y verificación on-chain (E2E 3/3) |
+| `pruebas/c4_2026-11-04.md` | 🟡 C4 | Acta C4 parcial: `Marketplace` (486/486), API (E2E 16/16), UI on-chain y schema v3.3 validado |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
@@ -259,6 +259,8 @@ Detalle: `pruebas/c0_2026-11-04.md`.
 | API de listings/órdenes/disputas/arbitraje con precondición SOCIO | ✅ **E2E 16/16** (`orders=2`, `disputes=1`, `payments=3`) |
 | UI de compra (`/activo/[id]`) + publicación (`/emisor/publicar`) | ✅ build + **E2E intención 3/3** |
 | Verificación de tx on-chain (`CHAIN_VERIFY_TX=1`) | ✅ tx inexistente rechazada contra Anvil GCP (E2E) |
+| Schema **v3.3**: `listings.on_chain_listing_id` + `escrow_tx_hash` | ✅ migración idempotente validada (nueva + legacy) |
+| Compra on-chain en UI (`approve` BRLT + `buy` + `confirmReceipt`) | ✅ implementada; E2E real bloqueado por **D-V3-29** |
 | Consumo de servicio (CU-25) y liquidación de comisiones | 🔴 siguiente |
 
 Detalle: `pruebas/c1_2026-11-04.md`.

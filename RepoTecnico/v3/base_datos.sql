@@ -427,6 +427,9 @@ CREATE TABLE IF NOT EXISTS rwa.listings (
     quantity            numeric(30,8) NOT NULL DEFAULT 1,
     remaining_quantity  numeric(30,8) NOT NULL DEFAULT 1,
     currency            text        NOT NULL DEFAULT 'BRLT',
+    -- v3.3: referencia on-chain de la publicación (Marketplace) y tx del escrow del activo
+    on_chain_listing_id numeric(78,0),
+    escrow_tx_hash      text,
     status              text        NOT NULL DEFAULT 'active',
     created_at          timestamptz NOT NULL DEFAULT now(),
     updated_at          timestamptz NOT NULL DEFAULT now(),
@@ -434,7 +437,8 @@ CREATE TABLE IF NOT EXISTS rwa.listings (
     CONSTRAINT listings_price_positive CHECK (price_brlt > 0),
     CONSTRAINT listings_quantity_positive CHECK (quantity > 0),
     CONSTRAINT listings_currency CHECK (currency = 'BRLT'),
-    CONSTRAINT listings_status CHECK (status IN ('active', 'paused', 'sold', 'cancelled'))
+    CONSTRAINT listings_status CHECK (status IN ('active', 'paused', 'sold', 'cancelled')),
+    CONSTRAINT listings_onchain_tx_format CHECK (escrow_tx_hash IS NULL OR escrow_tx_hash ~ '^0x[0-9a-f]{64}$')
 );
 
 -- 7.2 Órdenes (escrow y comisión)
