@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.24;
 
 import {Test, console} from "forge-std/Test.sol";
 import {ClaimTopicsRegistryCloneable} from "../src/ClaimTopicsRegistryCloneable.sol";

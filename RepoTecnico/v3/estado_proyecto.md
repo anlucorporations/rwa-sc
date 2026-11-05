@@ -1,6 +1,6 @@
 # Estado del Proyecto — RWA v3 «Barlo Metaplace»
 
-> **Última actualización:** 2026-11-04 · **Fase actual:** 3 (Desarrollo) — **C0 6/8 · C1 ✅ · C2 ✅** · siguiente C3
+> **Última actualización:** 2026-11-04 · **Fase actual:** 3 (Desarrollo) — **C0 6/8 · C1 ✅ · C2 ✅ · C3 🟡** · siguiente C4
 > **Estado de la Fase 1:** ✅ **CERRADA COMO BASELINE DE DISEÑO** (decisión **Q14a**, 2026-11-04).
 > Implementación y operación se controlan con los gates de **C0–C6** (Fase 3).
 > **Carpeta de reportes:** `RWA/RepoTecnico/` (v3) · **Documentación v2:** `rwa-sc/RepoTecnico/` y `rwa-web/RepoTecnico/`
@@ -38,6 +38,7 @@
 | `pruebas/c0_2026-11-04.md` | ✅ C0 | Acta C0: BRLT desplegado, claves dedicadas, migración real en CI, gate anti-Anvil y provisión GCP |
 | `pruebas/c1_2026-11-04.md` | ✅ C1 | Acta C1 cerrada: shell, mensajes, SIWE+identidad (9/9), KYC (16/16) y **wizard + KYC→SOCIO (15/15)** |
 | `pruebas/c2_2026-11-04.md` | ✅ C2 | Acta C2: ISSUER CRUD, RBAC (matriz 25/25) y Panel Sistema |
+| `pruebas/c3_2026-11-04.md` | 🟡 C3 | Acta C3 parcial: contratos de activo (476/476), factory desplegado, tokenización+garantía+consentimiento y catálogo (E2E 9/9) |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
@@ -233,13 +234,26 @@ Detalle: `pruebas/c0_2026-11-04.md`.
 > Decisión **D-V3-27**: el consentimiento de fianza (CU-07) se implementa en C3 junto a la
 > tokenización y `token_guarantees`.
 
-### Siguiente: C3 — Tokenización
+### C3 🟡 en curso (avance 2026-11-04)
 
-1. `AssetNFT721`, `AssetERC1155`, `AssetFactory` + metadata (hash/URI).
-2. `AssetComplianceHook` (`_update`/`beforeTokenTransfer` + `isVerified`).
-3. Flujos de tokenización de producto, servicio y bien (CU-12/13/14).
-4. Garantía + Fiador como precondición on-chain (incluye consentimiento CU-07).
-5. Catálogo público + detalle (CU-01) y consumo de servicio (CU-25).
+| Entregable | Estado |
+|---|---|
+| `AssetNFT721`, `AssetERC1155`, `AssetComplianceHook`, `AssetFactory` | ✅ **476/476 tests** Foundry |
+| Despliegue del factory en Anvil GCP | ✅ `0x36471865A6c634802AC65E304aa5E7a01F85296E` (block 569) |
+| Tokenización vía API con GARANTÍA + FIADOR + consentimiento legible | ✅ **E2E 9/9** (`tokens=2`, `guarantees=4`) |
+| Catálogo público (`/api/catalog` + `/catalogo`) | ✅ mostraba 2 activos en E2E |
+| Issuer configurable (C2) y RBAC | ✅ matriz 25/25 |
+| Mint on-chain desde API + consumo de servicio | 🔴 **C4** (tras órdenes/pagos) |
+
+> Decisión **D-V3-28**: compilador v3 con `auto_detect_solc` y EVM **cancun** (solc 0.8.28) por requisito de
+> OZ 5.5; el bytecode v2 desplegado no se regenera.
+
+### Siguiente: C4 — Marketplace
+
+1. Publicaciones a precio fijo (CU-18) y compra con escrow en BRLT (CU-19).
+2. Confirmación, disputa y arbitraje (CU-20/21) con RBAC `arbiter`.
+3. Consumo de servicio on-chain (CU-25) y liquidación.
+4. Contratos `Marketplace`/`Escrow` + tests y despliegue en GCP.
 
 Detalle: `pruebas/c1_2026-11-04.md`.
 
