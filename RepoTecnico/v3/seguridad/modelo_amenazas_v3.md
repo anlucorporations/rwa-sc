@@ -37,6 +37,9 @@
 | T10 | Replay de consentimiento de fianza | Reutilizar firma legible | Mensaje incluye activo; firma verificada contra wallet del fiador | Firma de otro texto → 400 (E2E C3) |
 | T11 | Borrado de auditoría | UPDATE/DELETE en `audit_log` | Trigger append-only | Update/delete rechazado (DDL) |
 | T12 | Suplantación de ISSUER | Emisor sin claims | Requisitos del ISSUER + claims previos + emisor autorizado por programa | 409/403 (E2E C1/C3) |
+| T13 | CSRF sobre mutaciones | Petición cruzada con cookie | `SameSite=Strict` + cookie HMAC; validación de `Origin` pendiente (C6) | Mutación sin origen válido → 403 (pendiente) |
+| T14 | Falta de trazabilidad de mutaciones | Operaciones sin registro | `audit_log` en claims, órdenes, disputas, roles, ISSUER, descargas KYC y consumo | E2E auditoría 4/4 (order/role) |
+| T15 | Acceso no trazado a documentos KYC | Staff descarga sin registro | Evento `kyc.document.downloaded` con `asStaff` | Evidencia en `audit_log` |
 
 ## 4. Riesgos residuales (pre-piloto)
 
@@ -45,6 +48,9 @@
    sustituirse por una red persistente/gestionada.
 3. **Claves de rol** gestionadas con Secret Manager; falta rotación periódica documentada (C6).
 4. **Exportación de auditoría** limitada a metadatos (Q18) — revisar requisitos legales antes de piloto.
+5. **Validación de `Origin`** en mutaciones autenticadas: pendiente (mitigación parcial por `SameSite=Strict`).
+6. **Revisión adversarial externa** del propio modelo: en curso; los hallazgos de la revisión interna ya
+   están aplicados (T13–T15 y auditoría instrumentada).
 
 ## 5. Verificación
 
