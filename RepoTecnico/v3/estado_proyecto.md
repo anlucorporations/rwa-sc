@@ -1,6 +1,6 @@
 # Estado del Proyecto — RWA v3 «Barlo Metaplace»
 
-> **Última actualización:** 2026-11-06 · **Fase actual:** 3 (Desarrollo) — **C0 6/8 · C1 ✅ · C2 ✅ · C3 🟡 · C4 🟡** · C5 🟡 · 🔴 **GCP sin facturación (ver incidente)**
+> **Última actualización:** 2026-11-06 · **Fase actual:** 3 (Desarrollo) — **C0 6/8 · C1 ✅ · C2 ✅ · C3 🟡 · C4 🟡** · C5 🟡 · C6 🟡 · 🔴 **GCP sin facturación (ver incidente)**
 > **Estado de la Fase 1:** ✅ **CERRADA COMO BASELINE DE DISEÑO** (decisión **Q14a**, 2026-11-04).
 > Implementación y operación se controlan con los gates de **C0–C6** (Fase 3).
 > **Carpeta de reportes:** `RWA/RepoTecnico/` (v3) · **Documentación v2:** `rwa-sc/RepoTecnico/` y `rwa-web/RepoTecnico/`
@@ -43,6 +43,8 @@
 | `pruebas/incidente_gcp_facturacion_2026-11-06.md` | 🔴 incidente | GCP con facturación deshabilitada: Anvil 503 y servicios `rwa-*` caídos; estado on-chain persistente en GCS |
 | `pruebas/c5_2026-11-06.md` | 🟡 C5 | Acta C5 parcial: rate limiting (3/3 tests) y modelo de amenazas STRIDE |
 | `seguridad/modelo_amenazas_v3.md` | 🟡 C5 | Modelo de amenazas pre-piloto (RNF-V3-15) |
+| `Manuales/00_indice.md` … `05_seguridad.md` | 🟡 C6 | Manuales técnicos: arquitectura, arranque, operación, API y seguridad |
+| `pruebas/c6_2026-11-06.md` | 🟡 C6 | Acta C6 parcial: manuales técnicos publicados |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
