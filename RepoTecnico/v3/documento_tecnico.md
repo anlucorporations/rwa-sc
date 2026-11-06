@@ -97,7 +97,7 @@ flowchart TB
 | `packages/wallet-messages` | plantillas de firma legibles (8 procesos × es/en) + test digest↔texto | C5 | Web |
 | API (route handlers) | auth SIWE, identidad, claims, ISSUER, activos, mercado, disputas, admin, jobs | C1–C4 | Backend |
 | Indexer | eventos on-chain → `chain_events`, `indexer_state` | C0–C4 | Backend |
-| Contratos | identidad/claims (v2) + BarloToken + AssetNFT721/1155 + AssetFactory + MarketplaceEscrow + FeeCollector + DisputeManager + AssetComplianceHook + RoleRegistry | C0 (BRLT) · C3 (activos) · C4 (mercado) · C5 (roles) | Contratos |
+| Contratos | implementados: identidad/claims (v2) + `BarloToken` + `AssetNFT721/1155` + `AssetFactory` + `AssetComplianceHook` + `Marketplace`; **previstos**: `FeeCollector`, `RoleRegistry`, `IdentityRecovery` (RBAC vive en BD) | C0 · C3 · C4 | Contratos |
 | BD `rwa` | 27 tablas (ver diccionario) | C0 (migración) | Datos |
 | Jobs | `expire_orders`, `purge_expired_documents`, indexer, conciliación | C0 (infra) · C1 (purga) | DevOps/Backend |
 
@@ -105,22 +105,20 @@ flowchart TB
 
 | Contrato | Red | Responsabilidad | Ciclo | Dueño |
 |---|---|---|---|---|
-| `IdentityRegistry` + clones | reutilizado v2 | identidad on-chain por wallet | C0 | Contratos |
-| `TrustedIssuersRegistry` / `ClaimTopicsRegistry` | reutilizado v2 | emisores autorizados y topics | C0 | Contratos |
-| `ClaimLifecycle` | nuevo/ampliado | expiry/revocation (v3.0 sin caducidad, revocación sí) | C3 | Contratos |
-| `BarloToken` (ERC-20, 8 dec) | nuevo | moneda de pago, cap, mint/burn/pause, multisig | **C0** | Contratos |
-| `AssetNFT721` | nuevo | bienes y servicios; `_update` con compliance | C3 | Contratos |
-| `AssetERC1155` | nuevo | productos/lotes; compliance por lote | C3 | Contratos |
-| `AssetFactory` | nuevo | acuñación y registro de activos | C3 | Contratos |
-| `MarketplaceEscrow` | nuevo | leg1 BRLT + leg2 activo en la misma tx | C4 | Contratos |
-| `DisputeManager` | nuevo | apertura, plazos y resolución por árbitro | C4 | Contratos |
-| `FeeCollector` | nuevo | comisión 5 % (500 bps configurable) | C4 | Contratos |
-| `AssetComplianceHook` | nuevo | **B6**: `_update`/`beforeTokenTransfer` → `IdentityRegistry.isVerified` + `token_required_claims` | C3 | Contratos |
-| `RoleRegistry` | nuevo | **B5**: principales por programa (issuer/operator/auditor/arbiter/support) | C5 | Contratos |
-| `IdentityRecovery` | nuevo | cambio de wallet con doble aprobación | C5 | Contratos |
-| `GovernanceMultisig` | reutilizado v2 | gobernanza y timelock | C0 | Contratos |
+| `IdentityRegistry` + clones | ✅ implementado (v2) · v2 · 31337 | identidad on-chain por wallet | C0 | Contratos |
+| `TrustedIssuersRegistry` / `ClaimTopicsRegistry` | ✅ implementado (v2) · v2 · 31337 | emisores autorizados y topics | C0 | Contratos |
+| `BarloToken` (ERC-20, 8 dec) | ✅ implementado y desplegado · v3 · 31337 | moneda de pago, cap, mint/burn/pause | C0 | Contratos |
+| `AssetNFT721` | ✅ implementado y desplegado (factory) · v3 · 31337 | bienes/servicios; compliance en `_update` | C3 | Contratos |
+| `AssetERC1155` | ✅ implementado y desplegado (factory) · v3 · 31337 | productos/lotes; compliance por lote | C3 | Contratos |
+| `AssetFactory` | ✅ implementado y desplegado · v3 · 31337 | despliegue/registro de activos; exige GARANTÍA+FIADOR | C3 | Contratos |
+| `AssetComplianceHook` | ✅ implementado · v3 · 31337 | fail-closed: registro + claims por topic; exención de entrada al escrow | C3 | Contratos |
+| `Marketplace` | ✅ implementado y desplegado · v3 · 31337 | precio fijo, escrow BRLT+activo, disputas y arbitraje (`ARBITER_ROLE`) | C4 | Contratos |
+| `FeeCollector` | ⬜ **previsto** (comisión vía `platform_fees` en BD) · v3 · 31337 | comisión configurable | C5+ | Contratos |
+| `RoleRegistry` | ⬜ **previsto** (RBAC en `role_assignments`) · v3 · 31337 | roles on-chain por programa | C5+ | Contratos |
+| `IdentityRecovery` | ⬜ **previsto** (tabla `identity_recovery_requests` sin flujo) · v3 · 31337 | cambio de wallet con doble aprobación | C5+ | Contratos |
+| `GovernanceMultisig` | ⚠️ reutilizado v2, **no aplicado a roles v3** · v2 · 31337 | gobernanza/timelock (AM-10 pendiente) | C6 | Contratos |
 
-**Fuente de verdad de ABIs/direcciones:** `sc/deployments/31337-<ts>-v3.json` + gate anti-deriva.
+**Fuente de verdad de ABIs/direcciones:** `sc/deployments/31337-*-assets.json` / `*-market.json` y `sc/config/v3_assets.json` / `v3_market.json` (el gate anti-deriva debe apuntar al artefacto v3; AM-10 pendiente).
 
 ## 5. Modelo de datos (resumen)
 

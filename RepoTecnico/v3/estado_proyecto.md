@@ -44,7 +44,8 @@
 | `pruebas/c5_2026-11-06.md` | 🟡 C5 | Acta C5 parcial: rate limiting (3/3 tests) y modelo de amenazas STRIDE |
 | `seguridad/modelo_amenazas_v3.md` | 🟡 C5 | Modelo de amenazas pre-piloto (RNF-V3-15) |
 | `Manuales/00_indice.md` … `05_seguridad.md` | 🟡 C6 | Manuales técnicos: arquitectura, arranque, operación, API y seguridad |
-| `pruebas/c6_2026-11-06.md` | 🟡 C6 | Acta C6 parcial: manuales técnicos + revisión adversarial interna del modelo de amenazas |
+| `pruebas/c6_2026-11-06.md` | 🟡 C6 | Acta C6 parcial: manuales técnicos, revisión adversarial externa y correcciones (E2E 14/14) |
+| `seguridad/revision_adversarial_modelo_amenazas_2026-11-06.md` | 🔴 C6 | Revisión externa: **NO APTO** (3 críticos/8 altos) + roadmap priorizado |
 | `seguridad/modelo_amenazas_v3.md` | 🟡 C6 | Modelo actualizado con T13–T15 (CSRF, auditoría, acceso KYC) |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
