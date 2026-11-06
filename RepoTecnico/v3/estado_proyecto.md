@@ -1,6 +1,6 @@
 # Estado del Proyecto — RWA v3 «Barlo Metaplace»
 
-> **Última actualización:** 2026-11-04 · **Fase actual:** 3 (Desarrollo) — **C0 6/8 · C1 ✅ · C2 ✅ · C3 🟡 · C4 🟡**
+> **Última actualización:** 2026-11-06 · **Fase actual:** 3 (Desarrollo) — **C0 6/8 · C1 ✅ · C2 ✅ · C3 🟡 · C4 🟡** · C5 🟡 · 🔴 **GCP sin facturación (ver incidente)**
 > **Estado de la Fase 1:** ✅ **CERRADA COMO BASELINE DE DISEÑO** (decisión **Q14a**, 2026-11-04).
 > Implementación y operación se controlan con los gates de **C0–C6** (Fase 3).
 > **Carpeta de reportes:** `RWA/RepoTecnico/` (v3) · **Documentación v2:** `rwa-sc/RepoTecnico/` y `rwa-web/RepoTecnico/`
@@ -40,6 +40,9 @@
 | `pruebas/c2_2026-11-04.md` | ✅ C2 | Acta C2: ISSUER CRUD, RBAC (matriz 25/25) y Panel Sistema |
 | `pruebas/c3_2026-11-04.md` | 🟡 C3 | Acta C3 parcial: contratos de activo (476/476), factory desplegado, tokenización+garantía+consentimiento y catálogo (E2E 9/9) |
 | `pruebas/c4_2026-11-04.md` | 🟡 C4 | Acta C4 parcial: `Marketplace` (486/486), API (E2E 16/16), UI on-chain y schema v3.3 validado |
+| `pruebas/incidente_gcp_facturacion_2026-11-06.md` | 🔴 incidente | GCP con facturación deshabilitada: Anvil 503 y servicios `rwa-*` caídos; estado on-chain persistente en GCS |
+| `pruebas/c5_2026-11-06.md` | 🟡 C5 | Acta C5 parcial: rate limiting (3/3 tests) y modelo de amenazas STRIDE |
+| `seguridad/modelo_amenazas_v3.md` | 🟡 C5 | Modelo de amenazas pre-piloto (RNF-V3-15) |
 | `pruebas/validacion_ejecucion_v3_1.md` | ✅ | Acta de ejecución real: migración (B1) + 16 smoke tests (B2) |
 | `INFORME_OPTIMIZACION_V3.md` | 📜 Histórico | 44 hallazgos de la 1ª auditoría |
 | `INFORME_CIERRE_V3_1.md` | 📜 Vigente | Re-auditoría de cierre: veredicto NO + compuerta de 14 criterios + B1–B12 |
