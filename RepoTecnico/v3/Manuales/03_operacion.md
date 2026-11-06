@@ -35,7 +35,11 @@
 - Claves BRLT en Secret Manager (`BRLT_ADMIN_KEY`, `BRLT_MINTER_KEY`, `BRLT_PAUSER_KEY`), nunca en repo.
 - Rotación: procedimiento pendiente (C6); tras rotar, actualizar secreto y rol on-chain correspondiente.
 
-## 3.6 Límites operativos
+## 3.6 Límites operativos y endurecimiento
 
-- Rate limiting en app: 10/min auth por IP, 30/min escrituras por wallet.
-- Tamaño de documento KYC ≤ 10 MB; magic bytes validados; cifrado en reposo.
+- Rate limiting en app: 10/min auth por IP (nonce y verify), 30/min escrituras por wallet; 429 con `Retry-After`.
+- Subida KYC: máx. 5 documentos y 50 MB por solicitud; tamaño por archivo ≤ 10 MB.
+- Guardia de origen: con `ALLOWED_ORIGINS` definido, las mutaciones sin `Origin` válido responden 403.
+- `ALLOWED_HOSTS` restringe el host aceptado por SIWE; `SESSION_COOKIE_NAME=__Host-rwa_session` y
+  `COOKIE_SECURE=1` fuerzan cookie `__Host-` + `Secure` en producción.
+- WAF/Cloud Armor y rate limiting distribuido: pendiente (AM-08, requiere GCP).

@@ -37,7 +37,7 @@
 | T10 | Replay de consentimiento de fianza | Reutilizar firma legible | Mensaje incluye activo; firma verificada contra wallet del fiador | Firma de otro texto → 400 (E2E C3) |
 | T11 | Borrado de auditoría | UPDATE/DELETE en `audit_log` | Trigger append-only | Update/delete rechazado (DDL) |
 | T12 | Suplantación de ISSUER | Emisor sin claims | Requisitos del ISSUER + claims previos + emisor autorizado por programa | 409/403 (E2E C1/C3) |
-| T13 | CSRF sobre mutaciones | Petición cruzada con cookie | `SameSite=Strict` + cookie HMAC; validación de `Origin` pendiente (C6) | Mutación sin origen válido → 403 (pendiente) |
+| T13 | CSRF sobre mutaciones | Petición cruzada con cookie | `SameSite=Strict` + cookie `__Host-`/`Secure` + guardia de `Origin` en middleware | ✅ sin/mal Origin → 403 (E2E C6) |
 | T14 | Falta de trazabilidad de mutaciones | Operaciones sin registro | `audit_log` en claims, órdenes, disputas, roles, ISSUER, descargas KYC y consumo | E2E auditoría 4/4 (order/role) |
 | T15 | Acceso no trazado a documentos KYC | Staff descarga sin registro | Evento `kyc.document.downloaded` con `asStaff` | Evidencia en `audit_log` |
 
@@ -53,7 +53,7 @@ AM-03 claims/SOCIO sin anclaje on-chain) y 8 altos. Se añaden las amenazas ause
 | T16 | Gobernanza/cadena de suministro on-chain (roles en EOA, sin multisig/timelock, Marketplace sin pausa, bytecode/SBOM) | 🔴 pendiente (AM-10) |
 | T17 | Propiedad y estado del listing/liquidación on-chain (token ajeno, cantidad inventada, tx reusada) | 🟡 parcial: `quantity=1` y trigger de estado; propiedad on-chain pendiente (AM-02) |
 | T18 | Recuperación de identidad y 4-eyes (`identity_recovery_requests` sin flujo) | 🔴 pendiente |
-| T19 | Secuestro de sesión/XSS (CSP con `unsafe-inline`, sin re-auth admin ni revocación global) | 🟡 parcial: cookie HMAC, `SameSite=Strict`, CSP base (AM-09) |
+| T19 | Secuestro de sesión/XSS (CSP con `unsafe-inline`, sin re-auth admin ni revocación global) | 🟡 parcial: cookie `__Host-`+`Secure`, `SameSite=Strict`, guardia de `Origin`, allowlist host/proto; faltan re-auth admin, TTL rolling y CSP con nonce (AM-09) |
 | T20 | Privacidad y GDPR (wallet pública, staff con acceso global a KYC, sin DPIA/DSAR) | 🟡 parcial: DTO sin wallet y auditoría de descargas; DPIA/DSAR pendientes (AM-07) |
 | T21 | Continuidad RPC/GCP y abuso (billing, RPC único, reorg, reembolso de escrow huérfano) | 🔴 pendiente (AM-11) |
 

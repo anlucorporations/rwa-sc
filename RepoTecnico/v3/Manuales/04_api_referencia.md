@@ -53,4 +53,4 @@
 
 ## 4.5 Códigos de estado
 
-`400` validación · `401` sin sesión · `403` sin permiso/rol · `404` inexistente · `409` conflicto de estado/duplicado · `429` rate limit · `500` error interno (sin detalles sensibles).
+`400` validación · `401` sin sesión · `403` sin permiso/rol **u origen no permitido** (`invalid_origin`) · `404` inexistente · `409` conflicto de estado/duplicado · `429` rate limit (con cabecera `Retry-After`) · `500` error interno (sin detalles sensibles).
