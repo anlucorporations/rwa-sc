@@ -54,7 +54,7 @@ AM-03 claims/SOCIO sin anclaje on-chain) y 8 altos. Se añaden las amenazas ause
 | T17 | Propiedad y estado del listing/liquidación on-chain (token ajeno, cantidad inventada, tx reusada) | 🟡 parcial: `quantity=1` y trigger de estado; propiedad on-chain pendiente (AM-02) |
 | T18 | Recuperación de identidad y 4-eyes (`identity_recovery_requests` sin flujo) | 🔴 pendiente |
 | T19 | Secuestro de sesión/XSS (CSP con `unsafe-inline`, sin re-auth admin ni revocación global) | 🟡 parcial: cookie `__Host-`+`Secure`, `SameSite=Strict`, guardia de `Origin`, allowlist host/proto; faltan re-auth admin, TTL rolling y CSP con nonce (AM-09) |
-| T20 | Privacidad y GDPR (wallet pública, staff con acceso global a KYC, sin DPIA/DSAR) | 🟡 parcial: DTO sin wallet y auditoría de descargas; DPIA/DSAR pendientes (AM-07) |
+| T20 | Privacidad y GDPR (wallet pública, staff con acceso global a KYC, sin DPIA/DSAR) | 🟡 parcial: DTO sin wallet, auditoría de descargas y [DPIA/DSAR operativa](dpia_gdpr_v3.md); falta DPO/DPIA firmada, export DSAR técnico y AV (AM-07) |
 | T21 | Continuidad RPC/GCP y abuso (billing, RPC único, reorg, reembolso de escrow huérfano) | 🔴 pendiente (AM-11) |
 
 ### Correcciones ya aplicadas tras la revisión

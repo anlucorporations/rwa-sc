@@ -42,4 +42,8 @@
 - Guardia de origen: con `ALLOWED_ORIGINS` definido, las mutaciones sin `Origin` válido responden 403.
 - `ALLOWED_HOSTS` restringe el host aceptado por SIWE; `SESSION_COOKIE_NAME=__Host-rwa_session` y
   `COOKIE_SECURE=1` fuerzan cookie `__Host-` + `Secure` en producción.
+- Sesión: `SESSION_TTL_HOURS` (default 24) y `SESSION_ROLLING=1`; acciones de admin exigen login dentro
+  de `ADMIN_REAUTH_WINDOW_MIN` (default 15 min).
+- CSP con nonce gestionada en `middleware.ts` (las páginas se renderizan dinámicas).
+- Cuotas de subida: `UPLOAD_QUOTA_FILES_PER_HOUR` (10) y `UPLOAD_QUOTA_MB_PER_HOUR` (50).
 - WAF/Cloud Armor y rate limiting distribuido: pendiente (AM-08, requiere GCP).
