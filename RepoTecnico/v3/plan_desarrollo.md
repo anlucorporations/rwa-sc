@@ -11,8 +11,10 @@
 ## 1. Estrategia y reglas
 
 - **Rama de trabajo:** `rwa-web-DSH-GCP-v3` en `rwa-sc` y `rwa-web` (v2 congelada; `main` intacta).
-- **Entorno canónico:** GCP `mcc-ecommerce` (Cloud Run) + Anvil GCP (chain 31337) + Cloud SQL
-  `truekeate-db-dev`, esquema `rwa`. Sin nodos ni BD nuevos.
+- **Entorno canónico:** proyecto **tx barlovento (`barloventasv2`)** (Cloud Run) reutilizando los
+  **servicios globales**: Foundry/Anvil global (chain 31337) y PostgreSQL global
+  `truekeate-db-dev` (base dedicada `txbarlovento`, esquema `rwa`). Sin nodos ni instancias nuevas.
+  Plan: `planes/plan_despliegue_gcp_txbarlovento.md` (gates G0–G4).
 - **Definition of Done (DoD) de cada ciclo:**
   1. Código/contratos/DDL en la rama, compilando y con tests en verde.
   2. Migraciones versionadas (`schema_migrations`) y `base_datos.sql`/diccionario/ER sincronizados.
@@ -55,7 +57,7 @@ Dependencias: C0 → C1 → C2 → C3 → C4 → C5 → C6 (C5 puede solaparse c
 | T0.2 | `BarloToken` (ERC-20, 8 dec, cap 100 M, maxMintPerTx 10 k, pausable, roles, multisig+timelock) | contrato + tests Foundry |
 | T0.3 | Migración real v2→v3 en CI contra `pg_dump` v2 (script §6 verificado) | pipeline `artefactos-v3` + job `migracion-v3` en verde |
 | T0.4 | Claves dedicadas por rol en Secret Manager + gate CI anti-cuentas Anvil | rotación aplicada + gate |
-| T0.5 | Infra: Cloud SQL backups/PITR, pool, RPC fallback, Cloud Run Job `rwa-jobs` + Scheduler | `deploy_gcp.sh` actualizado + verify |
+| T0.5 | Infra txb: gate G0 (billing/APIs/RPC/BD), SA dedicadas, secretos `txb-*`, Cloud Run Job `txb-indexer` + Scheduler | `provision_txb.sh` (DRY_RUN) + `deploy_gcp.sh verify` |
 | T0.6 | CI: `validate` con `artefactos-v3`, `build`, `test`, `coverage` ≥ 80 % de contratos | pipeline en verde en la rama |
 
 **Gates de salida (C0):**

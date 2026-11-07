@@ -182,15 +182,21 @@ al digest firmado.
 
 ## 8. Despliegue y entornos
 
+**Destino: proyecto tx barlovento (`barloventasv2`), reutilizando los servicios globales de la cuenta.**
+
 | Elemento | Valor |
 |---|---|
-| Apps | Cloud Run en `mcc-ecommerce` / `europe-west1`, 1 GiB, max 3 instancias, público con SIWE |
-| BD | Cloud SQL `truekeate-main:southamerica-east1:truekeate-db-dev`, esquema `rwa`, pool 5 |
-| On-chain | Anvil de GCP (chain 31337), artefacto `31337-<ts>-v3.json` |
-| Jobs | Cloud Run Job `rwa-jobs` + `rwa-indexer`, Scheduler (5 min / 3 am / 10 min) |
-| Secretos | `DATABASE_URL`, `SIWE_SESSION_SECRET`, `KYC_ENCRYPTION_KEY` |
+| Apps | Cloud Run `txb-metaplace` en `barloventasv2` / `europe-west1`, 512 MiB–1 GiB, max 10, público con SIWE; SA `txb-metaplace@…` |
+| BD | **PostgreSQL global** `truekeate-main:southamerica-east1:truekeate-db-dev` · base dedicada `txbarlovento` · esquema `rwa` · socket `/cloudsql/…` · pool 5 |
+| On-chain | **Foundry (Anvil) global** `mcc-foundry-anvil` (chain 31337) · set de contratos `txb-*` · artefacto versionado |
+| Jobs | Cloud Run Job `txb-indexer` y `txb-maintenance`; Scheduler `txb-indexer-schedule` (`*/10`) y mantenimiento diario |
+| Secretos | `txb-database-url`, `txb-siwe-session-secret`, `txb-kyc-encryption-key`, claves BRLT/anvil (`txb-*`) en Secret Manager de `barloventasv2` |
 | CI | `.gitlab-ci.yml`: validate (submódulos + `artefactos-v3`), build, fmt, test, coverage, gas, ci-checks, slither |
-| Pipeline de despliegue | `rwa-web/scripts/deploy_gcp.sh provision|build|deploy|scheduler|verify` |
+| Pipeline de despliegue | `rwa-web/scripts/provision_txb.sh` (infra idempotente, `DRY_RUN=1` por defecto) + `rwa-web/scripts/deploy_gcp.sh provision|build|deploy|scheduler|verify` |
+| Plan detallado | `RepoTecnico/planes/plan_despliegue_gcp_txbarlovento.md` (fases G0–G4, gates, riesgos) |
+
+**Bloqueo vigente:** la cuenta de facturación está en estado irregular y el RPC global de Foundry responde
+500; ambos deben resolverse (gates G0/G2) antes de desplegar. La BD global está operativa.
 
 ## 9. Trazabilidad CU ↔ componente ↔ RF
 

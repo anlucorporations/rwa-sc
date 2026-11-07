@@ -1,6 +1,7 @@
 # Estado del Proyecto — RWA v3 «Barlo Metaplace»
 
-> **Última actualización:** 2026-11-06 · **Fase actual:** 3 (Desarrollo) — **C0 6/8 · C1 ✅ · C2 ✅ · C3 🟡 · C4 🟡** · C5 🟡 · C6 🟡 · 🔴 **GCP sin facturación (ver incidente)**
+> **Última actualización:** 2026-11-06 · **Fase actual:** 3 (Desarrollo) — **C0 6/8 · C1 ✅ · C2 ✅ · C3 🟡 · C4 🟡 · C5 🟡 · C6 🟡**
+> **Entorno de despliegue (cambio 2026-11-06):** **tx barlovento (`barloventasv2`)** reutilizando los **servicios globales** Foundry (`mcc-foundry-anvil`, chain 31337) y PostgreSQL (`truekeate-db-dev`, base `txbarlovento`). Plan: `planes/plan_despliegue_gcp_txbarlovento.md` · scripts `gcp-env-txb.sh` / `provision_txb.sh` · 🔴 gates G0/G2 pendientes (billing irregular y RPC global 500).
 > **Estado de la Fase 1:** ✅ **CERRADA COMO BASELINE DE DISEÑO** (decisión **Q14a**, 2026-11-04).
 > Implementación y operación se controlan con los gates de **C0–C6** (Fase 3).
 > **Carpeta de reportes:** `RWA/RepoTecnico/` (v3) · **Documentación v2:** `rwa-sc/RepoTecnico/` y `rwa-web/RepoTecnico/`

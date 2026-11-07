@@ -42,26 +42,66 @@
 - **Push solo con orden explícita del usuario** (`/push`). El push de `rwa-sc` va por SSH.
 - La v2 queda **congelada** como referencia y plan de retorno (Q1).
 
-## 3. GCP
+## 3. GCP — destino **tx barlovento** (`barloventasv2`)
+
+> **Cambio de entorno (2026-11-06):** el despliegue del Metaplace v3 pasa del proyecto
+> `mcc-ecommerce` al proyecto **tx barlovento = `barloventasv2` (BarloVentasV2)**,
+> **reutilizando los servicios globales** de la cuenta: el **Foundry (Anvil) global** y el
+> **PostgreSQL global**. No se crean nodos ni instancias nuevas.
+
+### 3.1 Proyecto destino (aplicaciones)
 
 | Recurso | Valor |
 |---|---|
-| Proyecto de apps | **`mcc-ecommerce`** (región `europe-west1`) |
-| Proyecto de datos/secretos | **`truekeate-main`** (canónico) |
-| Cloud SQL | `truekeate-main:southamerica-east1:truekeate-db-dev` · PostgreSQL **15.18** · BD `truekeate` · usuario `app` |
-| Conexión canónica | socket unix `/cloudsql/truekeate-main:southamerica-east1:truekeate-db-dev` (Cloud Run / Auth Proxy) |
-| Conexión host autorizado | TCP a la IP pública `34.39.180.101` (`gcp-env.sh --tcp`) |
-| Anvil on-chain | Cloud Run `mcc-foundry-anvil` · RPC `https://mcc-foundry-anvil-1095249147821.europe-west1.run.app` · **chainId 31337** |
-| Service Account runtime | `rwa-web-run@mcc-ecommerce.iam.gserviceaccount.com` (`cloudsql.client` en `truekeate-main` + `secretmanager.secretAccessor`) |
-| Service Account scheduler | `rwa-scheduler@mcc-ecommerce.iam.gserviceaccount.com` |
-| Artifact Registry | `europe-west1-docker.pkg.dev/mcc-ecommerce/cloud-run-source-deploy` |
-| Secret Manager | `DATABASE_URL`, `SIWE_SESSION_SECRET`, `KYC_ENCRYPTION_KEY` (copia operativa en `mcc-ecommerce`; canónico en `truekeate-main`) |
-| Cloud Run (v2, cong. referencia) | `rwa-identity`, `rwa-issuer`, `rwa-token` |
-| Cloud Run Job | `rwa-indexer` |
-| Cloud Scheduler | `rwa-indexer-schedule` (`*/10 * * * *`) |
+| Proyecto | **`barloventasv2`** (BarloVentasV2) · número `107180969515` · región `europe-west1` |
+| Cloud Run (actuales de txb) | `barloventas-web-admin`, `barloventas-pasarela`, `barloventas-compra-stablecoin` |
+| Servicio objetivo v3 | `txb-metaplace` (shell + API) |
+| Jobs objetivo | `txb-indexer`, `txb-maintenance` |
+| Scheduler | `txb-indexer-schedule` (`*/10 * * * *`), `txb-maintenance-schedule` (diario) |
+| Service Account runtime | `txb-metaplace@barloventasv2.iam.gserviceaccount.com` |
+| Service Account jobs | `txb-jobs@barloventasv2.iam.gserviceaccount.com` |
+| Artifact Registry | repo `txb` en `europe-west1` (crear; hoy las imágenes usan `gcr.io` legacy) |
+| Secret Manager | `txb-database-url`, `txb-siwe-session-secret`, `txb-kyc-encryption-key`, `txb-anvil-admin-key`, `txb-brlt-{admin,minter,pauser}-key` |
 
-**Decisión Q1:** la v3 **reutiliza** esta infraestructura; no se crean nodos, BD ni proyectos nuevos.
-La v3 se despliega como nuevas revisiones de los servicios y del job.
+### 3.2 Servicios globales reutilizados (obligatorio)
+
+| Servicio global | Valor | Uso por txb |
+|---|---|---|
+| **Foundry (Anvil) global** | Cloud Run `mcc-foundry-anvil` (proyecto `mcc-ecommerce`, `europe-west1`) · URL canónica `https://mcc-foundry-anvil-slzlptbcla-ew.a.run.app` · **chainId 31337** · estado persistente en GCS `mcc-ecommerce-anvil-state` | RPC de la app, despliegue de contratos BRLT/Factory/Marketplace del set `txb-*` |
+| **PostgreSQL global** | `truekeate-main:southamerica-east1:truekeate-db-dev` · **PostgreSQL 15** · `RUNNABLE` · backups **y PITR activos** · IP pública habilitada | Base **dedicada `txbarlovento`** con esquema `rwa` (socket Cloud SQL) |
+| Secret Manager global (referencia) | `truekeate-main` (canónico) / `mcc-ecommerce` (copia operativa) | Los secretos de txb se crean en `barloventasv2` (`txb-*`) |
+
+**Aislamiento:** base de datos dedicada + juego de contratos propio (`sc/config/v3_*_txb.json`) sobre la
+misma chain global; claves/roles dedicados (nunca cuentas por defecto de Anvil).
+
+**Conexión BD desde Cloud Run:** adjuntar `--add-cloudsql-instances=truekeate-main:southamerica-east1:truekeate-db-dev`
+y usar el socket `/cloudsql/truekeate-main:southamerica-east1:truekeate-db-dev` en `DATABASE_URL`
+(no requiere VPC connector ni exponer la BD a Internet).
+
+### 3.3 Estado observado del GCP de tx barlovento (2026-11-06)
+
+| Elemento | Estado | Impacto |
+|---|---|---|
+| Billing (`013B00-B9A67C-014A43`) | irregular: `describe` = true pero las APIs responden `BILLING_DISABLED` | 🔴 **gate G0**: sin desbloqueo no se puede desplegar |
+| APIs en `barloventasv2` | run/cloudbuild/storage/iam/logging/monitoring ✅ · `sqladmin`, `secretmanager`, `artifactregistry`*, `vpcaccess`, `cloudscheduler`, `billingbudgets` ❌ | habilitar en G0 |
+| RPC Foundry global | `eth_chainId` devuelve **HTTP 500** | 🔴 contratos/RPC no operativos (gate G2) |
+| PostgreSQL global | `RUNNABLE`, backups+PITR ✅ | 🟢 listo; crear BD `txbarlovento` |
+| Cloud Run txb | 3 servicios v2 con **SA default compute** | migrar a SA dedicadas en el despliegue v3 |
+
+Detalle completo y plan por fases: `RepoTecnico/planes/plan_despliegue_gcp_txbarlovento.md`.
+
+### 3.4 Infraestructura heredada (referencia v2, ya no destino)
+
+| Recurso | Valor |
+|---|---|
+| Proyecto de apps v2 | `mcc-ecommerce` (`europe-west1`) |
+| Cloud Run v2 | `rwa-identity`, `rwa-issuer`, `rwa-token` |
+| Cloud Run Job v2 | `rwa-indexer` |
+| Cloud Scheduler v2 | `rwa-indexer-schedule` (`*/10 * * * *`) |
+| SA runtime v2 | `rwa-web-run@mcc-ecommerce.iam.gserviceaccount.com` |
+
+**Decisión Q1 (actualizada):** la v3 **reutiliza los servicios globales** (Foundry + PostgreSQL) pero se
+despliega en el proyecto **tx barlovento (`barloventasv2`)** con servicios, jobs, secretos y SA propios.
 
 ## 4. Redes y contratos
 
@@ -153,6 +193,21 @@ Cada ejecución deja contador + entrada en `audit_log`; el fallo dispara alerta.
 | gcloud | SDK 582.0.0 en `$HOME/bin/gcloud` |
 
 ## 8. Comandos útiles
+
+### 8.0 Entorno tx barlovento (`barloventasv2`) + servicios globales
+
+```bash
+# Carga variables del destino y comprueba Foundry/PostgreSQL globales (no imprime secretos)
+source rwa-web/scripts/gcp-env-txb.sh
+
+# Provisión idempotente (DRY_RUN=1 por defecto; ejecutar DRY_RUN=0 sólo tras G0)
+DRY_RUN=1 bash rwa-web/scripts/provision_txb.sh
+BUILD=1 DEPLOY=1 DRY_RUN=0 bash rwa-web/scripts/provision_txb.sh
+```
+
+Gates: **G0** billing/APIs + RPC `0x7a69` + BD `RUNNABLE`; **G1** base `txbarlovento`+esquema `rwa`+secretos;
+**G2** contratos `txb-*` desplegados en el Foundry global; **G3** `txb-metaplace` con `/api/health` OK.
+
 
 ```bash
 # --- Contratos ---

@@ -35,15 +35,16 @@ rwa-sc/sc/                    # Foundry
 
 | Componente | Servicio |
 |---|---|
-| Frontend | Cloud Run (imagen Next standalone) |
-| Base de datos | Cloud SQL PostgreSQL 15 (`truekeate-db-dev`, esquema `rwa`) |
-| Chain | Cloud Run `mcc-foundry-anvil` (chain 31337), estado persistente en GCS |
-| Secretos | Secret Manager (`SIWE_SESSION_SECRET`, `KYC_ENCRYPTION_KEY`, claves BRLT) |
-| Jobs | Cloud Run Job `rwa-indexer` (indexación) + purga de documentos |
-| Scheduler | `*/10 * * * *` para el indexer |
+| Frontend/API | Cloud Run `txb-metaplace` en el proyecto **tx barlovento (`barloventasv2`)**, región `europe-west1` |
+| Base de datos | **PostgreSQL global** `truekeate-main:southamerica-east1:truekeate-db-dev` · base dedicada `txbarlovento` · esquema `rwa` |
+| Chain | **Foundry (Anvil) global** `mcc-foundry-anvil` (chain 31337), estado persistente en GCS |
+| Secretos | Secret Manager de `barloventasv2` (`txb-siwe-session-secret`, `txb-kyc-encryption-key`, claves BRLT `txb-*`) |
+| Jobs | `txb-indexer` (indexación) y `txb-maintenance` (purga de documentos) |
+| Scheduler | `txb-indexer-schedule` `*/10 * * * *` y mantenimiento diario |
 
-> ⚠️ El estado on-chain vive en el bucket `mcc-ecommerce-anvil-state`; si el servicio se pierde,
-> re-ejecutar los scripts de despliegue en orden y actualizar `config/v3_*.json`.
+> ⚠️ El estado on-chain vive en el bucket `mcc-ecommerce-anvil-state`; si el servicio global se pierde,
+> re-ejecutar los scripts de despliegue en orden y actualizar `config/v3_*_txb.json`.
+> Plan y gates: `planes/plan_despliegue_gcp_txbarlovento.md`.
 
 ## 1.4 Variables de entorno relevantes
 

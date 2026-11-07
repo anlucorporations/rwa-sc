@@ -4,7 +4,7 @@
 
 | Comprobación | Cómo |
 |---|---|
-| App viva | `GET /api/health` → `{status:"ok",chainId:31337,rpcConfigured,database}` |
+| App viva | `GET /api/health` de `txb-metaplace` → `{status:"ok",chainId:31337,rpcConfigured,database}` |
 | Panel Sistema | `GET /api/system` (Admin/Auditor): ping BD, colas de claims, indexer, última auditoría |
 | Logs | Cloud Logging `resource.type="cloud_run_revision"` por servicio |
 | Colas | `GET /api/review-queue?status=pending|documents_verified` |
@@ -15,7 +15,13 @@
 - Rechazo de solicitudes: el trigger fija `retention_delete_at = +30 días` en `document_files`.
 - Purga programada con `rwa.purge_expired_documents()`; verificar logs del job.
 
-## 3.3 Backups y recuperación
+## 3.3 Backups y recuperación (servicios globales)
+
+- PostgreSQL global `truekeate-db-dev`: backups automáticos + PITR (RPO ≤ 15 min) — verificados.
+- Foundry global: estado persistido en GCS (`mcc-ecommerce-anvil-state`); runbook de redeploy de contratos.
+- Restore drill de la base `txbarlovento` en instancia temporal (pendiente pre-piloto).
+
+## 3.4 Backups y recuperación (histórico)
 
 - Cloud SQL: backups automáticos + **PITR** (RPO ≤ 15 min) — verificado en el acta C0.
 - Restore drill pendiente (C6): restaurar en instancia temporal y validar esquema `rwa` + conteos.

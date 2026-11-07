@@ -43,7 +43,24 @@ forge test          # suite completa (486+ tests)
 - Despliegue (cuando haya red): `ADMIN_PRIVATE_KEY=… IDENTITY_REGISTRY=… forge script script/v3/DeployAssets.s.sol --rpc-url "$RPC_URL" --broadcast`.
 - Artefactos en `sc/deployments/`; direcciones vigentes en `sc/config/v3_*.json`.
 
-## 2.5 Arranque del shell
+## 2.5 Entorno tx barlovento (GCP)
+
+```bash
+# Carga variables de tx barlovento + servicios globales (no imprime secretos)
+source rwa-web/scripts/gcp-env-txb.sh
+
+# Provisión idempotente de infraestructura (por defecto sólo simula)
+DRY_RUN=1 bash rwa-web/scripts/provision_txb.sh
+DRY_RUN=0 bash rwa-web/scripts/provision_txb.sh   # sólo tras el gate G0
+```
+
+- Proyecto destino: `barloventasv2` (tx barlovento), `europe-west1`.
+- Reutiliza el **Foundry global** (`mcc-foundry-anvil`, chain 31337) y el **PostgreSQL global**
+  (`truekeate-db-dev`, base `txbarlovento`).
+- El despliegue está bloqueado hasta regularizar la facturación y recuperar el RPC global
+  (ver `planes/plan_despliegue_gcp_txbarlovento.md`, gates G0/G2).
+
+## 2.6 Arranque del shell
 
 ```bash
 cd rwa-web/apps/metaplace
@@ -56,7 +73,7 @@ curl localhost:4101/api/health
 > `next start` con `output: standalone` emite aviso; en producción usar `node .next/standalone/server.js`.
 > En pruebas, si un proceso queda huérfano, terminarlo antes de reutilizar el puerto.
 
-## 2.6 Problemas conocidos
+## 2.7 Problemas conocidos
 
 | Síntoma | Causa / solución |
 |---|---|

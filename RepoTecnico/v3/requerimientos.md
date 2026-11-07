@@ -112,9 +112,9 @@ efectivo (AML/PSD2/MiCA), custodia de dinero FIAT.
 | **RT-V3-01** | Reutilizar el stack de la v2: monorepo pnpm (`apps/*`, `packages/*`), Next 16 + React 19 + TypeScript strict + Tailwind 4, `wagmi` + `viem`, `zod`, TanStack Query. |
 | **RT-V3-02** | Contratos: Solidity 0.8.20, OpenZeppelin 5.5.0 (+ upgradeable), Foundry; EIP-712 para claims y para toda firma mostrada en billetera. |
 | **RT-V3-03** | Nuevo estándar de activos (decisión Fase 2): **ERC-721** para bienes (único) y **servicios** (quemable), **ERC-1155** para productos/lotes por cantidad; **ERC-20** con 8 decimales para BRLT. |
-| **RT-V3-04** | Off-chain: PostgreSQL **Cloud SQL** `truekeate-main:southamerica-east1:truekeate-db-dev`, esquema `rwa` (evolucionar a v3 con migraciones versionadas). |
-| **RT-V3-05** | On-chain: **Anvil de GCP** (chain 31337) como red canónica de desarrollo; direcciones desde artefacto versionado `sc/deployments/*.json` y gate anti-deriva. |
-| **RT-V3-06** | Despliegue: Cloud Run + Cloud Run Jobs + Cloud Scheduler en proyecto `mcc-ecommerce`, región `europe-west1`; Secret Manager; pipeline `deploy_gcp.sh`. |
+| **RT-V3-04** | Off-chain: **PostgreSQL global de la cuenta** `truekeate-main:southamerica-east1:truekeate-db-dev` (PG15, backups+PITR), base dedicada **`txbarlovento`** y esquema `rwa` (migraciones versionadas). |
+| **RT-V3-05** | On-chain: **Foundry (Anvil) global de la cuenta** (`mcc-foundry-anvil`, chain 31337) como red canónica; direcciones desde artefacto versionado `sc/deployments/*.json` y gate anti-deriva. |
+| **RT-V3-06** | Despliegue: Cloud Run + Cloud Run Jobs + Cloud Scheduler en el proyecto **tx barlovento (`barloventasv2`)**, región `europe-west1`, reutilizando los **servicios globales de Foundry y PostgreSQL**; Secret Manager propio (`txb-*`); pipeline `provision_txb.sh` + `deploy_gcp.sh`. |
 | **RT-V3-07** | Indexer: persistencia de eventos en `rwa.chain_events`, estado reanudable, ejecución periódica cada 10 min. |
 | **RT-V3-08** | CI (GitLab + espejo GitHub/CodeCrypto): `forge build`, `fmt --check`, `test`, `coverage ≥ 80 %`, `lint`, `tsc`, `check-network-literals`, `check-abi-drift`. |
 
